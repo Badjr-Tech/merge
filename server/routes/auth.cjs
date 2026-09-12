@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const prisma = require('../utils/prisma.cjs');
 const auth = require('../middleware/auth');
-const { sendEmail, appUrl, layout, button } = require('../utils/email.cjs');
+const { sendEmail, emailConfigured, appUrl, layout, button } = require('../utils/email.cjs');
 
 const TOKEN_TTL = '7d';
 const INVITE_TTL_DAYS = 7;
@@ -341,7 +341,7 @@ router.post('/forgot-password', async (req, res) => {
         text: `Reset your Merge password: ${link}`,
       });
     }
-    res.json({ ...generic, emailConfigured: Boolean(process.env.RESEND_API_KEY) });
+    res.json({ ...generic, emailConfigured: emailConfigured() });
   } catch (err) {
     console.error('Forgot password error:', err);
     res.json(generic);

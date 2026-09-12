@@ -1,24 +1,39 @@
 // Minimal transactional email helper.
-// Uses Resend's HTTP API when RESEND_API_KEY is set; otherwise logs and returns false
+// Uses Brevo's HTTP API when BREVO_API_KEY is set; otherwise logs and returns false
 // so callers can fall back to showing a copyable link.
-const FROM = process.env.EMAIL_FROM || 'Merge <onboarding@resend.dev>';
+const FROM_RAW = process.env.EMAIL_FROM || 'Merge <no-reply@dakjencreative.com>';
+
+function parseFrom(raw) {
+  const m = raw.match(/^\s*(?:"?([^"<]*)"?\s*)?<([^>]+)>\s*$/);
+  if (m) return { name: (m[1] || 'Merge').trim(), email: m[2].trim() };
+  return { name: 'Merge', email: raw.trim() };
+}
+
+function emailConfigured() { return Boolean(process.env.BREVO_API_KEY); }
 
 async function sendEmail({ to, subject, html, text }) {
-  if (!process.env.RESEND_API_KEY) {
+  if (!emailConfigured()) {
     console.log(`[email disabled] to=${to} subject="${subject}"`);
     return false;
   }
   try {
-    const res = await fetch('https://api.resend.com/emails', {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        'api-key': process.env.BREVO_API_KEY,
         'Content-Type': 'application/json',
+        Accept: 'application/json',
       },
-      body: JSON.stringify({ from: FROM, to, subject, html, text }),
+      body: JSON.stringify({
+        sender: parseFrom(FROM_RAW),
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+        textContent: text,
+      }),
     });
     if (!res.ok) {
-      console.error('Resend error:', res.status, await res.text());
+      console.error('Brevo error:', res.status, await res.text());
       return false;
     }
     return true;
@@ -48,4 +63,4 @@ function button(href, label) {
   <p style="font-size:13px;color:#666">Or copy this link: <br><a href="${href}" style="color:#3e51b5">${href}</a></p>`;
 }
 
-module.exports = { sendEmail, appUrl, layout, button };
+module.exports = { sendEmail, emailConfigured, appUrl, layout, button };

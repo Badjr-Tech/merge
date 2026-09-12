@@ -25,7 +25,7 @@ Create a local Postgres database and apply migrations with `npx prisma migrate d
 | `JWT_SECRET` | yes | Signs session tokens (7-day expiry) |
 | `GEMINI_API_KEY` | for AI reviewer | Google Gemini key |
 | `APP_URL` | recommended | Public client URL used in invite and reset links (defaults to the production client) |
-| `RESEND_API_KEY` | optional | Enables invitation and password-reset emails via Resend. Without it, admins copy links from the Team page. |
+| `BREVO_API_KEY` | optional | Enables invitation and password-reset emails via Brevo. Without it, admins copy links from the Team page. |
 | `EMAIL_FROM` | optional | Sender for those emails, e.g. `Merge <hello@yourdomain.com>` |
 
 ## Auth model
@@ -33,5 +33,5 @@ Create a local Postgres database and apply migrations with `npx prisma migrate d
 - **Sign up** creates a workspace (Company) and its first admin.
 - **Invites** (admin → Team page) create an `Invitation` with a 7-day link; accepting it creates the user in that workspace with the chosen role.
 - **Login** is email + password. Legacy usernames still work as the identifier.
-- **Password reset**: self-service by email when Resend is configured, or an admin generates a 2-hour link from the Team page.
+- **Password reset**: self-service by email when Brevo is configured, or an admin generates a 2-hour link from the Team page.
 - Roles: `admin`, `editor`, `approver`, `viewer`.
