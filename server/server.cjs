@@ -10,7 +10,8 @@ const app = express();
 app.use(cors({
   origin: [
     'https://mergev1-78hi.vercel.app',
-    'http://localhost:3000'
+    'http://localhost:3000',
+    'http://localhost:3001'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token'],
@@ -37,6 +38,7 @@ app.use('/api/ai', require('./routes/ai.cjs')); // New route for AI operations
 app.use('/api/users', require('./routes/users.cjs'));
 app.use('/api/partners', require('./routes/partners.cjs'));
 app.use('/api/cron', require('./routes/cron.cjs'));
+app.use('/api/review', require('./routes/review.cjs'));
 
 app.get('/api/test', (req, res) => {
   res.send('Test route is working!');

@@ -2,11 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api, { errorMessage } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { usePlan } from '../context/PlanContext';
 import { Badge, Button, Card, EmptyState, ErrorBlock, Loading, PageHeader, Progress } from '../components/ui';
 import { displayName, dueLabel, projectStatus, projectProgress, formatDate } from '../lib/format';
 
 export default function Dashboard() {
   const { user, isAdmin, isApprover, canEdit } = useAuth();
+  const { plan } = usePlan();
+  const writerMode = plan?.kind === 'writer';
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [data, setData] = useState(null);
@@ -40,8 +43,8 @@ export default function Dashboard() {
         <>
           <div className="grid-4 mb-3">
             <Card className="stat"><div className="stat-label">Active projects</div><div className="stat-value">{data.active}</div></Card>
-            <Card className="stat"><div className="stat-label">My open questions</div><div className="stat-value">{data.myOpenQuestions}</div><div className="stat-sub"><Link to="/app/tasks">Go to my tasks</Link></div></Card>
-            <Card className="stat"><div className="stat-label">{isApprover ? 'Awaiting my approval' : 'Awaiting approval'}</div><div className="stat-value">{isApprover ? data.awaitingMyApproval : data.pendingApproval}</div><div className="stat-sub"><Link to="/app/approvals">View approvals</Link></div></Card>
+            <Card className="stat"><div className="stat-label">{writerMode ? 'Unanswered questions' : 'My open questions'}</div><div className="stat-value">{data.myOpenQuestions}</div>{!writerMode && <div className="stat-sub"><Link to="/app/tasks">Go to my tasks</Link></div>}</Card>
+            <Card className="stat"><div className="stat-label">{writerMode ? 'Out for review' : isApprover ? 'Awaiting my approval' : 'Awaiting approval'}</div><div className="stat-value">{isApprover && !writerMode ? data.awaitingMyApproval : data.pendingApproval}</div>{!writerMode && <div className="stat-sub"><Link to="/app/approvals">View approvals</Link></div>}</Card>
             <Card className="stat"><div className="stat-label">Next deadline</div><div className="stat-value" style={{ fontSize: 20 }}>{data.upcoming[0] ? formatDate(data.upcoming[0].deadlineDate, { month: 'short', day: 'numeric' }) : '—'}</div><div className="stat-sub truncate">{data.upcoming[0]?.name || 'No upcoming deadlines'}</div></Card>
           </div>
 
@@ -98,7 +101,7 @@ export default function Dashboard() {
               <h3>Getting started</h3>
               <ol style={{ margin: '8px 0 0', paddingLeft: 20 }} className="stack">
                 <li><Link to="/app/projects/new">Create a project</Link> and paste in the funder's questions.</li>
-                <li><Link to="/app/team">Invite teammates</Link> and assign each question to someone.</li>
+                {writerMode ? <li>Fill in your <Link to="/app/settings">organization profile</Link> so suggestions use your real details.</li> : <li><Link to="/app/team">Invite teammates</Link> and assign each question to someone.</li>}
                 <li>Track progress here, then request approval and merge the narrative.</li>
               </ol>
             </Card>

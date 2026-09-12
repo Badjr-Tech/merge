@@ -15,6 +15,7 @@ const I = {
 export default function AppShell() {
   const { user, isAdmin, isApprover, signOut } = useAuth();
   const { has, plan } = usePlan();
+  const writerMode = plan?.kind === 'writer';
   const [open, setOpen] = useState(false);
   const [counts, setCounts] = useState({});
   const location = useLocation();
@@ -49,8 +50,8 @@ export default function AppShell() {
         <nav className="sidebar-nav">
           {link('/app', 'Home', I.home)}
           {link('/app/projects', 'Projects', I.projects)}
-          {link('/app/tasks', 'My tasks', I.tasks, counts.myOpenQuestions)}
-          {link('/app/approvals', 'Approvals', I.approvals, isApprover ? counts.awaitingMyApproval : counts.pendingApproval)}
+          {!writerMode && link('/app/tasks', 'My tasks', I.tasks, counts.myOpenQuestions)}
+          {!writerMode && link('/app/approvals', 'Approvals', I.approvals, isApprover ? counts.awaitingMyApproval : counts.pendingApproval)}
           <div className="nav-section">Tools</div>
           {link('/app/answer-bank', 'Answer bank', I.bank)}
           {link('/app/ai-review', 'AI reviewer', I.ai, 0, 'ai_reviewer')}
@@ -60,7 +61,7 @@ export default function AppShell() {
           {link('/app/files', 'File cabinet', I.files)}
           {link('/app/calendar', 'Grant calendar', I.calendar)}
           <div className="nav-section">Workspace</div>
-          {isAdmin && link('/app/team', 'Team', I.team)}
+          {isAdmin && !writerMode && link('/app/team', 'Team', I.team)}
           {link('/app/settings', 'Settings', I.settings)}
         </nav>
         <div className="sidebar-footer">
@@ -81,7 +82,7 @@ export default function AppShell() {
           <button className="btn btn-secondary btn-icon menu-btn" onClick={() => setOpen(o => !o)} aria-label="Menu">{I.menu}</button>
           <span className="crumbs">{user?.company?.name}</span>
           {plan?.trialing && (
-            <Link to="/app/settings#plan" className="trial-pill">Premium trial · {plan.trialDaysLeft} day{plan.trialDaysLeft === 1 ? '' : 's'} left · Choose a plan</Link>
+            <Link to="/app/settings#plan" className="trial-pill">{plan.name} trial · {plan.trialDaysLeft} day{plan.trialDaysLeft === 1 ? '' : 's'} left · Choose a plan</Link>
           )}
           {plan?.trialExpired && plan.key === 'free' && (
             <Link to="/app/settings#plan" className="trial-pill ended">Trial ended · you're on Free · See plans</Link>

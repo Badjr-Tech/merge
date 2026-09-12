@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api, { errorMessage } from '../api';
 import { useToast } from '../context/ToastContext';
+import { usePlan } from '../context/PlanContext';
 import { Button, Card, Field, Input, PageHeader, Select, Textarea } from '../components/ui';
 import { displayName } from '../lib/format';
 
@@ -10,6 +11,8 @@ const blankQ = () => ({ text: '', assignedToId: '', maxLimit: '', limitUnit: 'wo
 export default function NewProject() {
   const navigate = useNavigate();
   const toast = useToast();
+  const { plan } = usePlan();
+  const writerMode = plan?.kind === 'writer';
   const [users, setUsers] = useState([]);
   const [form, setForm] = useState({ name: '', description: '', deadlineDate: '', themeAngle: '', possiblePartnership: '' });
   const [questions, setQuestions] = useState([blankQ()]);
@@ -71,7 +74,7 @@ export default function NewProject() {
 
         <Card className="mb-3">
           <div className="card-header">
-            <div><h3>Questions</h3><div className="tiny muted">Each question becomes a task. You can add more later.</div></div>
+            <div><h3>Questions</h3><div className="tiny muted">{writerMode ? 'One entry per question the funder asks. You can add more later.' : 'Each question becomes a task. You can add more later.'}</div></div>
             <Button variant="secondary" size="sm" onClick={() => setShowBulk(s => !s)}>{showBulk ? 'Hide paste box' : 'Paste a list'}</Button>
           </div>
           <div className="card-body">
@@ -90,10 +93,10 @@ export default function NewProject() {
                   <div className="grow">
                     <Textarea value={q.text} onChange={e => setQ(i, 'text', e.target.value)} rows={2} placeholder="Question text" style={{ minHeight: 60 }} />
                     <div className="row wrap mt-1">
-                      <Select className="select-sm" value={q.assignedToId} onChange={e => setQ(i, 'assignedToId', e.target.value)} style={{ maxWidth: 200 }}>
+                      {!writerMode && <Select className="select-sm" value={q.assignedToId} onChange={e => setQ(i, 'assignedToId', e.target.value)} style={{ maxWidth: 200 }}>
                         <option value="">Unassigned</option>
                         {users.map(u => <option key={u.id} value={u.id}>{displayName(u)}</option>)}
-                      </Select>
+                      </Select>}
                       <Input className="input-sm" type="number" min="0" placeholder="Limit" value={q.maxLimit} onChange={e => setQ(i, 'maxLimit', e.target.value)} style={{ width: 90 }} />
                       <Select className="select-sm" value={q.limitUnit} onChange={e => setQ(i, 'limitUnit', e.target.value)} style={{ width: 130 }}>
                         <option value="words">words</option>

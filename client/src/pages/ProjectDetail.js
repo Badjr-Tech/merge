@@ -5,11 +5,12 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Avatar, Badge, Button, Card, CopyButton, EmptyState, ErrorBlock, Field, Input, Loading, Modal, Progress, Select, Tabs, Textarea, useConfirm } from '../components/ui';
 import SimilarAnswers from '../components/SimilarAnswers';
+import NotesDrawer from '../components/NotesDrawer';
 import { usePlan } from '../context/PlanContext';
 import { FEATURE_COPY } from '../components/Upgrade';
 import { displayName, dueLabel, formatDate, formatDateTime, limitCheck, projectProgress, projectStatus, questionStatus, googleCalendarUrl } from '../lib/format';
 
-function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged }) {
+function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, writerMode }) {
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -19,7 +20,7 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged }) {
   const [confirm, confirmDialog] = useConfirm();
   const st = questionStatus(q);
   const lc = limitCheck(answer, q.maxLimit, q.limitUnit);
-  const canAnswer = q.assignedToId === me.id || isAdmin;
+  const canAnswer = q.assignedToId === me.id || isAdmin || writerMode;
 
   useEffect(() => { setAnswer(q.answer || ''); }, [q.answer]);
 
@@ -37,8 +38,8 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged }) {
     if (status === 'submitted' && !answer.trim()) { toast.error('Write an answer before submitting.'); return; }
     setSaving(true);
     try {
-      await api.put(`/api/projects/questions/${q.id}`, { answer, status: status || (q.status === 'pending' ? 'in-progress' : q.status) });
-      toast.success(status === 'submitted' ? 'Answer submitted.' : 'Answer saved.');
+      await api.put(`/api/projects/questions/${q.id}`, { answer, status: writerMode ? (answer.trim() ? 'submitted' : 'pending') : (status || (q.status === 'pending' ? 'in-progress' : q.status)) });
+      toast.success(writerMode ? 'Saved.' : status === 'submitted' ? 'Answer submitted.' : 'Answer saved.');
       onChanged();
     } catch (err) { toast.error(errorMessage(err)); } finally { setSaving(false); }
   };
@@ -55,19 +56,19 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged }) {
         <div className="grow">
           <div className="q-text">{q.text}</div>
           <div className="q-meta">
-            <span className="row"><Avatar user={q.assignedTo} size="sm" /> {displayName(q.assignedTo)}</span>
+            {!writerMode && <span className="row"><Avatar user={q.assignedTo} size="sm" /> {displayName(q.assignedTo)}</span>}
             {q.maxLimit ? <span>· {q.maxLimit} {(q.limitUnit || 'words').startsWith('char') ? 'characters' : 'words'} max</span> : null}
             {q.answer && <span className={lc.over ? 'strong' : ''} style={{ color: lc.over ? 'var(--danger)' : undefined }}>· {limitCheck(q.answer, q.maxLimit, q.limitUnit).count} {lc.unit}{lc.over ? ' (over)' : ''}</span>}
           </div>
         </div>
-        <div className="row"><Badge tone={st.tone}>{st.label}</Badge><span className="muted">{open ? '▴' : '▾'}</span></div>
+        <div className="row">{writerMode ? (q.answer ? <Badge tone="green">Answered</Badge> : <Badge tone="gray">Empty</Badge>) : <Badge tone={st.tone}>{st.label}</Badge>}<span className="muted">{open ? '▴' : '▾'}</span></div>
       </div>
 
       {open && !editing && (
         <div className="mt-2">
           {canAnswer ? (
             <>
-              {q.status !== 'submitted' && <SimilarAnswers questionId={q.id} onUse={(text) => { setAnswer(a => a.trim() ? `${a}\n\n${text}` : text); toast.success('Added to your draft. Edit it, then save or submit.'); }} />}
+              {(writerMode || q.status !== 'submitted') && <SimilarAnswers questionId={q.id} onUse={(text) => { setAnswer(a => a.trim() ? `${a}\n\n${text}` : text); toast.success('Added to your draft. Edit it, then save or submit.'); }} />}
               <Textarea rows={6} value={answer} onChange={e => setAnswer(e.target.value)} placeholder="No answer yet. Write one here…" />
               <div className={`count-hint ${lc.over ? 'over' : lc.limit ? 'ok' : ''}`}>{lc.count} {lc.unit}{lc.limit ? ` of ${lc.limit}` : ''}{lc.over ? ' · over the limit' : ''}</div>
             </>
@@ -77,7 +78,8 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged }) {
           <div className="row wrap mt-2" style={{ justifyContent: 'flex-end' }}>
             {canManage && <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>Edit question</Button>}
             {isAdmin && <Button variant="danger" size="sm" onClick={remove}>Delete</Button>}
-            {canAnswer && (q.status === 'submitted' ? (
+            {canAnswer && writerMode && <Button size="sm" onClick={() => saveAnswer()} loading={saving}>Save</Button>}
+            {canAnswer && !writerMode && (q.status === 'submitted' ? (
               <Button variant="secondary" size="sm" onClick={() => saveAnswer('in-progress')} loading={saving}>Reopen</Button>
             ) : (
               <>
@@ -96,10 +98,10 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged }) {
         <div className="mt-2">
           <Field label="Question"><Textarea rows={2} value={edit.text} onChange={e => setEdit({ ...edit, text: e.target.value })} /></Field>
           <div className="row wrap">
-            <Select className="select-sm" value={edit.assignedToId} onChange={e => setEdit({ ...edit, assignedToId: e.target.value })} style={{ maxWidth: 220 }}>
+            {!writerMode && <Select className="select-sm" value={edit.assignedToId} onChange={e => setEdit({ ...edit, assignedToId: e.target.value })} style={{ maxWidth: 220 }}>
               <option value="">Unassigned</option>
               {users.map(u => <option key={u.id} value={u.id}>{displayName(u)}</option>)}
-            </Select>
+            </Select>}
             <Input className="input-sm" type="number" min="0" placeholder="Limit" value={edit.maxLimit} onChange={e => setEdit({ ...edit, maxLimit: e.target.value })} style={{ width: 90 }} />
             <Select className="select-sm" value={edit.limitUnit} onChange={e => setEdit({ ...edit, limitUnit: e.target.value })} style={{ width: 130 }}>
               <option value="words">words</option>
@@ -122,8 +124,13 @@ export default function ProjectDetail() {
   const [params, setParams] = useSearchParams();
   const { user, isAdmin } = useAuth();
   const toast = useToast();
-  const { has } = usePlan();
+  const { plan, has } = usePlan();
+  const writerMode = plan?.kind === 'writer';
   const [project, setProject] = useState(null);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ reviewerName: '', reviewerEmail: '', message: '' });
+  const [reviewResult, setReviewResult] = useState(null);
   const [narrativeEdit, setNarrativeEdit] = useState(null); // null = viewing, string = editing
   const [narrativeVersions, setNarrativeVersions] = useState([]);
   const [showNarrativeHistory, setShowNarrativeHistory] = useState(false);
@@ -212,13 +219,22 @@ export default function ProjectDetail() {
   };
   const restoreVersion = (v) => act(`Restored version ${v.versionNumber}.`, () => api.post(`/api/projects/${id}/narrative/restore/${v.id}`), { title: `Restore version ${v.versionNumber}`, message: 'The current text will be saved as a new version before restoring.', confirmLabel: 'Restore' });
   const canEditNarrative = has('narrative_editing') && (canManage || ['editor', 'approver'].includes(user.role)) && !project?.isCompleted;
+  const sendForReview = async () => {
+    setBusy(true);
+    try {
+      const res = await api.post(`/api/projects/${id}/review-link`, reviewForm);
+      setReviewResult(res.data);
+      toast.success(res.data.emailed ? 'Review request emailed.' : 'Review link ready.');
+      load();
+    } catch (err) { toast.error(errorMessage(err)); } finally { setBusy(false); }
+  };
   const merge = () => act('Narrative merged from all answers.', () => api.post(`/api/projects/${id}/compile`), project.narrative ? { title: 'Re-merge narrative', message: 'This replaces the existing narrative with the current answers.', confirmLabel: 'Re-merge' } : null);
 
   const tabs = [
     { id: 'questions', label: 'Questions', count: prog.total },
-    { id: 'narrative', label: 'Narrative' },
+    { id: 'narrative', label: writerMode ? 'Document' : 'Narrative' },
     { id: 'compliance', label: 'Compliance' },
-    { id: 'approvals', label: 'Approvals', count: project.approvalRequests?.length || 0 },
+    ...(writerMode ? [] : [{ id: 'approvals', label: 'Approvals', count: project.approvalRequests?.length || 0 }]),
     { id: 'reviews', label: 'AI reviews', count: reviews.length },
     { id: 'versions', label: 'History', count: versions.length },
   ];
@@ -234,8 +250,11 @@ export default function ProjectDetail() {
         </div>
         <div className="row wrap">
           {canManage && !project.isCompleted && <Button variant="secondary" onClick={openEdit}>Edit details</Button>}
-          {canManage && !project.isCompleted && project.status !== 'pending_approval' && <Button variant="accent" onClick={() => { setApproverId(approvers[0]?.id || ''); setApprovalOpen(true); }}>Request approval</Button>}
-          {isAdmin && project.status === 'pending_approval' && <Button variant="secondary" onClick={() => act('Approval request withdrawn.', () => api.put(`/api/projects/${id}/rescind-approval`))}>Withdraw request</Button>}
+          {canManage && !project.isCompleted && (writerMode || !has('approvals')) && project.reviewStatus !== 'pending' && <Button variant="accent" onClick={() => { setReviewResult(null); setReviewForm({ reviewerName: project.reviewerName || '', reviewerEmail: project.reviewerEmail || '', message: '' }); setReviewOpen(true); }}>Send for review</Button>}
+          {canManage && project.reviewStatus === 'pending' && <Button variant="secondary" onClick={() => act('Review request withdrawn.', () => api.delete(`/api/projects/${id}/review-link`))}>Withdraw review</Button>}
+          {canManage && !project.isCompleted && !writerMode && has('approvals') && project.status !== 'pending_approval' && <Button variant="accent" onClick={() => { setApproverId(approvers[0]?.id || ''); setApprovalOpen(true); }}>Request approval</Button>}
+          {isAdmin && !writerMode && project.status === 'pending_approval' && !project.reviewToken && <Button variant="secondary" onClick={() => act('Approval request withdrawn.', () => api.put(`/api/projects/${id}/rescind-approval`))}>Withdraw request</Button>}
+          <Button variant="secondary" onClick={() => setNotesOpen(o => !o)}>{notesOpen ? 'Hide notes' : 'Notes'}</Button>
           {canManage && !project.isCompleted && <Button variant="secondary" onClick={() => act('Project marked complete.', () => api.put(`/api/projects/${id}`, { isCompleted: true }), { title: 'Mark as completed', message: 'Completed projects move to Past proposals and become read-only for answers.', confirmLabel: 'Mark complete' })}>Mark complete</Button>}
           {canManage && (project.isArchived
             ? <Button variant="secondary" onClick={() => act('Project restored.', () => api.put(`/api/projects/${id}/unarchive`))}>Restore</Button>
@@ -244,15 +263,24 @@ export default function ProjectDetail() {
         </div>
       </div>
 
-      {project.status === 'rejected' && latestApproval?.comments && (
+      {project.reviewStatus === 'pending' && (
+        <div className="callout callout-gold mb-3 row-between"><span>Sent for review{project.reviewerName ? ` to ${project.reviewerName}` : ''} {project.reviewSentAt && `on ${formatDateTime(project.reviewSentAt)}`}. Waiting for a response.</span><CopyButton text={`${window.location.origin}/review/${project.reviewToken}`} label="Copy review link" /></div>
+      )}
+      {project.reviewStatus === 'approved' && (
+        <div className="callout callout-green mb-3"><strong>Approved{project.reviewerName ? ` by ${project.reviewerName}` : ''}</strong>{project.reviewRespondedAt && ` on ${formatDateTime(project.reviewRespondedAt)}`}.{project.reviewComments && <div className="mt-1 pre-wrap">{project.reviewComments}</div>}</div>
+      )}
+      {project.reviewStatus === 'changes' && (
+        <div className="callout callout-danger mb-3"><strong>Changes requested{project.reviewerName ? ` by ${project.reviewerName}` : ''}:</strong> <span className="pre-wrap">{project.reviewComments}</span></div>
+      )}
+      {!writerMode && project.status === 'rejected' && !project.reviewToken && latestApproval?.comments && (
         <div className="callout callout-danger mb-3"><strong>Changes requested by {displayName(latestApproval.approver)}:</strong> {latestApproval.comments}</div>
       )}
-      {project.status === 'pending_approval' && latestApproval && (
+      {!writerMode && project.status === 'pending_approval' && !project.reviewToken && latestApproval && (
         <div className="callout callout-gold mb-3">Waiting on {displayName(latestApproval.approver)} to approve. Requested {formatDateTime(latestApproval.requestedAt)}.</div>
       )}
 
       <div className="grid-3 mb-3">
-        <Card className="stat"><div className="stat-label">Progress</div><div className="row mt-1"><div className="grow"><Progress value={prog.pct} /></div><span className="small strong">{prog.pct}%</span></div><div className="stat-sub">{prog.done} of {prog.total} answers submitted</div></Card>
+        <Card className="stat"><div className="stat-label">Progress</div><div className="row mt-1"><div className="grow"><Progress value={prog.pct} /></div><span className="small strong">{prog.pct}%</span></div><div className="stat-sub">{prog.done} of {prog.total} answers {writerMode ? 'written' : 'submitted'}</div></Card>
         <Card className="stat"><div className="stat-label">Description</div><div className="small mt-1 pre-wrap">{project.description || <span className="faint">No description</span>}</div></Card>
         <Card className="stat"><div className="stat-label">Angle &amp; partners</div><div className="small mt-1">{project.details?.themeAngle || <span className="faint">No theme set</span>}</div><div className="small muted">{project.details?.possiblePartnership}</div></Card>
       </div>
@@ -262,12 +290,12 @@ export default function ProjectDetail() {
       {tab === 'questions' && (
         <div>
           <div className="row-between mb-2">
-            <span className="small muted">Click a question to read or write its answer.</span>
+            <span className="small muted">{writerMode ? 'Click a question to write its answer. Answers save when you click Save.' : 'Click a question to read or write its answer.'}</span>
             {canManage && !project.isCompleted && <Button size="sm" onClick={() => setAddOpen(true)}>+ Add question</Button>}
           </div>
           {project.questions.length === 0 ? (
             <Card><EmptyState icon="✎" title="No questions yet" action={canManage && <Button size="sm" onClick={() => setAddOpen(true)}>Add the first question</Button>}>Add the questions from the funder's application so teammates can start writing.</EmptyState></Card>
-          ) : project.questions.map(q => <QuestionRow key={q.id} q={q} project={project} users={users} canManage={canManage && !project.isCompleted} isAdmin={isAdmin} me={user} onChanged={load} />)}
+          ) : project.questions.map(q => <QuestionRow key={q.id} q={q} project={project} users={users} canManage={canManage && !project.isCompleted} isAdmin={isAdmin} me={user} onChanged={load} writerMode={writerMode} />)}
         </div>
       )}
 
@@ -372,7 +400,7 @@ export default function ProjectDetail() {
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add a question" footer={<><Button variant="secondary" onClick={() => setAddOpen(false)}>Cancel</Button><Button onClick={addQuestion} loading={busy} disabled={!newQ.text.trim()}>Add question</Button></>}>
         <Field label="Question"><Textarea rows={3} value={newQ.text} onChange={e => setNewQ({ ...newQ, text: e.target.value })} autoFocus /></Field>
         <div className="grid-2">
-          <Field label="Assign to"><Select value={newQ.assignedToId} onChange={e => setNewQ({ ...newQ, assignedToId: e.target.value })}><option value="">Unassigned</option>{users.map(u => <option key={u.id} value={u.id}>{displayName(u)}</option>)}</Select></Field>
+          {!writerMode && <Field label="Assign to"><Select value={newQ.assignedToId} onChange={e => setNewQ({ ...newQ, assignedToId: e.target.value })}><option value="">Unassigned</option>{users.map(u => <option key={u.id} value={u.id}>{displayName(u)}</option>)}</Select></Field>}
           <Field label="Limit"><div className="row"><Input type="number" min="0" value={newQ.maxLimit} onChange={e => setNewQ({ ...newQ, maxLimit: e.target.value })} placeholder="None" /><Select value={newQ.limitUnit} onChange={e => setNewQ({ ...newQ, limitUnit: e.target.value })}><option value="words">words</option><option value="characters">characters</option></Select></div></Field>
         </div>
       </Modal>
@@ -391,6 +419,29 @@ export default function ProjectDetail() {
       <Modal open={Boolean(viewVersion)} onClose={() => setViewVersion(null)} title={viewVersion ? `Narrative version ${viewVersion.versionNumber}` : ''} size="lg" footer={viewVersion && canEditNarrative && <Button onClick={() => { const v = viewVersion; setViewVersion(null); restoreVersion(v); }}>Restore this version</Button>}>
         {viewVersion && <div className="pre-wrap" style={{ lineHeight: 1.7 }}>{viewVersion.content}</div>}
       </Modal>
+
+      <Modal open={reviewOpen} onClose={() => setReviewOpen(false)} title="Send for review" footer={reviewResult ? <Button onClick={() => setReviewOpen(false)}>Done</Button> : <><Button variant="secondary" onClick={() => setReviewOpen(false)}>Cancel</Button><Button variant="accent" onClick={sendForReview} loading={busy}>Create review link</Button></>}>
+        {reviewResult ? (
+          <div>
+            <div className="form-success">{reviewResult.emailed ? `Emailed to ${reviewResult.reviewerEmail}.` : 'Review link created.'}</div>
+            <p className="small muted">Anyone with this link can read the proposal and approve it or send it back with notes. No account needed.</p>
+            <div className="callout row-between"><code className="truncate" style={{ maxWidth: 360 }}>{reviewResult.link}</code><CopyButton text={reviewResult.link} /></div>
+          </div>
+        ) : (
+          <>
+            <p className="small muted">Share the proposal with your executive director, a board member, or anyone who signs off. They'll get a read-only page with Approve and Request changes buttons.</p>
+            {!allSubmitted && prog.total > 0 && <div className="callout callout-gold mb-2 small">Not every answer is written yet. The reviewer will see the proposal as it is now.</div>}
+            <div className="grid-2">
+              <Field label="Reviewer name"><Input value={reviewForm.reviewerName} onChange={e => setReviewForm({ ...reviewForm, reviewerName: e.target.value })} /></Field>
+              <Field label="Reviewer email" hint="Optional. We'll email the link if email is set up."><Input type="email" value={reviewForm.reviewerEmail} onChange={e => setReviewForm({ ...reviewForm, reviewerEmail: e.target.value })} /></Field>
+            </div>
+            <Field label="Message"><Textarea rows={3} value={reviewForm.message} onChange={e => setReviewForm({ ...reviewForm, message: e.target.value })} placeholder="Anything they should focus on?" /></Field>
+          </>
+        )}
+      </Modal>
+
+      <NotesDrawer projectId={id} initialNotes={project.notes} open={notesOpen} onClose={() => setNotesOpen(false)} canEdit={canManage || user.role === 'editor'} />
+      {!notesOpen && <button className="notes-toggle" onClick={() => setNotesOpen(true)}>Notes</button>}
 
       <Modal open={Boolean(snapshot)} onClose={() => setSnapshot(null)} title={snapshot ? `Version ${snapshot.versionNumber}` : ''} size="lg">
         {snapshot && (

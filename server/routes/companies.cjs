@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const prisma = require('../utils/prisma.cjs');
-const { publicPlan, PLANS } = require('../utils/plans.cjs');
+const { publicPlan, PLANS, catalogue, normalizeKey } = require('../utils/plans.cjs');
 
 // GET /api/companies/mine — the caller's workspace with a few stats
 router.get('/mine', auth, async (req, res) => {
@@ -11,12 +11,12 @@ router.get('/mine', auth, async (req, res) => {
     const company = await prisma.company.findUnique({
       where: { id: req.user.companyId },
       select: {
-        id: true, name: true, createdAt: true, profile: true, plan: true, trialEndsAt: true,
+        id: true, name: true, createdAt: true, profile: true, plan: true, kind: true, trialEndsAt: true,
         _count: { select: { users: true, projects: true, files: true } },
       },
     });
-    const activeProjects = await prisma.project.count({ where: { companyId: req.user.companyId, isArchived: false, isCompleted: false } });
-    res.json({ ...company, planInfo: publicPlan(company), usage: { activeProjects, seats: company._count.users } });
+    const totalProjects = await prisma.project.count({ where: { companyId: req.user.companyId } });
+    res.json({ ...company, planInfo: publicPlan(company), usage: { totalProjects, seats: company._count.users } });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ msg: 'Server error' });
@@ -109,9 +109,12 @@ router.post('/mine/profile/import', auth, async (req, res) => {
 // PUT /api/companies/mine/plan — change plan (admin). Billing is not wired yet; this is the switch Stripe will flip later.
 router.put('/mine/plan', auth, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ msg: 'Admins only.' });
-  const plan = String(req.body.plan || '');
-  if (!PLANS[plan] || plan === 'custom') return res.status(400).json({ msg: 'Choose Free, Starter, Premium, or Enterprise. Contact us for Custom.' });
+  const plan = normalizeKey(String(req.body.plan || ''));
+  if (!PLANS[plan] || plan === 'custom') return res.status(400).json({ msg: 'Pick one of the listed plans. Contact us for Custom.' });
   try {
+    const current = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { kind: true } });
+    const kind = current.kind === 'writer' ? 'writer' : 'team';
+    if (plan !== 'free' && PLANS[plan].track !== kind) return res.status(400).json({ msg: `${PLANS[plan].name} is a ${PLANS[plan].track} plan. Switch your workspace type first.` });
     // Picking a plan ends the trial; the chosen plan applies immediately.
     const company = await prisma.company.update({ where: { id: req.user.companyId }, data: { plan, trialEndsAt: null }, select: { id: true, plan: true, trialEndsAt: true } });
     res.json({ ...company, planInfo: publicPlan(company) });
@@ -120,7 +123,23 @@ router.put('/mine/plan', auth, async (req, res) => {
 
 // GET /api/companies/plans — public catalogue for the pricing page and upgrade prompts
 router.get('/plans', (req, res) => {
-  res.json(Object.entries(PLANS).map(([key, p]) => ({ key, name: p.name, price: p.price, per: p.per, features: p.features, limits: p.limits })));
+  res.json(catalogue());
+});
+
+// PUT /api/companies/mine/kind — switch between a writer workspace and a team workspace (admin)
+router.put('/mine/kind', auth, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ msg: 'Admins only.' });
+  const kind = req.body.kind === 'writer' ? 'writer' : 'team';
+  try {
+    const current = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { kind: true, plan: true, trialEndsAt: true, _count: { select: { users: true } } } });
+    if (kind === 'writer' && current._count.users > 1) return res.status(400).json({ msg: 'A writer workspace is for one person. Remove other members on the Team page first.' });
+    // Keep a paid plan only if it belongs to the new track; otherwise fall back to Free (trial ends).
+    const keep = current.plan && PLANS[normalizeKey(current.plan)] && PLANS[normalizeKey(current.plan)].track === kind && normalizeKey(current.plan) !== 'free';
+    const data = { kind };
+    if (!keep) { data.plan = 'free'; data.trialEndsAt = null; }
+    const company = await prisma.company.update({ where: { id: req.user.companyId }, data, select: { id: true, kind: true, plan: true, trialEndsAt: true } });
+    res.json({ ...company, planInfo: publicPlan(company) });
+  } catch (err) { console.error(err); res.status(500).json({ msg: 'Server error' }); }
 });
 
 module.exports = router;

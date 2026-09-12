@@ -3,6 +3,9 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const prisma = require('../utils/prisma.cjs');
 const { requireFeature, planFor, hasFeature } = require('../utils/plans.cjs');
+const { sanitizeHtml } = require('../utils/sanitize.cjs');
+const crypto = require('crypto');
+const { sendEmail, appUrl, layout, button } = require('../utils/email.cjs');
 
 router.get('/test-route', (req, res) => {
   res.send('Projects test route is working!');
@@ -93,13 +96,14 @@ router.post('/', auth, async (req, res) => {
   if (!req.user.companyId) return res.status(400).json({ msg: 'You are not attached to a workspace.' });
   if (!['admin', 'editor', 'approver'].includes(req.user.role)) return res.status(403).json({ msg: 'Viewers cannot create projects.' });
   try {
-    const company = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { plan: true, trialEndsAt: true } });
+    const company = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { plan: true, kind: true, trialEndsAt: true } });
     const plan = planFor(company);
-    if (plan.limits.activeProjects !== null) {
-      const active = await prisma.project.count({ where: { companyId: req.user.companyId, isArchived: false, isCompleted: false } });
-      if (active >= plan.limits.activeProjects) return res.status(402).json({ msg: `The ${plan.name} plan includes ${plan.limits.activeProjects} active projects. Complete or archive one, or upgrade to Starter for unlimited projects.`, feature: 'unlimited_projects', upgrade: true });
+    if (plan.limits.totalProjects !== null) {
+      const total = await prisma.project.count({ where: { companyId: req.user.companyId } });
+      if (total >= plan.limits.totalProjects) return res.status(402).json({ msg: `The Free plan includes ${plan.limits.totalProjects} grant${plan.limits.totalProjects === 1 ? '' : 's'}. Upgrade to ${plan.kind === 'writer' ? 'Starter' : 'Team'} for unlimited projects.`, feature: 'unlimited_projects', upgrade: true });
     }
-    const qs = Array.isArray(questions) ? questions.filter(q => q && q.text && q.text.trim()) : [];
+    let qs = Array.isArray(questions) ? questions.filter(q => q && q.text && q.text.trim()) : [];
+    if (plan.limits.questionsPerProject !== null && qs.length > plan.limits.questionsPerProject) return res.status(402).json({ msg: `The Free plan allows ${plan.limits.questionsPerProject} questions per project. Upgrade for unlimited questions.`, feature: 'unlimited_projects', upgrade: true });
     const project = await prisma.project.create({
       data: {
         name: name.trim(),
@@ -727,7 +731,7 @@ router.get('/:id/export/:format', auth, async (req, res) => {
   try {
     const project = await prisma.project.findUnique({
       where: { id: req.params.id },
-      include: { questions: { orderBy: { createdAt: 'asc' }, select: { text: true, answer: true } }, company: { select: { name: true, plan: true } }, narrative: true },
+      include: { questions: { orderBy: { createdAt: 'asc' }, select: { text: true, answer: true } }, company: { select: { name: true, plan: true, kind: true, trialEndsAt: true } }, narrative: true },
     });
     if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
     // Premium workspaces can edit the merged document; exports then use that text instead of raw answers.
@@ -1116,8 +1120,8 @@ router.post('/:id/request-approval', auth, async (req, res) => {
       return res.status(401).json({ msg: 'User not authorized to request approval for this project' });
     }
 
-    const approvalCompany = await prisma.company.findUnique({ where: { id: project.companyId }, select: { plan: true, trialEndsAt: true } });
-    if (!hasFeature(approvalCompany, 'approvals')) return res.status(402).json({ msg: 'Approvals are included in Premium and above.', feature: 'approvals', upgrade: true });
+    const approvalCompany = await prisma.company.findUnique({ where: { id: project.companyId }, select: { plan: true, kind: true, trialEndsAt: true } });
+    if (!hasFeature(approvalCompany, 'approvals')) return res.status(402).json({ msg: 'Approvals are part of team workspaces.', feature: 'approvals', upgrade: true });
 
     // Ensure the approver exists and is in the same company
     const approver = await prisma.user.findUnique({ where: { id: approverId } });
@@ -1662,9 +1666,11 @@ router.post('/:projectId/questions', auth, async (req, res) => {
   const { text, assignedToId, maxLimit, limitUnit } = req.body;
   if (!text || !text.trim()) return res.status(400).json({ msg: 'Question text is required.' });
   try {
-    const project = await prisma.project.findUnique({ where: { id: req.params.projectId } });
+    const project = await prisma.project.findUnique({ where: { id: req.params.projectId }, include: { _count: { select: { questions: true } }, company: { select: { plan: true, kind: true, trialEndsAt: true } } } });
     if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
     if (project.ownerId !== req.user.id && req.user.role !== 'admin') return res.status(401).json({ msg: 'Not authorized to add questions' });
+    const qPlan = planFor(project.company);
+    if (qPlan.limits.questionsPerProject !== null && project._count.questions >= qPlan.limits.questionsPerProject) return res.status(402).json({ msg: `The Free plan allows ${qPlan.limits.questionsPerProject} questions per project. Upgrade for unlimited questions.`, feature: 'unlimited_projects', upgrade: true });
     const question = await prisma.question.create({
       data: {
         projectId: project.id,
@@ -1713,4 +1719,61 @@ router.put('/questions/:id/details', auth, async (req, res) => {
   }
 });
 
+// ---------- Grant notes ----------
+
+// @route   PUT api/projects/:id/notes — rich-text notes for a project (owner, editors, admins)
+router.put('/:id/notes', auth, requireFeature(prisma, 'notes'), async (req, res) => {
+  try {
+    const project = await prisma.project.findUnique({ where: { id: req.params.id }, select: { id: true, companyId: true, ownerId: true } });
+    if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
+    if (project.ownerId !== req.user.id && !['admin', 'editor', 'approver'].includes(req.user.role)) return res.status(403).json({ msg: 'Not authorized to edit notes.' });
+    const notes = sanitizeHtml(req.body.notes || '');
+    await prisma.project.update({ where: { id: project.id }, data: { notes } });
+    res.json({ notes, savedAt: new Date() });
+  } catch (err) { res.status(500).send('Server Error'); }
+});
+
+// ---------- External review (no account needed) ----------
+
+// @route   POST api/projects/:id/review-link — create or refresh a review link and mark the project as sent
+router.post('/:id/review-link', auth, requireFeature(prisma, 'external_review'), async (req, res) => {
+  const reviewerName = req.body.reviewerName ? String(req.body.reviewerName).trim().slice(0, 120) : null;
+  const reviewerEmail = req.body.reviewerEmail ? String(req.body.reviewerEmail).trim().toLowerCase().slice(0, 200) : null;
+  const message = req.body.message ? String(req.body.message).trim().slice(0, 2000) : '';
+  try {
+    const project = await prisma.project.findUnique({ where: { id: req.params.id }, include: { company: { select: { name: true } } } });
+    if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
+    if (project.ownerId !== req.user.id && !['admin', 'editor'].includes(req.user.role)) return res.status(403).json({ msg: 'Not authorized.' });
+    const token = crypto.randomBytes(20).toString('hex');
+    const updated = await prisma.project.update({
+      where: { id: project.id },
+      data: { reviewToken: token, reviewStatus: 'pending', reviewerName, reviewerEmail, reviewComments: null, reviewSentAt: new Date(), reviewRespondedAt: null, status: project.status === 'draft' ? 'pending_approval' : project.status },
+      select: { id: true, reviewToken: true, reviewStatus: true, reviewerName: true, reviewerEmail: true, reviewSentAt: true },
+    });
+    const link = appUrl(`/review/${token}`);
+    let emailed = false;
+    if (reviewerEmail) {
+      const sender = await prisma.user.findUnique({ where: { id: req.user.id }, select: { name: true, username: true } });
+      emailed = await sendEmail({
+        to: reviewerEmail,
+        subject: `${sender.name || sender.username} asked you to review "${project.name}"`,
+        html: layout(`Please review ${project.name}`, `<p>${sender.name || sender.username} from ${project.company.name} asked you to read this grant proposal and either approve it or send it back with notes. No account needed.</p>${message ? `<blockquote style="border-left:3px solid #7fab61;margin:12px 0;padding:6px 12px;color:#3b3b3d">${message.replace(/</g, '&lt;')}</blockquote>` : ''}${button(link, 'Open the proposal')}`),
+        text: `${sender.name || sender.username} asked you to review "${project.name}": ${link}`,
+      });
+    }
+    res.json({ ...updated, link, emailed });
+  } catch (err) { console.error(err); res.status(500).send('Server Error'); }
+});
+
+// @route   DELETE api/projects/:id/review-link — withdraw the review request
+router.delete('/:id/review-link', auth, async (req, res) => {
+  try {
+    const project = await prisma.project.findUnique({ where: { id: req.params.id } });
+    if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
+    await prisma.project.update({ where: { id: project.id }, data: { reviewToken: null, reviewStatus: null, reviewComments: null, reviewRespondedAt: null, status: project.status === 'pending_approval' ? 'draft' : project.status } });
+    res.json({ msg: 'Review request withdrawn.' });
+  } catch (err) { res.status(500).send('Server Error'); }
+});
+
 module.exports = router;
+

@@ -93,9 +93,9 @@ router.post('/users', auth, requireAdmin, async (req, res) => {
   if (!email || !password) return res.status(400).json({ msg: 'Email and password are required.' });
   if (password.length < 8) return res.status(400).json({ msg: 'Password must be at least 8 characters.' });
   try {
-    const company = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { plan: true, trialEndsAt: true } });
+    const company = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { plan: true, kind: true, trialEndsAt: true } });
     const plan = planFor(company);
-    if (!plan.features.includes('team')) return res.status(402).json({ msg: `Adding teammates is included in Premium and above. Your workspace is on ${plan.name}.`, feature: 'team', upgrade: true });
+    if (!plan.features.includes('team')) return res.status(402).json({ msg: plan.kind === 'writer' ? 'Writer workspaces are for one person. Switch to a team workspace in Settings to add people.' : `Adding teammates is included in Team and above. Your workspace is on ${plan.name}.`, feature: 'team', upgrade: true });
     if (plan.limits.seats !== null && (await prisma.user.count({ where: { companyId: req.user.companyId } })) >= plan.limits.seats) return res.status(402).json({ msg: `${plan.name} includes up to ${plan.limits.seats} people. Upgrade to add more.`, feature: 'seats', upgrade: true });
     if (await prisma.user.findUnique({ where: { email } })) return res.status(400).json({ msg: 'That email already has an account.' });
     let username = email.split('@')[0].replace(/[^a-z0-9._-]/gi, '').toLowerCase() || 'user';

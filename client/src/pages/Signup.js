@@ -8,7 +8,7 @@ import { Button, Field, Input } from '../components/ui';
 export default function Signup() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ companyName: '', name: '', email: '', password: '' });
+  const [form, setForm] = useState({ companyName: '', name: '', email: '', password: '', kind: 'writer' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
@@ -30,11 +30,17 @@ export default function Signup() {
   };
 
   return (
-    <AuthLayout title="Create your workspace" lead="You'll be the admin. Invite your team once you're in." footer={<>Already have an account? <Link to="/login">Sign in</Link></>}
+    <AuthLayout title="Create your workspace" lead={form.kind === 'writer' ? 'Starts with a free 14-day Writer Pro trial.' : "You'll be the admin. Starts with a free 14-day Team trial."} footer={<>Already have an account? <Link to="/login">Sign in</Link></>}
       side={{ title: 'Set up in two minutes.', text: 'Name your workspace, add your first project, and invite the people who help you write.' }}>
       <form onSubmit={submit} noValidate>
         {error && <div className="form-error">{error}</div>}
-        <Field label="Organization or workspace name" htmlFor="companyName" hint="Your team will see this name.">
+        <Field label="How will you use Merge?">
+          <div className="kind-picker">
+            <button type="button" className={`kind-option ${form.kind === 'writer' ? 'active' : ''}`} onClick={() => setForm(f => ({ ...f, kind: 'writer' }))}><strong>I write grants myself</strong><span>One writer. Write, send for review, download.</span></button>
+            <button type="button" className={`kind-option ${form.kind === 'team' ? 'active' : ''}`} onClick={() => setForm(f => ({ ...f, kind: 'team' }))}><strong>We write as a team</strong><span>Assign questions, approvals, shared library.</span></button>
+          </div>
+        </Field>
+        <Field label={form.kind === 'writer' ? 'Workspace name' : 'Organization or workspace name'} htmlFor="companyName" hint={form.kind === 'writer' ? 'Your name or business name works fine.' : 'Your team will see this name.'}>
           <Input id="companyName" value={form.companyName} onChange={set('companyName')} placeholder="Riverside Community Foundation" required autoFocus />
         </Field>
         <Field label="Your name" htmlFor="name">

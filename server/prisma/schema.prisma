@@ -48,6 +48,7 @@ model Company {
   createdAt    DateTime      @default(now())
   profile      Json?
   plan         String        @default("starter")
+  kind         String        @default("team")
   trialEndsAt  DateTime?
   trialReminderSentAt DateTime?
   trialEndedSentAt    DateTime?
@@ -67,6 +68,14 @@ model Project {
   isCompleted      Boolean           @default(false)
   status           String            @default("draft")
   isArchived       Boolean           @default(false)
+  notes            String?
+  reviewToken      String?           @unique
+  reviewStatus     String?
+  reviewerName     String?
+  reviewerEmail    String?
+  reviewComments   String?
+  reviewSentAt     DateTime?
+  reviewRespondedAt DateTime?
 
   aiReviewLogs     AIReviewLog[]
   approvalRequests ApprovalRequest[]

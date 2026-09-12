@@ -26,6 +26,7 @@ import Team from './pages/Team';
 import Settings from './pages/Settings';
 import AnswerBank from './pages/AnswerBank';
 import Partners from './pages/Partners';
+import Review from './pages/Review';
 import { Loading } from './components/ui';
 
 function RequireAuth({ children }) {
@@ -67,6 +68,7 @@ export default function App() {
             <Route path="/invite/:token" element={<AcceptInvite />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password/:token" element={<ResetPassword />} />
+            <Route path="/review/:token" element={<Review />} />
 
             <Route path="/app" element={<RequireAuth><AppShell /></RequireAuth>}>
               <Route index element={<Dashboard />} />

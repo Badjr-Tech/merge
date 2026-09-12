@@ -7,10 +7,12 @@ import { formatDate } from '../lib/format';
 import { usePlan } from '../context/PlanContext';
 
 const PLAN_FEATURES = {
-  free: ['1 person', '2 active projects', 'Questions, limits, compliance', 'Merge and download PDF or Word', 'File cabinet and calendar'],
-  starter: ['1 person', 'Unlimited projects', 'Answer bank with similar-answer suggestions', 'Ask Merge writing assistant', 'File cabinet and calendar'],
-  premium: ['Up to 5 people', 'Everything in Starter', 'Approvals and correction queue', 'Partners directory', 'Past proposals library', 'Editable narrative with version history', 'AI reviewer'],
-  enterprise: ['Up to 20 people', 'Everything in Premium', 'Multiple workspaces', 'Higher AI limits', 'Priority support'],
+  free: ['1 grant, up to 10 questions', 'Compliance and limits', 'Grant notes', 'Download PDF or Word'],
+  writer: ['Unlimited grants', 'Answer bank', 'Send for review by link', 'File cabinet and calendar'],
+  writer_pro: ['Everything in Starter', 'Ask Merge writing assistant', 'AI reviewer', 'Partners and past proposals', 'Editable document with history'],
+  professional: ['Everything in Premium', 'Multiple workspaces (one per client)', 'Integrations', 'Higher AI limits', 'Priority support'],
+  team: ['Up to 5 people', 'Assign questions, approvals', 'Answer bank and Ask Merge', 'Partners and past proposals', 'Editable narrative with history', 'AI reviewer'],
+  enterprise: ['Up to 20 people', 'Everything in Team', 'Multiple workspaces', 'Integrations', 'Priority support'],
 };
 const PER = { workspace: 'free', month: '/mo', person: '/person/mo' };
 
@@ -18,6 +20,11 @@ export default function Settings() {
   const { user, isAdmin, updateUser } = useAuth();
   const toast = useToast();
   const { plan, usage, refresh: refreshPlan } = usePlan();
+  const switchKind = async (kind) => {
+    setBusy('kind');
+    try { await api.put('/api/companies/mine/kind', { kind }); await refreshPlan(); toast.success(kind === 'writer' ? 'Switched to a writer workspace.' : 'Switched to a team workspace.'); }
+    catch (err) { toast.error(errorMessage(err)); } finally { setBusy(''); }
+  };
   const [plans, setPlans] = useState([]);
   useEffect(() => { api.get('/api/companies/plans').then(r => setPlans(r.data)).catch(() => {}); }, []);
   const changePlan = async (key) => {
@@ -122,9 +129,13 @@ export default function Settings() {
         <div className="card-body">
           {plan?.trialing && <div className="callout callout-green mb-2"><strong>Premium trial:</strong> {plan.trialDaysLeft} day{plan.trialDaysLeft === 1 ? '' : 's'} left. Pick a plan below any time. If you don't, the workspace moves to Free when the trial ends and nothing you wrote is lost.</div>}
           {plan?.trialExpired && plan.key === 'free' && <div className="callout callout-gold mb-2"><strong>Your trial has ended.</strong> You're on the Free plan. Choose a plan to bring back teammates, approvals, the answer bank, and Ask Merge.</div>}
-          {usage && plan && plan.limits.activeProjects !== null && <p className="small muted">Active projects: <strong>{usage.activeProjects} of {plan.limits.activeProjects}</strong>.</p>}
+          {usage && plan && plan.limits.totalProjects !== null && <p className="small muted">Grants: <strong>{usage.totalProjects} of {plan.limits.totalProjects}</strong>.</p>}
+          <div className="callout mb-3 row-between">
+            <div><strong>Workspace type:</strong> {plan?.kind === 'writer' ? 'Writer (one person)' : 'Team'}<div className="tiny muted">{plan?.kind === 'writer' ? 'Switching to Team lets you invite people and use approvals. Plans differ by type.' : 'Switching to Writer is for a single person. Remove other members first.'}</div></div>
+            {isAdmin && <Button variant="secondary" size="sm" onClick={() => switchKind(plan?.kind === 'writer' ? 'team' : 'writer')} loading={busy === 'kind'}>Switch to {plan?.kind === 'writer' ? 'Team' : 'Writer'}</Button>}
+          </div>
           <div className="plan-grid">
-            {plans.filter(p => p.key !== 'custom').map(p => (
+            {plans.filter(p => p.key !== 'custom' && (p.key === 'free' || p.track === (plan?.kind === 'writer' ? 'writer' : 'team'))).map(p => (
               <button key={p.key} type="button" className={`plan-option ${plan?.key === p.key ? 'current' : ''}`} onClick={() => isAdmin && plan?.key !== p.key && changePlan(p.key)} disabled={!isAdmin || busy === 'plan'}>
                 <div className="row-between"><strong style={{ color: 'var(--navy)' }}>{p.name}</strong>{plan?.key === p.key && <span className="badge badge-green">{plan.trialing ? 'Trial' : 'Current'}</span>}</div>
                 <div className="p-price">{p.price === 0 ? 'Free' : `$${p.price}`}{p.price ? <span className="tiny muted"> {PER[p.per]}</span> : null}</div>
@@ -132,7 +143,7 @@ export default function Settings() {
               </button>
             ))}
           </div>
-          <p className="tiny faint mt-2">Need multiple client workspaces or custom branding? <a href="mailto:hello@dakjencreative.com">Ask about Custom</a>.</p>
+          <p className="tiny faint mt-2">Need custom branding or 20+ people? <a href="mailto:hello@dakjencreative.com">Ask about Custom</a>.</p>
         </div>
       </Card>
       <Card pad>
