@@ -78,3 +78,35 @@ export function projectProgress(project) {
   const done = qs.filter(q => q.status === 'submitted').length;
   return { total, done, pct: total ? Math.round((done / total) * 100) : 0 };
 }
+
+// ---- Calendar export ----
+function ymd(d) {
+  const x = new Date(d);
+  return `${x.getFullYear()}${String(x.getMonth() + 1).padStart(2, '0')}${String(x.getDate()).padStart(2, '0')}`;
+}
+
+export function googleCalendarUrl(project) {
+  if (!project || !project.deadlineDate) return null;
+  const start = new Date(project.deadlineDate);
+  const end = new Date(start); end.setDate(end.getDate() + 1);
+  const link = `${window.location.origin}/app/projects/${project.id}`;
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: `Grant due: ${project.name}`,
+    dates: `${ymd(start)}/${ymd(end)}`,
+    details: `Deadline for "${project.name}" in Merge.\n${link}`,
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+export function icsDataUrl(project) {
+  if (!project || !project.deadlineDate) return null;
+  const start = new Date(project.deadlineDate);
+  const end = new Date(start); end.setDate(end.getDate() + 1);
+  const esc = (s) => String(s).replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Merge//Grant deadlines//EN', 'BEGIN:VEVENT',
+    `UID:merge-${project.id}@merge`, `DTSTAMP:${ymd(new Date())}T000000Z`, `DTSTART;VALUE=DATE:${ymd(start)}`, `DTEND;VALUE=DATE:${ymd(end)}`,
+    `SUMMARY:${esc(`Grant due: ${project.name}`)}`, `DESCRIPTION:${esc(`Deadline for ${project.name} in Merge. ${window.location.origin}/app/projects/${project.id}`)}`,
+    'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+  return `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`;
+}

@@ -219,4 +219,108 @@ router.get('/archived-reviews', auth, async (req, res) => {
   }
 });
 
+// ---------- Writing assistant (workspace chat) ----------
+
+const CHAT_HISTORY = 16;
+
+function profileBlock(company) {
+  const p = company.profile || {};
+  const lines = [];
+  const label = { mission: 'Mission', philosophy: 'Philosophy and values', programs: 'Programs and services', audience: 'Who we serve', impact: 'Impact, results, and history', website: 'Website', tone: 'Preferred writing tone', notes: 'Other notes' };
+  Object.keys(label).forEach(k => { if (p[k]) lines.push(`${label[k]}: ${p[k]}`); });
+  return lines.length ? lines.join('\n') : '(The organization profile is empty. Suggest the user fill it in under Settings so answers can be specific.)';
+}
+
+function projectBlock(project) {
+  if (!project) return '';
+  const d = project.details || {};
+  const qs = (project.questions || []).map((q, i) => {
+    const lim = q.maxLimit ? ` [limit: ${q.maxLimit} ${(q.limitUnit || 'words').startsWith('char') ? 'characters' : 'words'}]` : '';
+    const ans = q.answer ? `\n   Current draft: ${q.answer.slice(0, 1500)}` : '\n   Current draft: (none yet)';
+    return `${i + 1}. ${q.text}${lim} — status: ${q.status}${ans}`;
+  }).join('\n');
+  return `\nCURRENT PROJECT: ${project.name}\nDescription: ${project.description || '(none)'}\nTheme or angle: ${d.themeAngle || '(none)'}\nPossible partnership: ${d.possiblePartnership || '(none)'}\nDeadline: ${project.deadlineDate ? new Date(project.deadlineDate).toDateString() : '(none)'}\nQuestions:\n${qs || '(no questions yet)'}\n`;
+}
+
+// GET /api/ai/chat — this user's conversation
+router.get('/chat', auth, async (req, res) => {
+  try {
+    const messages = await prisma.assistantMessage.findMany({
+      where: { companyId: req.user.companyId, userId: req.user.id },
+      orderBy: { createdAt: 'asc' },
+      take: 60,
+      select: { id: true, role: true, content: true, projectId: true, createdAt: true },
+    });
+    res.json(messages);
+  } catch (err) {
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
+
+// DELETE /api/ai/chat — start over
+router.delete('/chat', auth, async (req, res) => {
+  try {
+    await prisma.assistantMessage.deleteMany({ where: { companyId: req.user.companyId, userId: req.user.id } });
+    res.json({ msg: 'Conversation cleared' });
+  } catch (err) {
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
+
+// POST /api/ai/chat — send a message
+router.post('/chat', auth, async (req, res) => {
+  const message = String(req.body.message || '').trim().slice(0, 4000);
+  const projectId = req.body.projectId || null;
+  if (!message) return res.status(400).json({ msg: 'Say something first.' });
+  if (!process.env.GEMINI_API_KEY) return res.status(500).json({ msg: 'AI is not configured on the server.' });
+  if (!req.user.companyId) return res.status(400).json({ msg: 'You are not attached to a workspace.' });
+
+  try {
+    const [company, project, history, user, partners] = await Promise.all([
+      prisma.company.findUnique({ where: { id: req.user.companyId }, select: { name: true, profile: true } }),
+      projectId ? prisma.project.findFirst({ where: { id: projectId, companyId: req.user.companyId }, include: { questions: { orderBy: { createdAt: 'asc' }, select: { text: true, answer: true, status: true, maxLimit: true, limitUnit: true } } } }) : null,
+      prisma.assistantMessage.findMany({ where: { companyId: req.user.companyId, userId: req.user.id }, orderBy: { createdAt: 'desc' }, take: CHAT_HISTORY, select: { role: true, content: true } }),
+      prisma.user.findUnique({ where: { id: req.user.id }, select: { name: true, username: true } }),
+      prisma.partner.findMany({ where: { companyId: req.user.companyId }, orderBy: { name: 'asc' }, take: 60 }),
+    ]);
+    const partnerBlock = partners.length
+      ? `\nPARTNERS DIRECTORY (organizations we already work with; suggest the ones that fit a grant and explain why):\n${partners.map(p => `- ${p.name}${p.location ? ` (${p.location})` : ''}: ${p.description || 'no description'}${p.tags ? ` [tags: ${p.tags}]` : ''}${p.notes ? ` Notes: ${p.notes}` : ''}`).join('\n')}\n`
+      : '\nPARTNERS DIRECTORY: (empty — suggest adding partners under Tools → Partners so you can recommend them.)\n';
+
+    const system = `You are Merge's writing assistant, a friendly and sharp grant-writing coach for ${company.name}. You help ${user.name || user.username} figure out what to write and how to write it for funding applications.
+
+How to help:
+- Give concrete, usable guidance: what points to make, how to structure the answer, what funders look for, and example sentences in the organization's voice.
+- Draw on the ORGANIZATION PROFILE below. Remind the user to include the mission, philosophy, programs, and impact where they strengthen an answer.
+- If a CURRENT PROJECT is provided, tailor advice to its questions, limits, and existing drafts. Keep suggested text within the question's limit.
+- Never invent statistics, names, dates, or partners. When a fact is missing, write a placeholder in square brackets like [number of families served] and say what the user should fill in.
+- Be concise. Use short paragraphs and bullet points. Use Markdown headings only for longer answers.
+- If the profile is empty, still help, but suggest filling it in under Settings so advice can be specific.
+- When asked which partners to include, pick from the PARTNERS DIRECTORY, match them to the grant's purpose and questions, and say what role each could play. Never invent partners.
+
+ORGANIZATION PROFILE:
+${profileBlock(company)}
+${partnerBlock}${projectBlock(project)}`;
+
+    const { GoogleGenerativeAI } = require('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite', systemInstruction: system });
+    const past = history.reverse().map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
+    // Gemini requires the history to start with a user turn
+    while (past.length && past[0].role !== 'user') past.shift();
+    const chat = model.startChat({ history: past });
+    const result = await chat.sendMessage(message);
+    const reply = result.response.text();
+
+    const saved = await prisma.$transaction([
+      prisma.assistantMessage.create({ data: { companyId: req.user.companyId, userId: req.user.id, role: 'user', content: message, projectId } }),
+      prisma.assistantMessage.create({ data: { companyId: req.user.companyId, userId: req.user.id, role: 'assistant', content: reply, projectId } }),
+    ]);
+    res.json({ reply: { id: saved[1].id, role: 'assistant', content: reply, createdAt: saved[1].createdAt }, user: { id: saved[0].id, role: 'user', content: message, createdAt: saved[0].createdAt } });
+  } catch (err) {
+    console.error('Assistant error:', err);
+    res.status(500).json({ msg: err.message && err.message.includes('API key') ? 'The AI key on the server is not valid.' : 'The assistant could not answer. Try again.' });
+  }
+});
+
 module.exports = router;

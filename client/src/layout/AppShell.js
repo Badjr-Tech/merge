@@ -5,9 +5,10 @@ import api from '../api';
 import logo from '../merge1.png';
 import { Avatar } from '../components/ui';
 import { displayName } from '../lib/format';
+import Assistant from '../components/Assistant';
 
 const I = {
-  home: '⌂', projects: '▤', tasks: '✎', approvals: '✓', past: '◷', files: '▣', ai: '✦', compliance: '☑', calendar: '▦', team: '☺', settings: '⚙', menu: '☰',
+  home: '⌂', projects: '▤', bank: '◫', partners: '☍', tasks: '✎', approvals: '✓', past: '◷', files: '▣', ai: '✦', compliance: '☑', calendar: '▦', team: '☺', settings: '⚙', menu: '☰',
 };
 
 export default function AppShell() {
@@ -48,9 +49,11 @@ export default function AppShell() {
           {link('/app/tasks', 'My tasks', I.tasks, counts.myOpenQuestions)}
           {link('/app/approvals', 'Approvals', I.approvals, isApprover ? counts.awaitingMyApproval : counts.pendingApproval)}
           <div className="nav-section">Tools</div>
+          {link('/app/answer-bank', 'Answer bank', I.bank)}
           {link('/app/ai-review', 'AI reviewer', I.ai)}
           {link('/app/compliance', 'Compliance check', I.compliance)}
           {link('/app/past-proposals', 'Past proposals', I.past)}
+          {link('/app/partners', 'Partners', I.partners)}
           {link('/app/files', 'File cabinet', I.files)}
           {link('/app/calendar', 'Grant calendar', I.calendar)}
           <div className="nav-section">Workspace</div>
@@ -79,6 +82,7 @@ export default function AppShell() {
           <Outlet />
         </main>
       </div>
+      <Assistant />
     </div>
   );
 }

@@ -32,6 +32,7 @@ model User {
   assignedToLogs     QuestionAssignmentLog[] @relation("AssignedToLog")
   sentInvitations    Invitation[]            @relation("SentInvitations")
   passwordResets     PasswordReset[]
+  assistantMessages  AssistantMessage[]
   company            Company?                @relation(fields: [companyId], references: [id])
 }
 
@@ -45,6 +46,9 @@ model Company {
   users        User[]
   invitations  Invitation[]
   createdAt    DateTime      @default(now())
+  profile      Json?
+  assistantMessages AssistantMessage[]
+  partners     Partner[]
 }
 
 model Project {
@@ -111,6 +115,8 @@ model File {
   id           String   @id @default(cuid())
   filename     String
   mimetype     String
+  category     String?
+  notes        String?
   data         Bytes
   companyId    String
   uploadedById String
@@ -202,4 +208,37 @@ model PasswordReset {
   usedAt    DateTime?
   createdAt DateTime  @default(now())
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+
+model AssistantMessage {
+  id        String   @id @default(cuid())
+  companyId String
+  userId    String
+  role      String
+  content   String
+  projectId String?
+  createdAt DateTime @default(now())
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, userId, createdAt])
+}
+
+model Partner {
+  id          String   @id @default(cuid())
+  companyId   String
+  name        String
+  location    String?
+  description String?
+  website     String?
+  contactName String?
+  contactEmail String?
+  tags        String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
 }

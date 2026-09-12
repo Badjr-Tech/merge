@@ -4,7 +4,8 @@ import api, { errorMessage } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Avatar, Badge, Button, Card, CopyButton, EmptyState, ErrorBlock, Field, Input, Loading, Modal, Progress, Select, Tabs, Textarea, useConfirm } from '../components/ui';
-import { displayName, dueLabel, formatDate, formatDateTime, limitCheck, projectProgress, projectStatus, questionStatus } from '../lib/format';
+import SimilarAnswers from '../components/SimilarAnswers';
+import { displayName, dueLabel, formatDate, formatDateTime, limitCheck, projectProgress, projectStatus, questionStatus, googleCalendarUrl } from '../lib/format';
 
 function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged }) {
   const toast = useToast();
@@ -64,6 +65,7 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged }) {
         <div className="mt-2">
           {canAnswer ? (
             <>
+              {q.status !== 'submitted' && <SimilarAnswers questionId={q.id} onUse={(text) => { setAnswer(a => a.trim() ? `${a}\n\n${text}` : text); toast.success('Added to your draft. Edit it, then save or submit.'); }} />}
               <Textarea rows={6} value={answer} onChange={e => setAnswer(e.target.value)} placeholder="No answer yet. Write one here…" />
               <div className={`count-hint ${lc.over ? 'over' : lc.limit ? 'ok' : ''}`}>{lc.count} {lc.unit}{lc.limit ? ` of ${lc.limit}` : ''}{lc.over ? ' · over the limit' : ''}</div>
             </>
@@ -188,6 +190,13 @@ export default function ProjectDetail() {
     setBusy(true);
     try { await fn(); toast.success(label); load(); } catch (err) { toast.error(errorMessage(err)); } finally { setBusy(false); }
   };
+  const exportDoc = async (format) => {
+    try {
+      const res = await api.get(`/api/projects/${id}/export/${format}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(res.data);
+      const a = document.createElement('a'); a.href = url; a.download = `${project.name.replace(/[^a-z0-9]+/gi, '-')}.${format}`; document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
+    } catch (err) { toast.error(errorMessage(err, 'Could not build the document.')); }
+  };
   const merge = () => act('Narrative merged from all answers.', () => api.post(`/api/projects/${id}/compile`), project.narrative ? { title: 'Re-merge narrative', message: 'This replaces the existing narrative with the current answers.', confirmLabel: 'Re-merge' } : null);
 
   const tabs = [
@@ -206,7 +215,7 @@ export default function ProjectDetail() {
       <div className="page-header">
         <div className="grow">
           <div className="row wrap"><h1 className="mb-0">{project.name}</h1><Badge tone={st.tone}>{st.label}</Badge>{due && !project.isCompleted && <Badge tone={due.tone}>{due.text}</Badge>}{project.isArchived && <Badge tone="gray">Archived</Badge>}</div>
-          <p>Owned by {displayName(project.owner)}{project.deadlineDate && ` · Due ${formatDate(project.deadlineDate)}`} · Created {formatDate(project.createdAt)}</p>
+          <p>Owned by {displayName(project.owner)}{project.deadlineDate && ` · Due ${formatDate(project.deadlineDate)}`} · Created {formatDate(project.createdAt)}{project.deadlineDate && <> · <a href={googleCalendarUrl(project)} target="_blank" rel="noopener noreferrer">Add due date to Google Calendar</a></>}</p>
         </div>
         <div className="row wrap">
           {canManage && !project.isCompleted && <Button variant="secondary" onClick={openEdit}>Edit details</Button>}
@@ -250,8 +259,10 @@ export default function ProjectDetail() {
       {tab === 'narrative' && (
         <Card>
           <div className="card-header">
-            <div><h3>Merged narrative</h3><div className="tiny muted">{project.narrative ? `Last merged ${formatDateTime(project.narrative.updatedAt || project.narrative.createdAt)}` : 'Combine every submitted answer into one document.'}</div></div>
-            <div className="row">
+            <div><h3>Merged narrative</h3><div className="tiny muted">{project.narrative ? `Last merged ${formatDateTime(project.narrative.updatedAt || project.narrative.createdAt)}. Downloads always use the latest answers.` : 'Combine every submitted answer into one document, then download it as PDF or Word.'}</div></div>
+            <div className="row wrap">
+              {prog.total > 0 && <Button variant="secondary" size="sm" onClick={() => exportDoc('pdf')}>Download PDF</Button>}
+              {prog.total > 0 && <Button variant="secondary" size="sm" onClick={() => exportDoc('docx')}>Download Word</Button>}
               {project.narrative && <CopyButton text={project.narrative.content} label="Copy text" />}
               {canManage && <Button size="sm" onClick={merge} loading={busy} disabled={prog.total === 0}>{project.narrative ? 'Re-merge' : 'Merge answers'}</Button>}
             </div>

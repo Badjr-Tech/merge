@@ -59,11 +59,12 @@ export default function Landing() {
 
       <section className="section" id="pricing">
         <h2>Simple pricing</h2>
-        <p className="sub">Start free while Merge is in early access. Paid plans arrive with team billing.</p>
-        <div className="grid-3">
-          <Card className="price-card"><h3>Starter</h3><div className="price">$0<small>/mo</small></div><p className="small muted">For a single grant writer.</p><ul><li>1 workspace, up to 3 people</li><li>Unlimited projects</li><li>Compliance checks</li><li>File cabinet (5 MB per file)</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Get started</Link></Card>
-          <Card className="price-card featured"><span className="badge badge-green">Most popular</span><h3 className="mt-1">Team</h3><div className="price">$49<small>/mo</small></div><p className="small muted">For organizations writing proposals together.</p><ul><li>Up to 15 people</li><li>Approvals and correction queue</li><li>AI reviewer</li><li>Past proposal library</li><li>Priority support</li></ul><Link to="/signup" className="btn btn-primary btn-block">Start free</Link></Card>
-          <Card className="price-card"><h3>Agency</h3><div className="price">Let's talk</div><p className="small muted">For consultants managing many clients.</p><ul><li>Unlimited people</li><li>Multiple workspaces</li><li>Custom onboarding</li><li>Dedicated support</li></ul><a href="mailto:hello@dakjencreative.com" className="btn btn-secondary btn-block">Contact us</a></Card>
+        <p className="sub">Start free while Merge is in early access. Paid plans are billed per person, per month.</p>
+        <div className="grid-4 pricing-grid">
+          <Card className="price-card"><h3>Starter</h3><div className="price">$0<small>/mo</small></div><p className="small muted">For a solo grant writer.</p><ul><li>1 workspace, up to 3 people</li><li>Unlimited projects</li><li>Compliance checks</li><li>Answer bank</li><li>File cabinet</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Get started</Link></Card>
+          <Card className="price-card featured"><span className="badge badge-green">Most popular</span><h3 className="mt-1">Team</h3><div className="price">$12.50<small>/person/mo</small></div><p className="small muted">For organizations that write together.</p><ul><li>Unlimited people, billed per seat</li><li>Approvals and correction queue</li><li>Writing assistant</li><li>AI reviewer</li><li>Priority support</li></ul><Link to="/signup" className="btn btn-primary btn-block">Start free</Link></Card>
+          <Card className="price-card"><h3>Enterprise</h3><div className="price">$49<small>/person/mo</small></div><p className="small muted">For larger teams and multi-program organizations.</p><ul><li>Everything in Team</li><li>Multiple workspaces</li><li>Higher AI usage limits</li><li>Onboarding session</li><li>Dedicated support</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Start free</Link></Card>
+          <Card className="price-card"><h3>Custom</h3><div className="price" style={{ fontSize: 30 }}>Let's talk</div><p className="small muted">For consultants and agencies managing many clients.</p><ul><li>Client workspaces under one login</li><li>Custom branding</li><li>Custom integrations</li><li>Volume pricing</li></ul><a href="mailto:hello@dakjencreative.com" className="btn btn-secondary btn-block">Contact us</a></Card>
         </div>
       </section>
 

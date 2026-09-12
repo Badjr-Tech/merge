@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Badge, Button, Card, EmptyState, ErrorBlock, Loading, PageHeader, Textarea } from '../components/ui';
 import { dueLabel, limitCheck, questionStatus } from '../lib/format';
+import SimilarAnswers from '../components/SimilarAnswers';
 
 function TaskCard({ q, project, onSaved }) {
   const toast = useToast();
@@ -37,7 +38,8 @@ function TaskCard({ q, project, onSaved }) {
       <div className="q-meta">
         {q.maxLimit ? <span>Limit: {q.maxLimit} {lc.unit}</span> : <span>No limit</span>}
       </div>
-      <Textarea className="mt-2" rows={5} value={answer} onChange={e => setAnswer(e.target.value)} placeholder="Write your answer here…" disabled={q.status === 'submitted' && !dirty && false} />
+      {q.status !== 'submitted' && <SimilarAnswers questionId={q.id} onUse={(text) => { setAnswer(a => a.trim() ? `${a}\n\n${text}` : text); toast.success('Added to your draft. Edit it, then save or submit.'); }} />}
+      <Textarea className="mt-2" rows={5} value={answer} onChange={e => setAnswer(e.target.value)} placeholder="Write your answer here…" />
       <div className={`count-hint ${lc.over ? 'over' : lc.limit ? 'ok' : ''}`}>{lc.count} {lc.unit}{lc.limit ? ` of ${lc.limit}` : ''}{lc.over ? ' · over the limit' : ''}</div>
       <div className="row mt-1" style={{ justifyContent: 'flex-end' }}>
         {q.status === 'submitted' && !dirty ? (

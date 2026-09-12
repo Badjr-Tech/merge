@@ -212,6 +212,7 @@ router.get('/deadlines', auth, async (req, res) => {
     const deadlines = await prisma.project.findMany({
       where: {
         companyId: user.companyId,
+        isArchived: false,
         deadlineDate: {
           not: null, // Only projects with a deadline date
         },
@@ -220,6 +221,10 @@ router.get('/deadlines', auth, async (req, res) => {
         id: true,
         name: true,
         deadlineDate: true,
+        status: true,
+        isCompleted: true,
+        owner: { select: { id: true, name: true, username: true } },
+        questions: { select: { status: true } },
       },
       orderBy: {
         deadlineDate: 'asc', // Order by deadline date
@@ -230,8 +235,13 @@ router.get('/deadlines', auth, async (req, res) => {
     const formattedDeadlines = deadlines.map(project => ({
       id: project.id,
       name: project.name,
-      projectName: project.name, // Use project name as deadline name for now
+      projectName: project.name,
       deadlineDate: project.deadlineDate,
+      status: project.status,
+      isCompleted: project.isCompleted,
+      owner: project.owner,
+      total: project.questions.length,
+      done: project.questions.filter(q => q.status === 'submitted').length,
     }));
 
     res.json(formattedDeadlines);
@@ -579,6 +589,107 @@ router.post('/parse-pasted-text', auth, async (req, res) => {
   }
 });
 
+// ---------- Answer bank ----------
+
+const STOP = new Set(['the','and','for','with','our','your','you','that','this','from','are','was','but','not','have','has','how','what','why','who','when','where','which','will','does','did','please','describe','explain','provide','about','into','their','they','them','these','those','than','then','can','any','all','each','per','its','also','been','being','would','should','could','more','most','such','other','over','under','use','used','using','include','including','list','give','tell','us','we','of','to','in','on','a','an','is','it','as','at','by','or','be','do','if','so','up','no','yes']);
+
+function terms(text) {
+  return (text || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)
+    .filter(w => w.length > 2 && !STOP.has(w))
+    .map(w => w.replace(/(ing|ings|ed|es|s|ies|ion|ions|ly)$/, '').replace(/^$/, w));
+}
+
+function similarity(a, b) {
+  const A = new Set(terms(a)); const B = new Set(terms(b));
+  if (!A.size || !B.size) return 0;
+  let inter = 0; A.forEach(t => { if (B.has(t)) inter += 1; });
+  const jaccard = inter / (A.size + B.size - inter);
+  const overlap = inter / Math.min(A.size, B.size);
+  return Math.round((0.5 * jaccard + 0.5 * overlap) * 100) / 100;
+}
+
+async function answeredQuestions(companyId, excludeQuestionId) {
+  const rows = await prisma.question.findMany({
+    where: {
+      project: { companyId },
+      answer: { not: null },
+      NOT: excludeQuestionId ? { id: excludeQuestionId } : undefined,
+    },
+    select: {
+      id: true, text: true, answer: true, status: true, updatedAt: true, maxLimit: true, limitUnit: true,
+      project: { select: { id: true, name: true, isCompleted: true, status: true, deadlineDate: true, createdAt: true } },
+      assignedTo: { select: { id: true, name: true, username: true } },
+    },
+    orderBy: { updatedAt: 'desc' },
+  });
+  return rows.filter(r => r.answer && r.answer.trim().length > 20);
+}
+
+// @route   GET api/projects/answers/bank?q=
+// @desc    Every answered question in the workspace, searchable
+router.get('/answers/bank', auth, async (req, res) => {
+  try {
+    if (!req.user.companyId) return res.status(400).json({ msg: 'You are not attached to a workspace.' });
+    const rows = await answeredQuestions(req.user.companyId);
+    const q = String(req.query.q || '').trim();
+    let out = rows;
+    if (q) {
+      out = rows.map(r => ({ ...r, score: Math.max(similarity(q, r.text), (r.answer.toLowerCase().includes(q.toLowerCase()) || r.text.toLowerCase().includes(q.toLowerCase())) ? 0.6 : 0) }))
+        .filter(r => r.score > 0).sort((a, b) => b.score - a.score);
+    }
+    res.json(out.slice(0, 200));
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   GET api/projects/questions/:id/similar
+// @desc    Previously answered questions that look like this one
+router.get('/questions/:id/similar', auth, async (req, res) => {
+  try {
+    const question = await prisma.question.findUnique({ where: { id: req.params.id }, include: { project: { select: { companyId: true, id: true } } } });
+    if (!question || question.project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Question not found' });
+    const rows = await answeredQuestions(req.user.companyId, question.id);
+    const matches = rows
+      .map(r => ({ ...r, score: similarity(question.text, r.text) }))
+      .filter(r => r.score >= 0.3)
+      .sort((a, b) => b.score - a.score || new Date(b.updatedAt) - new Date(a.updatedAt))
+      .slice(0, 3);
+    res.json(matches);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   GET api/projects/:id/export/:format  (pdf | docx)
+// @desc    Download the merged narrative as a document
+router.get('/:id/export/:format', auth, async (req, res) => {
+  const { buildPdf, buildDocx, safeName } = require('../utils/export.cjs');
+  const format = String(req.params.format || '').toLowerCase();
+  if (!['pdf', 'docx'].includes(format)) return res.status(400).json({ msg: 'Format must be pdf or docx.' });
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: req.params.id },
+      include: { questions: { orderBy: { createdAt: 'asc' }, select: { text: true, answer: true } }, company: { select: { name: true } } },
+    });
+    if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
+    const filename = `${safeName(project.name)}.${format}`;
+    if (format === 'pdf') {
+      const buf = await buildPdf(project, project.company);
+      res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${filename}"` });
+      return res.send(buf);
+    }
+    const buf = await buildDocx(project, project.company);
+    res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'Content-Disposition': `attachment; filename="${filename}"` });
+    return res.send(buf);
+  } catch (err) {
+    console.error('Export error:', err);
+    res.status(500).json({ msg: 'Could not build the document.' });
+  }
+});
+
 // @route   GET api/projects/dashboard
 // @desc    Summary numbers for the dashboard
 router.get('/dashboard/summary', auth, async (req, res) => {
@@ -860,6 +971,7 @@ router.get('/deadlines', auth, async (req, res) => {
     const deadlines = await prisma.project.findMany({
       where: {
         companyId: user.companyId,
+        isArchived: false,
         deadlineDate: {
           not: null, // Only projects with a deadline date
         },
@@ -868,6 +980,10 @@ router.get('/deadlines', auth, async (req, res) => {
         id: true,
         name: true,
         deadlineDate: true,
+        status: true,
+        isCompleted: true,
+        owner: { select: { id: true, name: true, username: true } },
+        questions: { select: { status: true } },
       },
       orderBy: {
         deadlineDate: 'asc', // Order by deadline date
@@ -878,8 +994,13 @@ router.get('/deadlines', auth, async (req, res) => {
     const formattedDeadlines = deadlines.map(project => ({
       id: project.id,
       name: project.name,
-      projectName: project.name, // Use project name as deadline name for now
+      projectName: project.name,
       deadlineDate: project.deadlineDate,
+      status: project.status,
+      isCompleted: project.isCompleted,
+      owner: project.owner,
+      total: project.questions.length,
+      done: project.questions.filter(q => q.status === 'submitted').length,
     }));
 
     res.json(formattedDeadlines);

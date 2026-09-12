@@ -35,3 +35,13 @@ Create a local Postgres database and apply migrations with `npx prisma migrate d
 - **Login** is email + password. Legacy usernames still work as the identifier.
 - **Password reset**: self-service by email when Brevo is configured, or an admin generates a 2-hour link from the Team page.
 - Roles: `admin`, `editor`, `approver`, `viewer`.
+
+## Feature notes (added 2026-09-12)
+
+- **Writing assistant** (`POST /api/ai/chat`): workspace-level chatbot (Gemini) that knows the organization profile (`Company.profile`), the partners directory, and the project the user has open. Conversation stored per user in `AssistantMessage`.
+- **Organization profile**: Settings → Organization profile; "Draft from website" scrapes a page and asks Gemini to fill the fields.
+- **Answer bank**: every saved answer is searchable (`GET /api/projects/answers/bank`); opening a question shows similar past answers (`GET /api/projects/questions/:id/similar`) with one-click reuse.
+- **Partners** (`/api/partners`): directory of collaborators; the assistant recommends them for a grant.
+- **Exports**: `GET /api/projects/:id/export/pdf|docx` builds the merged narrative with pdfkit / docx.
+- **Grant calendar**: built-in month view of project deadlines, with Google Calendar and .ics export links.
+- **File cabinet**: 4 MB per file (Vercel request bodies are capped at 4.5 MB); files carry a category and notes.

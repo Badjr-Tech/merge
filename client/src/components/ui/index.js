@@ -33,9 +33,9 @@ export function Field({ label, hint, error, children, htmlFor }) {
   );
 }
 
-export function Input(props) { return <input className={`input ${props.className || ''}`} {...props} />; }
-export function Textarea(props) { return <textarea className={`textarea ${props.className || ''}`} {...props} />; }
-export function Select({ children, ...props }) { return <select className={`select ${props.className || ''}`} {...props}>{children}</select>; }
+export function Input({ className = '', ...props }) { return <input className={`input ${className}`} {...props} />; }
+export function Textarea({ className = '', ...props }) { return <textarea className={`textarea ${className}`} {...props} />; }
+export function Select({ children, className = '', ...props }) { return <select className={`select ${className}`} {...props}>{children}</select>; }
 
 export function Badge({ tone = 'gray', children, dot }) {
   return <span className={`badge badge-${tone}`}>{dot && <span className="dot" style={{ background: 'currentColor' }} />}{children}</span>;

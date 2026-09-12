@@ -23,6 +23,8 @@ import Compliance from './pages/Compliance';
 import Calendar from './pages/Calendar';
 import Team from './pages/Team';
 import Settings from './pages/Settings';
+import AnswerBank from './pages/AnswerBank';
+import Partners from './pages/Partners';
 import { Loading } from './components/ui';
 
 function RequireAuth({ children }) {
@@ -72,6 +74,8 @@ export default function App() {
               <Route path="tasks" element={<MyTasks />} />
               <Route path="approvals" element={<Approvals />} />
               <Route path="past-proposals" element={<PastProposals />} />
+              <Route path="answer-bank" element={<AnswerBank />} />
+              <Route path="partners" element={<Partners />} />
               <Route path="files" element={<Files />} />
               <Route path="ai-review" element={<AIReviewer />} />
               <Route path="ai-review/:id" element={<AIReviewDetail />} />

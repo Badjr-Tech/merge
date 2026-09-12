@@ -10,7 +10,7 @@ router.get('/mine', auth, async (req, res) => {
     const company = await prisma.company.findUnique({
       where: { id: req.user.companyId },
       select: {
-        id: true, name: true, createdAt: true,
+        id: true, name: true, createdAt: true, profile: true,
         _count: { select: { users: true, projects: true, files: true } },
       },
     });
@@ -47,4 +47,62 @@ router.put('/mine', auth, async (req, res) => {
   }
 });
 
+const PROFILE_FIELDS = ['mission', 'philosophy', 'programs', 'audience', 'impact', 'website', 'tone', 'notes'];
+
+function cleanProfile(input) {
+  const out = {};
+  PROFILE_FIELDS.forEach(k => { if (input && typeof input[k] === 'string') out[k] = input[k].trim().slice(0, 4000); });
+  return out;
+}
+
+// PUT /api/companies/mine/profile — organization profile used by the assistant (admin or editor)
+router.put('/mine/profile', auth, async (req, res) => {
+  if (!['admin', 'editor'].includes(req.user.role)) return res.status(403).json({ msg: 'Only admins and editors can edit the organization profile.' });
+  try {
+    const company = await prisma.company.update({ where: { id: req.user.companyId }, data: { profile: cleanProfile(req.body) }, select: { id: true, profile: true } });
+    res.json(company);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
+
+// POST /api/companies/mine/profile/import — read the organization's website and draft profile fields
+router.post('/mine/profile/import', auth, async (req, res) => {
+  if (!['admin', 'editor'].includes(req.user.role)) return res.status(403).json({ msg: 'Only admins and editors can import a profile.' });
+  let url = String(req.body.url || '').trim();
+  if (!url) return res.status(400).json({ msg: 'Enter your website address.' });
+  if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+  if (!process.env.GEMINI_API_KEY) return res.status(500).json({ msg: 'AI is not configured on the server.' });
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    const pageRes = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MergeBot/1.0)' }, redirect: 'follow' });
+    clearTimeout(timer);
+    if (!pageRes.ok) return res.status(400).json({ msg: `Could not load that page (status ${pageRes.status}).` });
+    const html = await pageRes.text();
+    const text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<nav[\s\S]*?<\/nav>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&#39;|&rsquo;/g, "'").replace(/&quot;/g, '"')
+      .replace(/\s+/g, ' ').trim().slice(0, 20000);
+    if (text.length < 200) return res.status(400).json({ msg: 'That page has very little readable text. Try the About page.' });
+
+    const { GoogleGenerativeAI } = require('@google/generative-ai');
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite', generationConfig: { responseMimeType: 'application/json' } });
+    const prompt = `You are helping a nonprofit set up its grant-writing profile. Read this text from their website and fill in the JSON fields below using only information that is actually present. Leave a field as an empty string if the site does not say. Write in plain, specific sentences (2-5 each), in the organization's own voice.\n\nFields:\n- mission: what the organization exists to do\n- philosophy: values, beliefs, or approach that guide the work\n- programs: the main programs or services offered\n- audience: who they serve and where\n- impact: concrete results, numbers, history, or milestones mentioned\n- tone: 3-6 adjectives describing how the site is written\n\nReturn JSON with exactly those keys.\n\nWEBSITE TEXT:\n${text}`;
+    const result = await model.generateContent(prompt);
+    let draft = {};
+    try { draft = JSON.parse(result.response.text()); } catch { return res.status(500).json({ msg: 'The AI returned an unexpected format. Try again.' }); }
+    res.json({ profile: { ...cleanProfile(draft), website: url } });
+  } catch (err) {
+    console.error('Profile import error:', err.message);
+    res.status(500).json({ msg: err.name === 'AbortError' ? 'That site took too long to respond.' : 'Could not import from that website.' });
+  }
+});
+
 module.exports = router;
+
