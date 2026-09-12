@@ -451,3 +451,8 @@ body.notes-open .notes-toggle { display: none; }
 .pricing-tabs { display: flex; justify-content: center; gap: 6px; margin: 0 auto 26px; background: var(--gray); border-radius: 999px; padding: 4px; width: max-content; }
 .pricing-tabs button { border: none; background: none; padding: 8px 18px; border-radius: 999px; font-weight: 700; color: var(--text-muted); cursor: pointer; }
 .pricing-tabs button.active { background: var(--navy); color: #fff; }
+
+.powered { display: block; margin-top: 6px; color: var(--text-faint); }
+.powered a { color: var(--text-muted); font-weight: 600; }
+.powered-side { padding: 10px 10px 4px; font-size: 11px; color: rgba(255,252,240,0.45); }
+.powered-side a { color: var(--periwinkle); font-weight: 600; }

@@ -24,7 +24,7 @@ export default function PublicLayout() {
         </div>
       </nav>
       <Outlet />
-      <footer className="site-footer">© {new Date().getFullYear()} Merge · Grant proposals, written together.</footer>
+      <footer className="site-footer">© {new Date().getFullYear()} Merge · Grant proposals, written together. <span className="powered">Powered by <a href="https://badjr.vercel.app" target="_blank" rel="noopener noreferrer">Badjr</a></span></footer>
     </div>
   );
 }

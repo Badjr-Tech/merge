@@ -55,6 +55,7 @@ function layout(title, bodyHtml) {
     <h1 style="font-size:20px;color:#0b2d65;margin:0 0 12px">${title}</h1>
     ${bodyHtml}
     <p style="font-size:12px;color:#888;margin-top:32px">If you weren't expecting this email you can ignore it.</p>
+    <p style="font-size:11px;color:#aaa;margin-top:8px">Merge is powered by Badjr.</p>
   </div></body></html>`;
 }
 

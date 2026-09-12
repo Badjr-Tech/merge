@@ -16,7 +16,7 @@ export default function AuthLayout({ title, lead, children, footer, side }) {
             <li><span className="tick">✓</span> Built-in approvals and AI review before you submit</li>
           </ul>
         </div>
-        <div className="small" style={{ opacity: .6 }}>© {new Date().getFullYear()} Merge</div>
+        <div className="small" style={{ opacity: .6 }}>© {new Date().getFullYear()} Merge · Powered by Badjr</div>
       </div>
       <div className="auth-form-wrap">
         <div className="auth-form">
