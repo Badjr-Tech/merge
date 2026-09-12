@@ -226,7 +226,8 @@ img { max-width: 100%; }
 .shell { display: flex; min-height: 100vh; }
 .sidebar { width: var(--sidebar-w); background: var(--navy); color: var(--cream); display: flex; flex-direction: column; position: fixed; inset: 0 auto 0 0; z-index: 50; transition: transform .2s ease; }
 .sidebar-brand { padding: 18px 20px 12px; display: flex; align-items: center; justify-content: space-between; }
-.sidebar-brand img { height: 34px; }
+.sidebar-brand a { display: inline-flex; align-items: center; background: var(--cream); border-radius: 10px; padding: 6px 12px; }
+.sidebar-brand img { height: 30px; display: block; }
 .sidebar-workspace { margin: 4px 14px 14px; padding: 10px 12px; background: rgba(255,255,255,0.06); border-radius: var(--radius); font-size: 13px; }
 .sidebar-workspace .name { font-weight: 700; color: #fff; }
 .sidebar-workspace .role { color: var(--periwinkle); font-size: 12px; text-transform: capitalize; }
@@ -427,9 +428,9 @@ img { max-width: 100%; }
 .notes-editor ul, .notes-editor ol { padding-left: 22px; }
 body.notes-open .assistant-fab, body.notes-open .assistant-panel { right: calc(var(--notes-w, 400px) + 22px); }
 body.notes-open .content { padding-right: calc(var(--notes-w, 400px) + 20px); }
-.notes-resize { position: absolute; left: -4px; top: 0; bottom: 0; width: 8px; cursor: col-resize; z-index: 2; }
-.notes-resize::after { content: ''; position: absolute; left: 3px; top: 50%; height: 48px; width: 3px; margin-top: -24px; border-radius: 3px; background: var(--border-strong); }
-.notes-resize:hover::after { background: var(--indigo); }
+.notes-resize { position: absolute; left: -10px; top: 0; bottom: 0; width: 20px; cursor: col-resize; z-index: 2; display: flex; align-items: center; justify-content: center; touch-action: none; }
+.notes-resize span { width: 6px; height: 64px; border-radius: 6px; background: var(--border-strong); border: 1px solid #fff; box-shadow: var(--shadow-sm); transition: background .12s; }
+.notes-resize:hover span, body.notes-resizing .notes-resize span { background: var(--indigo); }
 body.notes-resizing { cursor: col-resize; user-select: none; }
 body.notes-resizing .notes-drawer { transition: none; }
 @media (max-width: 1100px) { body.notes-open .content { padding-right: 28px; } body.notes-open .assistant-fab, body.notes-open .assistant-panel { right: 22px; } }

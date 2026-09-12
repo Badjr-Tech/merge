@@ -21,13 +21,23 @@ export default function NotesDrawer({ projectId, initialNotes, open, onClose, ca
 
   const startDrag = (e) => {
     e.preventDefault();
+    const handle = e.currentTarget;
     dragging.current = true;
     document.body.classList.add('notes-resizing');
+    if (handle.setPointerCapture && e.pointerId !== undefined) { try { handle.setPointerCapture(e.pointerId); } catch { /* ignore */ } }
     const onMove = (ev) => {
       if (!dragging.current) return;
-      const x = ev.touches ? ev.touches[0].clientX : ev.clientX;
-      setWidth(Math.min(Math.max(window.innerWidth - x, 300), Math.min(900, window.innerWidth - 240)));
+      setWidth(Math.min(Math.max(window.innerWidth - ev.clientX, 300), Math.min(900, window.innerWidth - 240)));
     };
+    const onUp = () => {
+      dragging.current = false;
+      document.body.classList.remove('notes-resizing');
+      handle.removeEventListener('pointermove', onMove); handle.removeEventListener('pointerup', onUp); handle.removeEventListener('pointercancel', onUp);
+      window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp);
+    };
+    handle.addEventListener('pointermove', onMove); handle.addEventListener('pointerup', onUp); handle.addEventListener('pointercancel', onUp);
+    window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
+  };
     const onUp = () => { dragging.current = false; document.body.classList.remove('notes-resizing'); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); window.removeEventListener('touchmove', onMove); window.removeEventListener('touchend', onUp); };
     window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp); window.addEventListener('touchmove', onMove, { passive: false }); window.addEventListener('touchend', onUp);
   };
@@ -69,7 +79,7 @@ export default function NotesDrawer({ projectId, initialNotes, open, onClose, ca
 
   return (
     <aside className={`notes-drawer ${open ? 'open' : ''}`} aria-label="Grant notes" aria-hidden={!open} style={{ width }}>
-      <div className="notes-resize" onMouseDown={startDrag} onTouchStart={startDrag} title="Drag to resize" role="separator" aria-orientation="vertical" />
+      <div className="notes-resize" onPointerDown={startDrag} title="Drag to resize" role="separator" aria-orientation="vertical"><span /></div>
       <div className="notes-head">
         <div>
           <div className="strong" style={{ color: 'var(--navy)' }}>Grant notes</div>
