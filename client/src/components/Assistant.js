@@ -4,6 +4,7 @@ import { marked } from 'marked';
 import api, { errorMessage } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { Button, Textarea } from './ui';
+import { usePlan } from '../context/PlanContext';
 
 const STARTERS = [
   'What should I include when describing our organization?',
@@ -14,6 +15,7 @@ const STARTERS = [
 
 export default function Assistant() {
   const { user } = useAuth();
+  const { has, plan } = usePlan();
   const location = useLocation();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState(null);
@@ -84,8 +86,15 @@ export default function Assistant() {
           </div>
         </div>
         <div className="assistant-body" ref={bodyRef}>
-          {messages === null && <div className="loading-block"><span className="spinner" /></div>}
-          {messages && messages.length === 0 && (
+          {!has('assistant') && (
+            <div className="assistant-intro">
+              <span className="badge badge-gold mb-1">Starter and above</span>
+              <p className="mb-1"><strong>Ask Merge</strong> is a writing assistant that knows your organization profile, your partners, and the project you have open.</p>
+              <p className="tiny muted">Your workspace is on {plan?.name || 'Free'}. <Link to="/app/settings#plan" onClick={() => setOpen(false)}>See plans</Link>.</p>
+            </div>
+          )}
+          {has('assistant') && messages === null && <div className="loading-block"><span className="spinner" /></div>}
+          {has('assistant') && messages && messages.length === 0 && (
             <div className="assistant-intro">
               <p className="mb-1"><strong>Hi {(user?.name || user?.username || '').split(' ')[0]}.</strong> I know your organization's profile{projectName ? ' and the project you have open' : ''}. Ask me what to write, how to say it, or what a funder is looking for.</p>
               <p className="tiny muted">Tip: fill in your organization profile under <Link to="/app/settings" onClick={() => setOpen(false)}>Settings</Link> so my advice uses your real mission, programs, and impact.</p>
@@ -94,7 +103,7 @@ export default function Assistant() {
               </div>
             </div>
           )}
-          {messages && messages.map(msg => (
+          {has('assistant') && messages && messages.map(msg => (
             <div key={msg.id} className={`assistant-msg ${msg.role}`}>
               {msg.role === 'assistant'
                 ? <div className="prose" dangerouslySetInnerHTML={{ __html: marked.parse(msg.content || '') }} />
@@ -106,7 +115,7 @@ export default function Assistant() {
         </div>
         <div className="assistant-foot">
           <Textarea rows={2} value={input} onChange={e => setInput(e.target.value)} onKeyDown={onKey} placeholder={projectName ? `Ask about ${projectName}…` : 'Ask what to write…'} style={{ minHeight: 48 }} />
-          <Button onClick={() => send()} loading={sending} disabled={!input.trim()}>Send</Button>
+          <Button onClick={() => send()} loading={sending} disabled={!input.trim() || !has('assistant')}>Send</Button>
         </div>
       </div>
     </>

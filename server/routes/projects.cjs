@@ -93,6 +93,12 @@ router.post('/', auth, async (req, res) => {
   if (!req.user.companyId) return res.status(400).json({ msg: 'You are not attached to a workspace.' });
   if (!['admin', 'editor', 'approver'].includes(req.user.role)) return res.status(403).json({ msg: 'Viewers cannot create projects.' });
   try {
+    const company = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { plan: true, trialEndsAt: true } });
+    const plan = planFor(company);
+    if (plan.limits.activeProjects !== null) {
+      const active = await prisma.project.count({ where: { companyId: req.user.companyId, isArchived: false, isCompleted: false } });
+      if (active >= plan.limits.activeProjects) return res.status(402).json({ msg: `The ${plan.name} plan includes ${plan.limits.activeProjects} active projects. Complete or archive one, or upgrade to Starter for unlimited projects.`, feature: 'unlimited_projects', upgrade: true });
+    }
     const qs = Array.isArray(questions) ? questions.filter(q => q && q.text && q.text.trim()) : [];
     const project = await prisma.project.create({
       data: {
@@ -628,7 +634,7 @@ async function answeredQuestions(companyId, excludeQuestionId) {
 
 // @route   GET api/projects/answers/bank?q=
 // @desc    Every answered question in the workspace, searchable
-router.get('/answers/bank', auth, async (req, res) => {
+router.get('/answers/bank', auth, requireFeature(prisma, 'answer_bank'), async (req, res) => {
   try {
     if (!req.user.companyId) return res.status(400).json({ msg: 'You are not attached to a workspace.' });
     const rows = await answeredQuestions(req.user.companyId);
@@ -647,7 +653,7 @@ router.get('/answers/bank', auth, async (req, res) => {
 
 // @route   GET api/projects/questions/:id/similar
 // @desc    Previously answered questions that look like this one
-router.get('/questions/:id/similar', auth, async (req, res) => {
+router.get('/questions/:id/similar', auth, requireFeature(prisma, 'answer_bank'), async (req, res) => {
   try {
     const question = await prisma.question.findUnique({ where: { id: req.params.id }, include: { project: { select: { companyId: true, id: true } } } });
     if (!question || question.project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Question not found' });
@@ -1110,16 +1116,8 @@ router.post('/:id/request-approval', auth, async (req, res) => {
       return res.status(401).json({ msg: 'User not authorized to request approval for this project' });
     }
 
-    // Plan limit: Starter workspaces get a fixed number of approval requests per month
-    const company = await prisma.company.findUnique({ where: { id: project.companyId }, select: { plan: true } });
-    const plan = planFor(company);
-    if (plan.limits.approvalsPerMonth !== null) {
-      const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-      const used = await prisma.approvalRequest.count({ where: { requestedAt: { gte: monthStart }, project: { companyId: project.companyId } } });
-      if (used >= plan.limits.approvalsPerMonth) {
-        return res.status(402).json({ msg: `Your ${plan.name} plan includes ${plan.limits.approvalsPerMonth} approval requests per month and you've used them all. Upgrade to Premium for unlimited approvals.`, feature: 'approvals', upgrade: true });
-      }
-    }
+    const approvalCompany = await prisma.company.findUnique({ where: { id: project.companyId }, select: { plan: true, trialEndsAt: true } });
+    if (!hasFeature(approvalCompany, 'approvals')) return res.status(402).json({ msg: 'Approvals are included in Premium and above.', feature: 'approvals', upgrade: true });
 
     // Ensure the approver exists and is in the same company
     const approver = await prisma.user.findUnique({ where: { id: approverId } });

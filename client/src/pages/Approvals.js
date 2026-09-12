@@ -4,9 +4,10 @@ import api, { errorMessage } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Badge, Button, Card, EmptyState, ErrorBlock, Field, Loading, Modal, PageHeader, Tabs, Textarea, useConfirm } from '../components/ui';
+import UpgradeGate from '../components/Upgrade';
 import { displayName, formatDateTime, formatDate } from '../lib/format';
 
-export default function Approvals() {
+function InnerApprovals() {
   const { isApprover, isAdmin } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
@@ -102,4 +103,8 @@ export default function Approvals() {
       </Modal>
     </div>
   );
+}
+
+export default function Approvals() {
+  return <UpgradeGate feature="approvals"><InnerApprovals /></UpgradeGate>;
 }

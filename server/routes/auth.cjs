@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const prisma = require('../utils/prisma.cjs');
 const auth = require('../middleware/auth');
 const { sendEmail, emailConfigured, appUrl, layout, button } = require('../utils/email.cjs');
+const { planFor, TRIAL_DAYS, TRIAL_PLAN } = require('../utils/plans.cjs');
 
 const TOKEN_TTL = '7d';
 const INVITE_TTL_DAYS = 7;
@@ -82,7 +83,7 @@ router.post('/signup', async (req, res) => {
     const username = await uniqueUsername(email.split('@')[0]);
 
     const user = await prisma.$transaction(async (tx) => {
-      const company = await tx.company.create({ data: { name: companyName.trim() } });
+      const company = await tx.company.create({ data: { name: companyName.trim(), plan: TRIAL_PLAN, trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 3600 * 1000) } });
       return tx.user.create({
         data: {
           username,
@@ -97,6 +98,12 @@ router.post('/signup', async (req, res) => {
       });
     });
 
+    sendEmail({
+      to: email,
+      subject: `Welcome to Merge — your ${TRIAL_DAYS}-day Premium trial has started`,
+      html: layout(`Welcome, ${name.trim().split(' ')[0]}!`, `<p>Your workspace <strong>${companyName.trim()}</strong> is ready, and you have full Premium access for the next ${TRIAL_DAYS} days: teammates, approvals, the answer bank, Ask Merge, partners, and editable narratives.</p><p>Three things to do first:</p><ol><li>Create a project from a grant application.</li><li>Fill in your organization profile under Settings so Ask Merge writes in your voice.</li><li>Invite a teammate from the Team page.</li></ol>${button(appUrl('/app'), 'Open Merge')}`),
+      text: `Welcome to Merge. Your ${TRIAL_DAYS}-day Premium trial has started. Open Merge: ${appUrl('/app')}`,
+    }).catch(() => {});
     res.json({ token: signToken(user), user: publicUser(user) });
   } catch (err) {
     console.error('Signup error:', err);
@@ -197,6 +204,16 @@ router.post('/invitations', auth, async (req, res) => {
   try {
     const inviter = await prisma.user.findUnique({ where: { id: req.user.id }, include: { company: true } });
     if (!inviter.companyId) return res.status(400).json({ msg: 'You are not attached to a workspace.' });
+
+    const plan = planFor(inviter.company);
+    if (!plan.features.includes('team')) return res.status(402).json({ msg: `Inviting teammates is included in Premium and above. Your workspace is on ${plan.name}.`, feature: 'team', upgrade: true });
+    if (plan.limits.seats !== null) {
+      const [members, pending] = await Promise.all([
+        prisma.user.count({ where: { companyId: inviter.companyId } }),
+        prisma.invitation.count({ where: { companyId: inviter.companyId, acceptedAt: null, expiresAt: { gt: new Date() } } }),
+      ]);
+      if (members + pending >= plan.limits.seats) return res.status(402).json({ msg: `${plan.name} includes up to ${plan.limits.seats} people and your workspace is full (counting pending invitations). Upgrade to add more.`, feature: 'seats', upgrade: true });
+    }
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing && existing.companyId === inviter.companyId) return res.status(400).json({ msg: 'That person is already on your team.' });

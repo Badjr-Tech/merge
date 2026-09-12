@@ -5,11 +5,15 @@ import { useAuth } from '../context/AuthContext';
 import { Card } from './ui';
 
 export const FEATURE_COPY = {
+  unlimited_projects: { title: 'Unlimited projects', min: 'Starter', text: 'Free includes two active projects. Starter removes the cap.' },
+  answer_bank: { title: 'Answer bank', min: 'Starter', text: 'Every answer your team writes becomes searchable and reusable, with similar-answer suggestions while you write.' },
+  assistant: { title: 'Ask Merge', min: 'Starter', text: 'A writing assistant that knows your organization, your partners, and the project you have open.' },
+  team: { title: 'Teammates', min: 'Premium', text: 'Invite people, assign questions, and write together.' },
+  approvals: { title: 'Approvals', min: 'Premium', text: 'Route a finished proposal to an approver and track sign-off.' },
   partners: { title: 'Partners directory', text: 'Keep the organizations you collaborate with in one place and let Ask Merge recommend which ones fit a grant.' },
   past_proposals: { title: 'Past proposals library', text: 'Store finished applications, including ones written before Merge, and search them when the next grant comes around.' },
   narrative_editing: { title: 'Editable merged narrative', text: 'Polish the merged document as one piece of writing, with every edit saved to version history.' },
   ai_reviewer: { title: 'AI reviewer', text: 'Get a funder\'s-eye critique of a proposal before you submit it.' },
-  approvals: { title: 'Unlimited approvals', text: 'Starter includes 5 approval requests per month. Premium removes the cap.' },
 };
 
 export default function UpgradeGate({ feature, children }) {
@@ -19,7 +23,7 @@ export default function UpgradeGate({ feature, children }) {
   const copy = FEATURE_COPY[feature] || { title: 'Premium feature', text: 'This feature is included in Premium and above.' };
   return (
     <Card pad className="upgrade-card">
-      <div className="badge badge-gold mb-1">Premium</div>
+      <div className="badge badge-gold mb-1">{copy.min || 'Premium'} and above</div>
       <h3>{copy.title}</h3>
       <p className="muted">{copy.text}</p>
       <p className="small muted">Your workspace is on the <strong>{plan?.name || 'Starter'}</strong> plan.</p>

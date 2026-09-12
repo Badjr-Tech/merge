@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api, { errorMessage } from '../api';
 import { Badge, Card, CopyButton, EmptyState, ErrorBlock, Input, Loading, PageHeader } from '../components/ui';
+import UpgradeGate from '../components/Upgrade';
 import { displayName, formatDate, wordCount } from '../lib/format';
 
-export default function AnswerBank() {
+function InnerAnswerBank() {
   const [q, setQ] = useState('');
   const [rows, setRows] = useState(null);
   const [error, setError] = useState('');
@@ -58,4 +59,8 @@ export default function AnswerBank() {
       <p className="tiny faint mt-3">Tip: when you open a question inside a project, Merge automatically shows similar answers from here.</p>
     </div>
   );
+}
+
+export default function AnswerBank() {
+  return <UpgradeGate feature="answer_bank"><InnerAnswerBank /></UpgradeGate>;
 }

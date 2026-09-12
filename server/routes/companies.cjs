@@ -11,13 +11,12 @@ router.get('/mine', auth, async (req, res) => {
     const company = await prisma.company.findUnique({
       where: { id: req.user.companyId },
       select: {
-        id: true, name: true, createdAt: true, profile: true, plan: true,
+        id: true, name: true, createdAt: true, profile: true, plan: true, trialEndsAt: true,
         _count: { select: { users: true, projects: true, files: true } },
       },
     });
-    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    const approvalsThisMonth = await prisma.approvalRequest.count({ where: { requestedAt: { gte: monthStart }, project: { companyId: req.user.companyId } } });
-    res.json({ ...company, planInfo: publicPlan(company), usage: { approvalsThisMonth } });
+    const activeProjects = await prisma.project.count({ where: { companyId: req.user.companyId, isArchived: false, isCompleted: false } });
+    res.json({ ...company, planInfo: publicPlan(company), usage: { activeProjects, seats: company._count.users } });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ msg: 'Server error' });
@@ -111,16 +110,17 @@ router.post('/mine/profile/import', auth, async (req, res) => {
 router.put('/mine/plan', auth, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ msg: 'Admins only.' });
   const plan = String(req.body.plan || '');
-  if (!PLANS[plan] || plan === 'custom') return res.status(400).json({ msg: 'Choose Starter, Premium, or Enterprise. Contact us for Custom.' });
+  if (!PLANS[plan] || plan === 'custom') return res.status(400).json({ msg: 'Choose Free, Starter, Premium, or Enterprise. Contact us for Custom.' });
   try {
-    const company = await prisma.company.update({ where: { id: req.user.companyId }, data: { plan }, select: { id: true, plan: true } });
+    // Picking a plan ends the trial; the chosen plan applies immediately.
+    const company = await prisma.company.update({ where: { id: req.user.companyId }, data: { plan, trialEndsAt: null }, select: { id: true, plan: true, trialEndsAt: true } });
     res.json({ ...company, planInfo: publicPlan(company) });
   } catch (err) { res.status(500).json({ msg: 'Server error' }); }
 });
 
 // GET /api/companies/plans — public catalogue for the pricing page and upgrade prompts
 router.get('/plans', (req, res) => {
-  res.json(Object.entries(PLANS).map(([key, p]) => ({ key, name: p.name, price: p.price, features: p.features, limits: p.limits })));
+  res.json(Object.entries(PLANS).map(([key, p]) => ({ key, name: p.name, price: p.price, per: p.per, features: p.features, limits: p.limits })));
 });
 
 module.exports = router;

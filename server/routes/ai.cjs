@@ -269,7 +269,7 @@ router.delete('/chat', auth, async (req, res) => {
 });
 
 // POST /api/ai/chat — send a message
-router.post('/chat', auth, async (req, res) => {
+router.post('/chat', auth, requireFeature(prisma, 'assistant'), async (req, res) => {
   const message = String(req.body.message || '').trim().slice(0, 4000);
   const projectId = req.body.projectId || null;
   if (!message) return res.status(400).json({ msg: 'Say something first.' });

@@ -44,7 +44,7 @@ export default function AppShell() {
         </div>
         <div className="sidebar-workspace">
           <div className="name truncate">{user?.company?.name || 'Workspace'}</div>
-          <div className="role">{user?.role}{plan ? ` · ${plan.name}` : ''}</div>
+          <div className="role">{user?.role}{plan ? ` · ${plan.name}${plan.trialing ? ' trial' : ''}` : ''}</div>
         </div>
         <nav className="sidebar-nav">
           {link('/app', 'Home', I.home)}
@@ -80,6 +80,12 @@ export default function AppShell() {
         <header className="topbar">
           <button className="btn btn-secondary btn-icon menu-btn" onClick={() => setOpen(o => !o)} aria-label="Menu">{I.menu}</button>
           <span className="crumbs">{user?.company?.name}</span>
+          {plan?.trialing && (
+            <Link to="/app/settings#plan" className="trial-pill">Premium trial · {plan.trialDaysLeft} day{plan.trialDaysLeft === 1 ? '' : 's'} left · Choose a plan</Link>
+          )}
+          {plan?.trialExpired && plan.key === 'free' && (
+            <Link to="/app/settings#plan" className="trial-pill ended">Trial ended · you're on Free · See plans</Link>
+          )}
         </header>
         <main className="content">
           <Outlet />

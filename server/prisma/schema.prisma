@@ -48,6 +48,9 @@ model Company {
   createdAt    DateTime      @default(now())
   profile      Json?
   plan         String        @default("starter")
+  trialEndsAt  DateTime?
+  trialReminderSentAt DateTime?
+  trialEndedSentAt    DateTime?
   assistantMessages AssistantMessage[]
   partners     Partner[]
 }

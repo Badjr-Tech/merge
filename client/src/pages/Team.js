@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Avatar, Badge, Button, Card, CopyButton, EmptyState, ErrorBlock, Field, Input, Loading, Modal, PageHeader, Select, useConfirm } from '../components/ui';
 import { displayName, formatDate } from '../lib/format';
+import { usePlan } from '../context/PlanContext';
+import { Link } from 'react-router-dom';
 
 const ROLES = [
   { value: 'admin', label: 'Admin', desc: 'Manages the workspace, team, and every project.' },
@@ -15,6 +17,7 @@ const ROLES = [
 export default function Team() {
   const { user } = useAuth();
   const toast = useToast();
+  const { plan, has, usage } = usePlan();
   const [users, setUsers] = useState(null);
   const [invites, setInvites] = useState([]);
   const [pending, setPending] = useState([]);
@@ -61,6 +64,8 @@ export default function Team() {
       <PageHeader title="Team" subtitle="Invite teammates and manage what each person can do." actions={<Button onClick={() => { setCreated(null); setInviteOpen(true); }}>+ Invite teammate</Button>} />
       {error && <ErrorBlock message={error} retry={load} />}
       {!users && !error && <Loading />}
+      {plan && !has('team') && <div className="callout callout-gold mb-3"><strong>Teammates are included in Premium and above.</strong> Your workspace is on {plan.name}. <Link to="/app/settings#plan">See plans</Link>.</div>}
+      {plan && has('team') && plan.limits.seats !== null && usage && <p className="small muted mb-2">{usage.seats} of {plan.limits.seats} seats used on {plan.name}{plan.trialing ? ' (trial)' : ''}.</p>}
 
       {pending.length > 0 && (
         <Card className="mb-3">

@@ -13,7 +13,7 @@ export default function Landing() {
             <Link to="/signup" className="btn btn-primary btn-lg">Start your workspace</Link>
             <a href="#how" className="btn btn-secondary btn-lg">See how it works</a>
           </div>
-          <p className="note">Free while in early access. No credit card needed.</p>
+          <p className="note">14-day Premium trial on every new workspace. No credit card needed.</p>
         </div>
         <div className="hero-art mock">
           <div className="mock-bar"><span /><span /><span /></div>
@@ -59,14 +59,14 @@ export default function Landing() {
 
       <section className="section" id="pricing">
         <h2>Simple pricing</h2>
-        <p className="sub">Per person, per month. Start on Starter and move up when your team needs more.</p>
-        <div className="grid-4 pricing-grid">
-          <Card className="price-card"><h3>Starter</h3><div className="price">$8.99<small>/person/mo</small></div><p className="small muted">Everything you need to write and submit.</p><ul><li>Projects, questions, and limits</li><li>Answer bank and reuse</li><li>Ask Merge writing assistant</li><li>File cabinet and calendar</li><li>PDF and Word export</li><li>5 approval requests / month</li><li>Up to 5 people</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Get started</Link></Card>
-          <Card className="price-card featured"><span className="badge badge-green">Most popular</span><h3 className="mt-1">Premium</h3><div className="price">$22.99<small>/person/mo</small></div><p className="small muted">For teams that reuse, review, and polish.</p><ul><li>Everything in Starter</li><li>Unlimited approvals</li><li>Partners directory</li><li>Past proposals library</li><li>Editable narrative with version history</li><li>AI reviewer</li><li>Up to 25 people</li></ul><Link to="/signup" className="btn btn-primary btn-block">Start with Premium</Link></Card>
-          <Card className="price-card"><h3>Enterprise</h3><div className="price">$49.99<small>/person/mo</small></div><p className="small muted">For larger organizations and networks.</p><ul><li>Everything in Premium</li><li>Unlimited people</li><li>Multiple workspaces</li><li>Higher AI limits</li><li>Priority support</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Start free</Link></Card>
-          <Card className="price-card"><h3>Custom</h3><div className="price" style={{ fontSize: 30 }}>Let's talk</div><p className="small muted">For consultants and agencies managing many clients.</p><ul><li>Client workspaces under one login</li><li>Custom branding</li><li>Custom integrations</li><li>Volume pricing</li></ul><a href="mailto:hello@dakjencreative.com" className="btn btn-secondary btn-block">Contact us</a></Card>
+        <p className="sub">Every new workspace starts with a free 14-day Premium trial. No credit card. Then pick the plan that fits.</p>
+        <div className="pricing-5">
+          <Card className="price-card"><h3>Free</h3><div className="price">$0</div><p className="small muted">Try it on a real grant.</p><ul><li>1 person</li><li>2 active projects</li><li>Questions and limits</li><li>Merge and download</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Get started</Link></Card>
+          <Card className="price-card"><h3>Starter</h3><div className="price">$8.99<small>/mo</small></div><p className="small muted">For a solo grant writer.</p><ul><li>1 person</li><li>Unlimited projects</li><li>Answer bank</li><li>Ask Merge assistant</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Start free trial</Link></Card>
+          <Card className="price-card featured"><span className="badge badge-green">Most popular</span><h3 className="mt-1">Premium</h3><div className="price">$22.99<small>/person/mo</small></div><p className="small muted">For teams that write together.</p><ul><li>Up to 5 people</li><li>Approvals</li><li>Partners and past proposals</li><li>Editable narrative with history</li><li>AI reviewer</li></ul><Link to="/signup" className="btn btn-primary btn-block">Start free trial</Link></Card>
+          <Card className="price-card"><h3>Enterprise</h3><div className="price">$49.99<small>/person/mo</small></div><p className="small muted">For larger organizations.</p><ul><li>Up to 20 people</li><li>Everything in Premium</li><li>Multiple workspaces</li><li>Priority support</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Start free trial</Link></Card>
+          <Card className="price-card"><h3>Custom</h3><div className="price" style={{ fontSize: 26 }}>Let's talk</div><p className="small muted">Consultants, networks, 20+ people.</p><ul><li>Client workspaces</li><li>Custom branding</li><li>Volume pricing</li></ul><a href="mailto:hello@dakjencreative.com" className="btn btn-secondary btn-block">Contact us</a></Card>
         </div>
-        <p className="tiny faint" style={{ textAlign: 'center', marginTop: 16 }}>Early access: every new workspace starts on Starter and can switch plans from Settings while billing is being set up.</p>
       </section>
 
       <section className="cta-band">
