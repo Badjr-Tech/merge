@@ -38,9 +38,6 @@ export default function NotesDrawer({ projectId, initialNotes, open, onClose, ca
     handle.addEventListener('pointermove', onMove); handle.addEventListener('pointerup', onUp); handle.addEventListener('pointercancel', onUp);
     window.addEventListener('pointermove', onMove); window.addEventListener('pointerup', onUp);
   };
-    const onUp = () => { dragging.current = false; document.body.classList.remove('notes-resizing'); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); window.removeEventListener('touchmove', onMove); window.removeEventListener('touchend', onUp); };
-    window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp); window.addEventListener('touchmove', onMove, { passive: false }); window.addEventListener('touchend', onUp);
-  };
 
   useEffect(() => {
     if (ref.current && ref.current.innerHTML !== (initialNotes || '')) ref.current.innerHTML = initialNotes || '';
