@@ -27,7 +27,7 @@ export function errorMessage(err, fallback = 'Something went wrong.') {
     if (typeof d === 'string') return d;
     return d.msg || d.message || fallback;
   }
-  if (err && err.message === 'Network Error') return 'Could not reach the server. Check your connection.';
+  if (err && (err.message === 'Network Error' || err.code === 'ECONNABORTED')) return 'The server did not respond. It may have timed out. Please try again in a moment.';
   return fallback;
 }
 
