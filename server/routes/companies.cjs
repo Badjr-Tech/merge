@@ -92,13 +92,11 @@ router.post('/mine/profile/import', auth, async (req, res) => {
       .replace(/\s+/g, ' ').trim().slice(0, 20000);
     if (text.length < 200) return res.status(400).json({ msg: 'That page has very little readable text. Try the About page.' });
 
-    const { GoogleGenerativeAI } = require('@google/generative-ai');
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite', generationConfig: { responseMimeType: 'application/json' } });
+    const { generateText } = require('../utils/gemini.cjs');
     const prompt = `You are helping a nonprofit set up its grant-writing profile. Read this text from their website and fill in the JSON fields below using only information that is actually present. Leave a field as an empty string if the site does not say. Write in plain, specific sentences (2-5 each), in the organization's own voice.\n\nFields:\n- mission: what the organization exists to do\n- philosophy: values, beliefs, or approach that guide the work\n- programs: the main programs or services offered\n- audience: who they serve and where\n- impact: concrete results, numbers, history, or milestones mentioned\n- tone: 3-6 adjectives describing how the site is written\n\nReturn JSON with exactly those keys.\n\nWEBSITE TEXT:\n${text}`;
-    const result = await model.generateContent(prompt);
+    const raw = await generateText(prompt, { generationConfig: { responseMimeType: 'application/json' } });
     let draft = {};
-    try { draft = JSON.parse(result.response.text()); } catch { return res.status(500).json({ msg: 'The AI returned an unexpected format. Try again.' }); }
+    try { draft = JSON.parse(raw); } catch { return res.status(500).json({ msg: 'The AI returned an unexpected format. Try again.' }); }
     res.json({ profile: { ...cleanProfile(draft), website: url } });
   } catch (err) {
     console.error('Profile import error:', err.message);

@@ -3,11 +3,9 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { requireFeature } = require('../utils/plans.cjs');
+const { generateText, chatReply } = require('../utils/gemini.cjs');
 
-// Access your API key as an environment variable (ensure GEMINI_API_KEY is set in .env)
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // @route   POST api/ai/review
 // @desc    Send a project for AI review
@@ -37,14 +35,10 @@ router.post('/review', auth, requireFeature(prisma, 'ai_reviewer'), async (req, 
       return res.status(401).json({ msg: 'User not authorized to review this project' });
     }
 
-    // Construct the prompt for the Gemini API
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' });
-
+    // Build the prompt and ask Gemini (model chosen with fallback)
     const prompt = `You are an expert grant reviewer. Review the following project proposal in the context of a grant application.\nProject Name: ${project.name}\nProject Description: ${project.description || 'No description provided.'}\nProject Details: ${JSON.stringify(project.details || {})}\n\nGrant Website: ${grantWebsite}\nGrant Purpose Statement: ${grantPurposeStatement}\n\nPlease review the grant website and information about previous winners (if available) to understand the grant's priorities. Based on this information, review the provided project proposal.\nno extra attachements will be viewable, so please do not critique lack of attachments. if the grant notes a special attachment needed, please reference it in the reccomendation list\nFormat your response as a markdown document with the following sections: 5 Highlights, 5 Critiques, Strengths, Weaknesses, and a Recommendation List with a short summary beneath. Keep your commentary under 500 words. Prioritize the recommendations and include a section on how to make the application stand out.`;
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    const text = await generateText(prompt);
 
     // Save the AI review to the database
     await prisma.aIReviewLog.create({
@@ -303,15 +297,10 @@ ORGANIZATION PROFILE:
 ${profileBlock(company)}
 ${partnerBlock}${projectBlock(project)}`;
 
-    const { GoogleGenerativeAI } = require('@google/generative-ai');
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite', systemInstruction: system });
     const past = history.reverse().map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
     // Gemini requires the history to start with a user turn
     while (past.length && past[0].role !== 'user') past.shift();
-    const chat = model.startChat({ history: past });
-    const result = await chat.sendMessage(message);
-    const reply = result.response.text();
+    const reply = await chatReply({ systemInstruction: system, history: past, message });
 
     const saved = await prisma.$transaction([
       prisma.assistantMessage.create({ data: { companyId: req.user.companyId, userId: req.user.id, role: 'user', content: message, projectId } }),
@@ -320,7 +309,7 @@ ${partnerBlock}${projectBlock(project)}`;
     res.json({ reply: { id: saved[1].id, role: 'assistant', content: reply, createdAt: saved[1].createdAt }, user: { id: saved[0].id, role: 'user', content: message, createdAt: saved[0].createdAt } });
   } catch (err) {
     console.error('Assistant error:', err);
-    res.status(500).json({ msg: err.message && err.message.includes('API key') ? 'The AI key on the server is not valid.' : 'The assistant could not answer. Try again.' });
+    res.status(500).json({ msg: err.message && err.message.includes('API key') ? 'The AI key on the server is not valid.' : `The assistant could not answer (${err.status || 'error'}). Try again.` });
   }
 });
 
