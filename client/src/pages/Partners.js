@@ -3,10 +3,11 @@ import api, { errorMessage } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Badge, Button, Card, EmptyState, ErrorBlock, Field, Input, Loading, Modal, PageHeader, Textarea, useConfirm } from '../components/ui';
+import UpgradeGate from '../components/Upgrade';
 
 const blank = { name: '', location: '', description: '', website: '', contactName: '', contactEmail: '', tags: '', notes: '' };
 
-export default function Partners() {
+function InnerPartners() {
   const { canEdit } = useAuth();
   const toast = useToast();
   const [partners, setPartners] = useState(null);
@@ -83,4 +84,8 @@ export default function Partners() {
       </Modal>
     </div>
   );
+}
+
+export default function Partners() {
+  return <UpgradeGate feature="partners"><InnerPartners /></UpgradeGate>;
 }

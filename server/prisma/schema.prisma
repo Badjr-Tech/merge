@@ -47,6 +47,7 @@ model Company {
   invitations  Invitation[]
   createdAt    DateTime      @default(now())
   profile      Json?
+  plan         String        @default("starter")
   assistantMessages AssistantMessage[]
   partners     Partner[]
 }
@@ -84,6 +85,20 @@ model Narrative {
   projectId String   @unique
   author    User     @relation(fields: [authorId], references: [id])
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  versions  NarrativeVersion[]
+}
+
+model NarrativeVersion {
+  id            String    @id @default(cuid())
+  narrativeId   String
+  versionNumber Int
+  content       String
+  note          String?
+  createdById   String
+  createdAt     DateTime  @default(now())
+  narrative     Narrative @relation(fields: [narrativeId], references: [id], onDelete: Cascade)
+
+  @@unique([narrativeId, versionNumber])
 }
 
 model ProjectVersion {

@@ -5,6 +5,7 @@ import api, { errorMessage } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Badge, Button, Card, EmptyState, ErrorBlock, Field, Input, Loading, PageHeader, Select, Tabs, Textarea } from '../components/ui';
+import UpgradeGate from '../components/Upgrade';
 import { displayName, formatDateTime } from '../lib/format';
 
 export function AIReviewer() {
@@ -53,7 +54,7 @@ export function AIReviewer() {
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
       {error && <ErrorBlock message={error} />}
       {tab === 'new' && (
-        <div className="grid-2" style={{ gridTemplateColumns: '2fr 3fr' }}>
+        <UpgradeGate feature="ai_reviewer"><div className="grid-2" style={{ gridTemplateColumns: '2fr 3fr' }}>
           <Card pad>
             <Field label="Project"><Select value={projectId} onChange={e => setProjectId(e.target.value)}><option value="">Select a project</option>{projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</Select></Field>
             <Field label="Grant website" hint="The funder's page for this opportunity."><Input type="url" value={website} onChange={e => setWebsite(e.target.value)} placeholder="https://" /></Field>
@@ -69,7 +70,7 @@ export function AIReviewer() {
               {result && <div className="prose" dangerouslySetInnerHTML={{ __html: marked.parse(result) }} />}
             </div>
           </Card>
-        </div>
+        </div></UpgradeGate>
       )}
       {tab === 'history' && (reviews === null ? <Loading /> : list(reviews))}
       {tab === 'archived' && (archived === null ? <Loading /> : list(archived))}

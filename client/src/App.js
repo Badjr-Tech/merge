@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { PlanProvider } from './context/PlanContext';
 import AppShell from './layout/AppShell';
 import PublicLayout from './layout/PublicLayout';
 import Landing from './pages/Landing';
@@ -54,6 +55,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <PlanProvider>
         <ToastProvider>
           <Routes>
             <Route element={<PublicLayout />}>
@@ -95,6 +97,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </ToastProvider>
+        </PlanProvider>
       </AuthProvider>
     </BrowserRouter>
   );

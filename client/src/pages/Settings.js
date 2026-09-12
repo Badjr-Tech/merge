@@ -4,10 +4,25 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Button, Card, Field, Input, PageHeader, Textarea } from '../components/ui';
 import { formatDate } from '../lib/format';
+import { usePlan } from '../context/PlanContext';
+
+const PLAN_FEATURES = {
+  starter: ['Projects, questions, and limits', 'Answer bank', 'Ask Merge assistant', 'File cabinet and calendar', 'PDF and Word export', '5 approval requests / month', 'Up to 5 people'],
+  premium: ['Everything in Starter', 'Unlimited approvals', 'Partners directory', 'Past proposals library', 'Editable narrative with version history', 'AI reviewer', 'Up to 25 people'],
+  enterprise: ['Everything in Premium', 'Unlimited people', 'Multiple workspaces', 'Higher AI limits', 'Priority support'],
+};
 
 export default function Settings() {
   const { user, isAdmin, updateUser } = useAuth();
   const toast = useToast();
+  const { plan, usage, refresh: refreshPlan } = usePlan();
+  const [plans, setPlans] = useState([]);
+  useEffect(() => { api.get('/api/companies/plans').then(r => setPlans(r.data)).catch(() => {}); }, []);
+  const changePlan = async (key) => {
+    setBusy('plan');
+    try { await api.put('/api/companies/mine/plan', { plan: key }); await refreshPlan(); toast.success(`Switched to ${key.charAt(0).toUpperCase() + key.slice(1)}.`); }
+    catch (err) { toast.error(errorMessage(err)); } finally { setBusy(''); }
+  };
   const [name, setName] = useState(user?.name || '');
   const [company, setCompany] = useState(null);
   const [companyName, setCompanyName] = useState('');
@@ -99,6 +114,22 @@ export default function Settings() {
           <Field label="Confirm new password"><Input type="password" autoComplete="new-password" value={pw.confirmNewPassword} onChange={e => setPw({ ...pw, confirmNewPassword: e.target.value })} /></Field>
         </div>
         <div className="form-actions"><Button onClick={savePassword} loading={busy === 'pw'} disabled={!pw.oldPassword || !pw.newPassword}>Update password</Button></div>
+      </Card>
+      <Card className="mb-3" id="plan">
+        <div className="card-header"><div><h3>Plan</h3><div className="tiny muted">Billing isn't connected yet, so admins can switch plans here while Merge is in early access.</div></div>{plan && <span className="badge badge-green">{plan.name}</span>}</div>
+        <div className="card-body">
+          {usage && plan && plan.limits.approvalsPerMonth !== null && <p className="small muted">Approval requests this month: <strong>{usage.approvalsThisMonth} of {plan.limits.approvalsPerMonth}</strong>.</p>}
+          <div className="plan-grid">
+            {plans.filter(p => p.key !== 'custom').map(p => (
+              <button key={p.key} type="button" className={`plan-option ${plan?.key === p.key ? 'current' : ''}`} onClick={() => isAdmin && plan?.key !== p.key && changePlan(p.key)} disabled={!isAdmin || busy === 'plan'}>
+                <div className="row-between"><strong style={{ color: 'var(--navy)' }}>{p.name}</strong>{plan?.key === p.key && <span className="badge badge-green">Current</span>}</div>
+                <div className="p-price">${p.price}<span className="tiny muted"> /person/mo</span></div>
+                <ul>{(PLAN_FEATURES[p.key] || []).map(f => <li key={f}>{f}</li>)}</ul>
+              </button>
+            ))}
+          </div>
+          <p className="tiny faint mt-2">Need multiple client workspaces or custom branding? <a href="mailto:hello@dakjencreative.com">Ask about Custom</a>.</p>
+        </div>
       </Card>
       <Card pad>
         <h3>Workspace</h3>

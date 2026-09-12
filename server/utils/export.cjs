@@ -3,6 +3,15 @@ const PDFDocument = require('pdfkit');
 const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = require('docx');
 
 function sections(project) {
+  if (project.narrativeText) {
+    // Edited narrative: split on numbered headings "1. Question" produced by merge, else fall back to one block
+    const parts = project.narrativeText.split(/\n(?=\d+\.\s)/).map(t => t.trim()).filter(Boolean);
+    return parts.map((block, i) => {
+      const m = block.match(/^(\d+)\.\s+([^\n]+)\n+([\s\S]*)$/);
+      if (m) return { n: parseInt(m[1], 10), question: m[2].trim(), answer: m[3].trim() || '[No answer provided]' };
+      return { n: i + 1, question: '', answer: block };
+    });
+  }
   return (project.questions || []).map((q, i) => ({
     n: i + 1,
     question: q.text,
@@ -36,8 +45,7 @@ function buildPdf(project, company) {
 
     sections(project).forEach(s => {
       if (doc.y > 660) doc.addPage();
-      doc.font('Helvetica-Bold').fontSize(12).fillColor('#0b2d65').text(`${s.n}. ${s.question}`);
-      doc.moveDown(0.3);
+      if (s.question) { doc.font('Helvetica-Bold').fontSize(12).fillColor('#0b2d65').text(`${s.n}. ${s.question}`); doc.moveDown(0.3); }
       doc.font('Helvetica').fontSize(11).fillColor('#3b3b3d').text(s.answer, { lineGap: 3 });
       doc.moveDown(1);
     });
@@ -59,7 +67,7 @@ async function buildDocx(project, company) {
   ];
   if (project.description) children.push(new Paragraph({ children: [new TextRun({ text: project.description, italics: true })], spacing: { after: 300 } }));
   sections(project).forEach(s => {
-    children.push(new Paragraph({ text: `${s.n}. ${s.question}`, heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 120 } }));
+    if (s.question) children.push(new Paragraph({ text: `${s.n}. ${s.question}`, heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 120 } }));
     s.answer.split(/\n{2,}/).forEach(par => {
       children.push(new Paragraph({ children: [new TextRun({ text: par.replace(/\n/g, ' ') })], spacing: { after: 160 }, alignment: AlignmentType.LEFT }));
     });

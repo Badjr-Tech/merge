@@ -4,9 +4,10 @@ import api, { errorMessage } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Button, Card, EmptyState, ErrorBlock, Field, Input, Loading, Modal, PageHeader, Textarea } from '../components/ui';
+import UpgradeGate from '../components/Upgrade';
 import { displayName, formatDate } from '../lib/format';
 
-export default function PastProposals() {
+function InnerPastProposals() {
   const { canEdit } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
@@ -65,4 +66,8 @@ export default function PastProposals() {
       </Modal>
     </div>
   );
+}
+
+export default function PastProposals() {
+  return <UpgradeGate feature="past_proposals"><InnerPastProposals /></UpgradeGate>;
 }

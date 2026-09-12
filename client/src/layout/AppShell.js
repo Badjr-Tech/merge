@@ -6,6 +6,7 @@ import logo from '../merge1.png';
 import { Avatar } from '../components/ui';
 import { displayName } from '../lib/format';
 import Assistant from '../components/Assistant';
+import { usePlan } from '../context/PlanContext';
 
 const I = {
   home: '⌂', projects: '▤', bank: '◫', partners: '☍', tasks: '✎', approvals: '✓', past: '◷', files: '▣', ai: '✦', compliance: '☑', calendar: '▦', team: '☺', settings: '⚙', menu: '☰',
@@ -13,6 +14,7 @@ const I = {
 
 export default function AppShell() {
   const { user, isAdmin, isApprover, signOut } = useAuth();
+  const { has, plan } = usePlan();
   const [open, setOpen] = useState(false);
   const [counts, setCounts] = useState({});
   const location = useLocation();
@@ -25,10 +27,11 @@ export default function AppShell() {
     return () => { cancelled = true; };
   }, [location.pathname]);
 
-  const link = (to, label, icon, count) => (
+  const link = (to, label, icon, count, feature) => (
     <NavLink to={to} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} end={to === '/app'}>
       <span className="nav-icon">{icon}</span>{label}
       {count > 0 && <span className="nav-count">{count}</span>}
+      {feature && !has(feature) && <span className="nav-count" title="Premium feature">★</span>}
     </NavLink>
   );
 
@@ -41,7 +44,7 @@ export default function AppShell() {
         </div>
         <div className="sidebar-workspace">
           <div className="name truncate">{user?.company?.name || 'Workspace'}</div>
-          <div className="role">{user?.role}</div>
+          <div className="role">{user?.role}{plan ? ` · ${plan.name}` : ''}</div>
         </div>
         <nav className="sidebar-nav">
           {link('/app', 'Home', I.home)}
@@ -50,10 +53,10 @@ export default function AppShell() {
           {link('/app/approvals', 'Approvals', I.approvals, isApprover ? counts.awaitingMyApproval : counts.pendingApproval)}
           <div className="nav-section">Tools</div>
           {link('/app/answer-bank', 'Answer bank', I.bank)}
-          {link('/app/ai-review', 'AI reviewer', I.ai)}
+          {link('/app/ai-review', 'AI reviewer', I.ai, 0, 'ai_reviewer')}
           {link('/app/compliance', 'Compliance check', I.compliance)}
-          {link('/app/past-proposals', 'Past proposals', I.past)}
-          {link('/app/partners', 'Partners', I.partners)}
+          {link('/app/past-proposals', 'Past proposals', I.past, 0, 'past_proposals')}
+          {link('/app/partners', 'Partners', I.partners, 0, 'partners')}
           {link('/app/files', 'File cabinet', I.files)}
           {link('/app/calendar', 'Grant calendar', I.calendar)}
           <div className="nav-section">Workspace</div>

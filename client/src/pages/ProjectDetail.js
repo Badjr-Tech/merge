@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Avatar, Badge, Button, Card, CopyButton, EmptyState, ErrorBlock, Field, Input, Loading, Modal, Progress, Select, Tabs, Textarea, useConfirm } from '../components/ui';
 import SimilarAnswers from '../components/SimilarAnswers';
+import { usePlan } from '../context/PlanContext';
+import { FEATURE_COPY } from '../components/Upgrade';
 import { displayName, dueLabel, formatDate, formatDateTime, limitCheck, projectProgress, projectStatus, questionStatus, googleCalendarUrl } from '../lib/format';
 
 function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged }) {
@@ -120,7 +122,12 @@ export default function ProjectDetail() {
   const [params, setParams] = useSearchParams();
   const { user, isAdmin } = useAuth();
   const toast = useToast();
+  const { has } = usePlan();
   const [project, setProject] = useState(null);
+  const [narrativeEdit, setNarrativeEdit] = useState(null); // null = viewing, string = editing
+  const [narrativeVersions, setNarrativeVersions] = useState([]);
+  const [showNarrativeHistory, setShowNarrativeHistory] = useState(false);
+  const [viewVersion, setViewVersion] = useState(null);
   const [error, setError] = useState('');
   const [users, setUsers] = useState([]);
   const [versions, setVersions] = useState([]);
@@ -143,6 +150,7 @@ export default function ProjectDetail() {
     api.get(`/api/projects/${id}`).then(res => setProject(res.data)).catch(err => setError(errorMessage(err, 'Could not load this project.')));
     api.get(`/api/projects/${id}/versions`).then(res => setVersions(res.data)).catch(() => {});
     api.get('/api/ai/reviews', { params: { projectId: id } }).then(res => setReviews(res.data)).catch(() => {});
+    api.get(`/api/projects/${id}/narrative/versions`).then(res => setNarrativeVersions(res.data)).catch(() => setNarrativeVersions([]));
   }, [id]);
 
   useEffect(load, [load]);
@@ -197,6 +205,13 @@ export default function ProjectDetail() {
       const a = document.createElement('a'); a.href = url; a.download = `${project.name.replace(/[^a-z0-9]+/gi, '-')}.${format}`; document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
     } catch (err) { toast.error(errorMessage(err, 'Could not build the document.')); }
   };
+  const saveNarrative = async () => {
+    setBusy(true);
+    try { await api.put(`/api/projects/${id}/narrative`, { content: narrativeEdit }); toast.success('Narrative saved. The previous text is in version history.'); setNarrativeEdit(null); load(); }
+    catch (err) { toast.error(errorMessage(err)); } finally { setBusy(false); }
+  };
+  const restoreVersion = (v) => act(`Restored version ${v.versionNumber}.`, () => api.post(`/api/projects/${id}/narrative/restore/${v.id}`), { title: `Restore version ${v.versionNumber}`, message: 'The current text will be saved as a new version before restoring.', confirmLabel: 'Restore' });
+  const canEditNarrative = has('narrative_editing') && (canManage || ['editor', 'approver'].includes(user.role)) && !project?.isCompleted;
   const merge = () => act('Narrative merged from all answers.', () => api.post(`/api/projects/${id}/compile`), project.narrative ? { title: 'Re-merge narrative', message: 'This replaces the existing narrative with the current answers.', confirmLabel: 'Re-merge' } : null);
 
   const tabs = [
@@ -268,8 +283,28 @@ export default function ProjectDetail() {
             </div>
           </div>
           <div className="card-body">
-            {!allSubmitted && prog.total > 0 && <div className="callout callout-gold mb-2 small">{prog.total - prog.done} question{prog.total - prog.done === 1 ? ' is' : 's are'} not submitted yet. You can still merge, but unanswered questions will be marked as missing.</div>}
-            {project.narrative ? <div className="pre-wrap" style={{ lineHeight: 1.7 }}>{project.narrative.content}</div> : <EmptyState icon="▤" title="No narrative yet">Once answers are in, merge them here to get a single document you can paste into the application.</EmptyState>}
+            {!allSubmitted && prog.total > 0 && !project.narrative && <div className="callout callout-gold mb-2 small">{prog.total - prog.done} question{prog.total - prog.done === 1 ? ' is' : 's are'} not submitted yet. You can still merge, but unanswered questions will be marked as missing.</div>}
+            {project.narrative && narrativeEdit === null && (
+              <div className="row-between mb-2">
+                <span className="small muted">{has('narrative_editing') ? 'Edit this as one document. Every save keeps the previous version.' : <>{FEATURE_COPY.narrative_editing.title} is a Premium feature. {isAdmin ? <Link to="/app/settings#plan">See plans</Link> : 'Ask an admin to upgrade.'}</>}</span>
+                <div className="row">
+                  {narrativeVersions.length > 0 && <Button variant="ghost" size="sm" onClick={() => setShowNarrativeHistory(h => !h)}>{showNarrativeHistory ? 'Hide history' : `History (${narrativeVersions.length})`}</Button>}
+                  {canEditNarrative && <Button variant="accent" size="sm" onClick={() => setNarrativeEdit(project.narrative.content)}>Edit narrative</Button>}
+                </div>
+              </div>
+            )}
+            {showNarrativeHistory && narrativeEdit === null && narrativeVersions.length > 0 && (
+              <div className="table-wrap mb-3"><table className="table"><tbody>{narrativeVersions.map(v => (
+                <tr key={v.id}><td><span className="badge badge-navy">v{v.versionNumber}</span></td><td className="small">{v.note || 'Edited'}</td><td className="small muted">{formatDateTime(v.createdAt)} · {displayName(v.createdBy)}</td><td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}><Button variant="ghost" size="sm" onClick={() => setViewVersion(v)}>View</Button>{canEditNarrative && <Button variant="secondary" size="sm" onClick={() => restoreVersion(v)}>Restore</Button>}</td></tr>
+              ))}</tbody></table></div>
+            )}
+            {narrativeEdit !== null ? (
+              <div>
+                <Textarea className="narrative-editor" value={narrativeEdit} onChange={e => setNarrativeEdit(e.target.value)} />
+                <div className="count-hint">{narrativeEdit.trim().split(/\s+/).filter(Boolean).length} words</div>
+                <div className="form-actions"><Button variant="secondary" onClick={() => setNarrativeEdit(null)} disabled={busy}>Cancel</Button><Button onClick={saveNarrative} loading={busy} disabled={narrativeEdit === project.narrative.content}>Save narrative</Button></div>
+              </div>
+            ) : project.narrative ? <div className="pre-wrap" style={{ lineHeight: 1.7 }}>{project.narrative.content}</div> : <EmptyState icon="▤" title="No narrative yet">Once answers are in, merge them here to get a single document you can edit, download, and paste into the application.</EmptyState>}
           </div>
         </Card>
       )}
@@ -351,6 +386,10 @@ export default function ProjectDetail() {
             <Field label="Approver"><Select value={approverId} onChange={e => setApproverId(e.target.value)}>{approvers.map(u => <option key={u.id} value={u.id}>{displayName(u)}</option>)}</Select></Field>
           </>
         )}
+      </Modal>
+
+      <Modal open={Boolean(viewVersion)} onClose={() => setViewVersion(null)} title={viewVersion ? `Narrative version ${viewVersion.versionNumber}` : ''} size="lg" footer={viewVersion && canEditNarrative && <Button onClick={() => { const v = viewVersion; setViewVersion(null); restoreVersion(v); }}>Restore this version</Button>}>
+        {viewVersion && <div className="pre-wrap" style={{ lineHeight: 1.7 }}>{viewVersion.content}</div>}
       </Modal>
 
       <Modal open={Boolean(snapshot)} onClose={() => setSnapshot(null)} title={snapshot ? `Version ${snapshot.versionNumber}` : ''} size="lg">

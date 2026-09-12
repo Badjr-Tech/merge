@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const prisma = require('../utils/prisma.cjs');
+const { requireFeature } = require('../utils/plans.cjs');
+
+router.use(auth, requireFeature(prisma, 'partners'));
 
 const FIELDS = ['name', 'location', 'description', 'website', 'contactName', 'contactEmail', 'tags', 'notes'];
 function clean(body) {
@@ -12,7 +15,7 @@ function clean(body) {
 function canEdit(req) { return ['admin', 'editor', 'approver'].includes(req.user.role); }
 
 // GET /api/partners
-router.get('/', auth, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     if (!req.user.companyId) return res.status(400).json({ msg: 'You are not attached to a workspace.' });
     const partners = await prisma.partner.findMany({ where: { companyId: req.user.companyId }, orderBy: { name: 'asc' } });
@@ -21,7 +24,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // POST /api/partners
-router.post('/', auth, async (req, res) => {
+router.post('/', async (req, res) => {
   if (!canEdit(req)) return res.status(403).json({ msg: 'Viewers cannot add partners.' });
   const data = clean(req.body);
   if (!data.name) return res.status(400).json({ msg: 'Partner name is required.' });
@@ -32,7 +35,7 @@ router.post('/', auth, async (req, res) => {
 });
 
 // PUT /api/partners/:id
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', async (req, res) => {
   if (!canEdit(req)) return res.status(403).json({ msg: 'Viewers cannot edit partners.' });
   try {
     const existing = await prisma.partner.findUnique({ where: { id: req.params.id } });
@@ -45,7 +48,7 @@ router.put('/:id', auth, async (req, res) => {
 });
 
 // DELETE /api/partners/:id
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   if (!canEdit(req)) return res.status(403).json({ msg: 'Viewers cannot remove partners.' });
   try {
     const existing = await prisma.partner.findUnique({ where: { id: req.params.id } });

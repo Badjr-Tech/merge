@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const prisma = require('../utils/prisma.cjs');
+const { requireFeature, planFor, hasFeature } = require('../utils/plans.cjs');
 
 router.get('/test-route', (req, res) => {
   res.send('Projects test route is working!');
@@ -174,7 +175,7 @@ router.get('/pending-approval-count', auth, async (req, res) => {
 // @route   GET api/projects/completed
 // @desc    Get all completed projects for the logged-in user's company
 // @access  Private
-router.get('/completed', auth, async (req, res) => {
+router.get('/completed', auth, requireFeature(prisma, 'past_proposals'), async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.user.id }, include: { company: true } });
     if (!user || !user.companyId) {
@@ -663,6 +664,54 @@ router.get('/questions/:id/similar', auth, async (req, res) => {
   }
 });
 
+// @route   GET api/projects/:id/narrative/versions  (Premium)
+router.get('/:id/narrative/versions', auth, requireFeature(prisma, 'narrative_editing'), async (req, res) => {
+  try {
+    const narrative = await prisma.narrative.findUnique({ where: { projectId: req.params.id }, include: { project: { select: { companyId: true } }, versions: { orderBy: { versionNumber: 'desc' } } } });
+    if (!narrative || narrative.project.companyId !== req.user.companyId) return res.json([]);
+    const userIds = [...new Set(narrative.versions.map(v => v.createdById))];
+    const users = await prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true, username: true } });
+    const byId = Object.fromEntries(users.map(u => [u.id, u]));
+    res.json(narrative.versions.map(v => ({ ...v, createdBy: byId[v.createdById] || null })));
+  } catch (err) { res.status(500).send('Server Error'); }
+});
+
+// @route   PUT api/projects/:id/narrative  (Premium) — edit the merged document; previous text is saved as a version
+router.put('/:id/narrative', auth, requireFeature(prisma, 'narrative_editing'), async (req, res) => {
+  const content = String(req.body.content || '');
+  const note = req.body.note ? String(req.body.note).slice(0, 200) : null;
+  if (!content.trim()) return res.status(400).json({ msg: 'The narrative cannot be empty.' });
+  try {
+    const project = await prisma.project.findUnique({ where: { id: req.params.id }, include: { narrative: { include: { versions: { orderBy: { versionNumber: 'desc' }, take: 1 } } } } });
+    if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
+    if (project.ownerId !== req.user.id && !['admin', 'editor', 'approver'].includes(req.user.role)) return res.status(403).json({ msg: 'Not authorized to edit the narrative.' });
+    if (!project.narrative) return res.status(400).json({ msg: 'Merge the answers first, then edit the narrative.' });
+    const prev = project.narrative;
+    const nextVersion = prev.versions[0] ? prev.versions[0].versionNumber + 1 : 1;
+    const [, narrative] = await prisma.$transaction([
+      prisma.narrativeVersion.create({ data: { narrativeId: prev.id, versionNumber: nextVersion, content: prev.content, note: note || 'Edited', createdById: req.user.id } }),
+      prisma.narrative.update({ where: { id: prev.id }, data: { content, authorId: req.user.id } }),
+    ]);
+    res.json(narrative);
+  } catch (err) { console.error(err); res.status(500).send('Server Error'); }
+});
+
+// @route   POST api/projects/:id/narrative/restore/:versionId  (Premium)
+router.post('/:id/narrative/restore/:versionId', auth, requireFeature(prisma, 'narrative_editing'), async (req, res) => {
+  try {
+    const narrative = await prisma.narrative.findUnique({ where: { projectId: req.params.id }, include: { project: { select: { companyId: true } }, versions: { orderBy: { versionNumber: 'desc' }, take: 1 } } });
+    if (!narrative || narrative.project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Narrative not found' });
+    const version = await prisma.narrativeVersion.findUnique({ where: { id: req.params.versionId } });
+    if (!version || version.narrativeId !== narrative.id) return res.status(404).json({ msg: 'Version not found' });
+    const nextVersion = narrative.versions[0] ? narrative.versions[0].versionNumber + 1 : 1;
+    const [, updated] = await prisma.$transaction([
+      prisma.narrativeVersion.create({ data: { narrativeId: narrative.id, versionNumber: nextVersion, content: narrative.content, note: `Before restoring v${version.versionNumber}`, createdById: req.user.id } }),
+      prisma.narrative.update({ where: { id: narrative.id }, data: { content: version.content, authorId: req.user.id } }),
+    ]);
+    res.json(updated);
+  } catch (err) { res.status(500).send('Server Error'); }
+});
+
 // @route   GET api/projects/:id/export/:format  (pdf | docx)
 // @desc    Download the merged narrative as a document
 router.get('/:id/export/:format', auth, async (req, res) => {
@@ -672,9 +721,11 @@ router.get('/:id/export/:format', auth, async (req, res) => {
   try {
     const project = await prisma.project.findUnique({
       where: { id: req.params.id },
-      include: { questions: { orderBy: { createdAt: 'asc' }, select: { text: true, answer: true } }, company: { select: { name: true } } },
+      include: { questions: { orderBy: { createdAt: 'asc' }, select: { text: true, answer: true } }, company: { select: { name: true, plan: true } }, narrative: true },
     });
     if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
+    // Premium workspaces can edit the merged document; exports then use that text instead of raw answers.
+    if (project.narrative && hasFeature(project.company, 'narrative_editing')) project.narrativeText = project.narrative.content;
     const filename = `${safeName(project.name)}.${format}`;
     if (format === 'pdf') {
       const buf = await buildPdf(project, project.company);
@@ -1054,9 +1105,20 @@ router.post('/:id/request-approval', auth, async (req, res) => {
       return res.status(404).json({ msg: 'Project not found' });
     }
 
-    // Ensure the requesting user is the project owner
-    if (project.ownerId !== req.user.id) {
+    // Project owner or a workspace admin can request approval
+    if (project.ownerId !== req.user.id && !(req.user.role === 'admin' && project.companyId === req.user.companyId)) {
       return res.status(401).json({ msg: 'User not authorized to request approval for this project' });
+    }
+
+    // Plan limit: Starter workspaces get a fixed number of approval requests per month
+    const company = await prisma.company.findUnique({ where: { id: project.companyId }, select: { plan: true } });
+    const plan = planFor(company);
+    if (plan.limits.approvalsPerMonth !== null) {
+      const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      const used = await prisma.approvalRequest.count({ where: { requestedAt: { gte: monthStart }, project: { companyId: project.companyId } } });
+      if (used >= plan.limits.approvalsPerMonth) {
+        return res.status(402).json({ msg: `Your ${plan.name} plan includes ${plan.limits.approvalsPerMonth} approval requests per month and you've used them all. Upgrade to Premium for unlimited approvals.`, feature: 'approvals', upgrade: true });
+      }
     }
 
     // Ensure the approver exists and is in the same company
@@ -1432,8 +1494,14 @@ router.post('/:id/compile', auth, async (req, res) => {
     }
 
     const narrativeContent = project.questions
-      .map(q => `Q: ${q.text}\nA: ${q.answer || 'No answer provided'}`)
+      .map((q, i) => `${i + 1}. ${q.text}\n\n${q.answer || '[No answer provided]'}`)
       .join('\n\n');
+
+    const existing = await prisma.narrative.findUnique({ where: { projectId: project.id }, include: { versions: { orderBy: { versionNumber: 'desc' }, take: 1 } } });
+    if (existing) {
+      const nextVersion = existing.versions[0] ? existing.versions[0].versionNumber + 1 : 1;
+      await prisma.narrativeVersion.create({ data: { narrativeId: existing.id, versionNumber: nextVersion, content: existing.content, note: 'Before re-merge', createdById: req.user.id } });
+    }
 
     const narrative = await prisma.narrative.upsert({
       where: { projectId: project.id },
@@ -1563,7 +1631,7 @@ router.put('/:id/unarchive', auth, async (req, res) => {
 
 // @route   POST api/projects/manual-project
 // @desc    Create a completed (past) project from typed Q&A pairs
-router.post('/manual-project', auth, async (req, res) => {
+router.post('/manual-project', auth, requireFeature(prisma, 'past_proposals'), async (req, res) => {
   const { projectTitle, projectDescription, qaPairs } = req.body;
   if (!projectTitle || !projectTitle.trim()) return res.status(400).json({ msg: 'Project title is required.' });
   try {

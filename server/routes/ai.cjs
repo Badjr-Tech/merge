@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { requireFeature } = require('../utils/plans.cjs');
 
 // Access your API key as an environment variable (ensure GEMINI_API_KEY is set in .env)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -11,7 +12,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // @route   POST api/ai/review
 // @desc    Send a project for AI review
 // @access  Private
-router.post('/review', auth, async (req, res) => {
+router.post('/review', auth, requireFeature(prisma, 'ai_reviewer'), async (req, res) => {
   const { projectId, grantWebsite, grantPurposeStatement } = req.body;
 
   try {

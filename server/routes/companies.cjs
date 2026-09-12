@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const prisma = require('../utils/prisma.cjs');
+const { publicPlan, PLANS } = require('../utils/plans.cjs');
 
 // GET /api/companies/mine — the caller's workspace with a few stats
 router.get('/mine', auth, async (req, res) => {
@@ -10,11 +11,13 @@ router.get('/mine', auth, async (req, res) => {
     const company = await prisma.company.findUnique({
       where: { id: req.user.companyId },
       select: {
-        id: true, name: true, createdAt: true, profile: true,
+        id: true, name: true, createdAt: true, profile: true, plan: true,
         _count: { select: { users: true, projects: true, files: true } },
       },
     });
-    res.json(company);
+    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const approvalsThisMonth = await prisma.approvalRequest.count({ where: { requestedAt: { gte: monthStart }, project: { companyId: req.user.companyId } } });
+    res.json({ ...company, planInfo: publicPlan(company), usage: { approvalsThisMonth } });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ msg: 'Server error' });
@@ -102,6 +105,22 @@ router.post('/mine/profile/import', auth, async (req, res) => {
     console.error('Profile import error:', err.message);
     res.status(500).json({ msg: err.name === 'AbortError' ? 'That site took too long to respond.' : 'Could not import from that website.' });
   }
+});
+
+// PUT /api/companies/mine/plan — change plan (admin). Billing is not wired yet; this is the switch Stripe will flip later.
+router.put('/mine/plan', auth, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ msg: 'Admins only.' });
+  const plan = String(req.body.plan || '');
+  if (!PLANS[plan] || plan === 'custom') return res.status(400).json({ msg: 'Choose Starter, Premium, or Enterprise. Contact us for Custom.' });
+  try {
+    const company = await prisma.company.update({ where: { id: req.user.companyId }, data: { plan }, select: { id: true, plan: true } });
+    res.json({ ...company, planInfo: publicPlan(company) });
+  } catch (err) { res.status(500).json({ msg: 'Server error' }); }
+});
+
+// GET /api/companies/plans — public catalogue for the pricing page and upgrade prompts
+router.get('/plans', (req, res) => {
+  res.json(Object.entries(PLANS).map(([key, p]) => ({ key, name: p.name, price: p.price, features: p.features, limits: p.limits })));
 });
 
 module.exports = router;
