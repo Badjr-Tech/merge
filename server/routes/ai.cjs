@@ -309,7 +309,7 @@ ${partnerBlock}${projectBlock(project)}`;
     res.json({ reply: { id: saved[1].id, role: 'assistant', content: reply, createdAt: saved[1].createdAt }, user: { id: saved[0].id, role: 'user', content: message, createdAt: saved[0].createdAt } });
   } catch (err) {
     console.error('Assistant error:', err);
-    res.status(500).json({ msg: err.message && err.message.includes('API key') ? 'The AI key on the server is not valid.' : `The assistant could not answer (${err.status || 'error'}). Try again.` });
+    res.status(err.status === 429 ? 429 : 500).json({ msg: err.status === 429 ? err.message : err.message && err.message.includes('API key') ? 'The AI key on the server is not valid.' : 'The assistant could not answer. Try again.' });
   }
 });
 

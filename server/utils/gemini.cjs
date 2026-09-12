@@ -18,10 +18,12 @@ function client() {
   return new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 }
 
+// Fall through to the next model when this one is missing OR when its quota is exhausted
+// (Google's free tier gives each model its own quota; some models have none at all).
 function isModelMissing(err) {
   const status = err && (err.status || (err.response && err.response.status));
   const msg = String(err && err.message || '');
-  return status === 404 || /not found|is not supported|no longer available|deprecated/i.test(msg);
+  return status === 404 || status === 429 || /not found|is not supported|no longer available|deprecated|quota|resource has been exhausted/i.test(msg);
 }
 
 // run(modelName => Promise<result>) — tries each candidate model until one succeeds.
@@ -38,6 +40,11 @@ async function withModel(run) {
       if (!isModelMissing(err)) throw err;
       console.warn(`Gemini model "${name}" unavailable, trying next.`);
     }
+  }
+  if (lastErr && (lastErr.status === 429 || /quota/i.test(String(lastErr.message)))) {
+    const e = new Error('The AI service is over its usage limit right now. Try again in a minute, or check the Gemini API billing for this key.');
+    e.status = 429;
+    throw e;
   }
   throw lastErr || new Error('No Gemini model available');
 }
