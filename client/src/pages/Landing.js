@@ -33,6 +33,16 @@ export default function Landing() {
         </div>
       </section>
 
+      <section className="section" id="who">
+        <h2>Made for the people who actually write the grants</h2>
+        <p className="sub">Whether it's one person on a deadline or a whole team passing sections back and forth.</p>
+        <div className="grid-3 who-grid">
+          <Card className="who-card"><img src="/img/solo.jpg" alt="A grant writer working alone at a laptop" loading="lazy" /><div className="who-body"><h3>Solo grant writers</h3><p className="small muted mb-0">Keep every question, limit, and past answer in one place instead of a folder of drafts. Ask Merge when you're stuck.</p></div></Card>
+          <Card className="who-card"><img src="/img/team.jpg" alt="A nonprofit team gathered around a table reviewing a proposal" loading="lazy" /><div className="who-body"><h3>Nonprofit teams</h3><p className="small muted mb-0">Assign sections to program staff, watch progress fill in, and merge everything into one narrative before the deadline.</p></div></Card>
+          <Card className="who-card"><img src="/img/planning.jpg" alt="Consultants mapping out a proposal on a whiteboard" loading="lazy" /><div className="who-body"><h3>Consultants and networks</h3><p className="small muted mb-0">Run several applications at once with a partners directory, an answer bank, and clean handoffs to the people who sign off.</p></div></Card>
+        </div>
+      </section>
+
       <section className="section" id="features">
         <h2>Everything a grant team needs in one place</h2>
         <p className="sub">Built for nonprofits, consultants, and small development teams who write proposals as a group.</p>
@@ -54,6 +64,18 @@ export default function Landing() {
           <Card className="step"><div className="num">2</div><h4>Assign and write</h4><p className="small muted mb-0">Teammates see only their questions, with limits and status.</p></Card>
           <Card className="step"><div className="num">3</div><h4>Review and approve</h4><p className="small muted mb-0">Run the AI reviewer, then route the proposal to an approver.</p></Card>
           <Card className="step"><div className="num">4</div><h4>Merge and submit</h4><p className="small muted mb-0">Merge answers into one narrative and archive it for next time.</p></Card>
+        </div>
+      </section>
+
+      <section className="photo-band">
+        <div className="photo-band-inner">
+          <img src="/img/review.jpg" alt="Two colleagues reviewing a printed proposal together" loading="lazy" />
+          <div className="photo-band-copy">
+            <span className="badge badge-green">Approvals</span>
+            <h2>Sign-off without the email chain</h2>
+            <p>Send the finished proposal to an approver inside Merge. They read it, approve it, or send it back with notes that land right on the project. Every decision is logged, so nobody wonders which version went out.</p>
+            <Link to="/signup" className="btn btn-primary">Try it on your next proposal</Link>
+          </div>
         </div>
       </section>
 

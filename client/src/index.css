@@ -396,3 +396,16 @@ img { max-width: 100%; }
 .plan-option li::before { content: '✓ '; color: var(--green); font-weight: 700; }
 @media (max-width: 700px) { .plan-grid { grid-template-columns: 1fr; } }
 .narrative-editor { width: 100%; min-height: 420px; font-family: var(--font); font-size: 15px; line-height: 1.7; }
+
+/* ---------- Landing photos ---------- */
+.who-card { overflow: hidden; padding: 0; display: flex; flex-direction: column; }
+.who-card img { width: 100%; height: 220px; object-fit: cover; display: block; }
+.who-body { padding: 18px 20px 20px; }
+.who-body h3 { margin-bottom: 6px; }
+.photo-band { max-width: 1180px; margin: 24px auto 0; padding: 0 32px; }
+.photo-band-inner { display: grid; grid-template-columns: 1.1fr 1fr; gap: 0; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); }
+.photo-band-inner img { width: 100%; height: 100%; min-height: 360px; object-fit: cover; display: block; }
+.photo-band-copy { padding: 40px 40px; display: flex; flex-direction: column; justify-content: center; gap: 12px; align-items: flex-start; }
+.photo-band-copy h2 { text-align: left; font-size: 30px; margin: 0; }
+.photo-band-copy p { color: var(--text-muted); margin: 0 0 6px; font-size: 16px; }
+@media (max-width: 860px) { .photo-band { padding: 0 18px; } .photo-band-inner { grid-template-columns: 1fr; } .photo-band-inner img { min-height: 220px; max-height: 280px; } .photo-band-copy { padding: 24px; } .who-card img { height: 180px; } }
