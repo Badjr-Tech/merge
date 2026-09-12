@@ -27,7 +27,7 @@ app.get('/', (req, res) => {
 });
 
 // Define Routes
-app.use('/api/auth', require('./routes/auth.cjs'));
+app.use('/api/auth', require('./routes/auth.cjs').router);
 app.use('/api/narratives', require('./routes/narratives.cjs'));
 app.use('/api/admin', require('./routes/admin.cjs'));
 app.use('/api/companies', require('./routes/companies.cjs'));

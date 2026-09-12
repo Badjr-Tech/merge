@@ -156,7 +156,7 @@ router.get('/reviews/:id', auth, async (req, res) => {
       where: { id: req.params.id },
       include: {
         project: { select: { name: true } },
-        reviewedBy: { select: { username: true } },
+        reviewedBy: { select: { id: true, username: true, name: true } },
       },
     });
 

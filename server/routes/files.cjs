@@ -71,7 +71,7 @@ router.get('/', auth, async (req, res) => {
         mimetype: true,
         createdAt: true,
         uploadedBy: {
-          select: { username: true },
+          select: { username: true, name: true },
         },
       },
       orderBy: {

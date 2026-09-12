@@ -1,201 +1,124 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const bcrypt = require('bcryptjs'); // Import bcryptjs
+const bcrypt = require('bcryptjs');
 const prisma = require('../utils/prisma.cjs');
 
-// @route   PUT api/admin/users/:id/approve
-// @desc    Approve a user account
-// @access  Private (admin only)
-router.put('/users/:id/approve', auth, async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ msg: 'Authorization denied. Not an admin.' });
-  }
+const ROLES = ['viewer', 'editor', 'admin', 'approver'];
+const userSelect = { id: true, username: true, name: true, email: true, role: true, isApproved: true, createdAt: true, company: { select: { id: true, name: true } } };
 
-  const { role, companyId } = req.body;
-  const updateData = { isApproved: true };
-  if (role && ['viewer', 'editor', 'admin', 'approver'].includes(role)) {
-    updateData.role = role;
-  }
-  if (companyId) {
-    updateData.companyId = companyId;
-  }
+function requireAdmin(req, res, next) {
+  if (req.user.role !== 'admin') return res.status(403).json({ msg: 'Admins only.' });
+  if (!req.user.companyId) return res.status(400).json({ msg: 'You are not attached to a workspace.' });
+  next();
+}
 
+// GET /api/admin/users — everyone in the caller's workspace
+router.get('/users', auth, requireAdmin, async (req, res) => {
   try {
+    const users = await prisma.user.findMany({ where: { companyId: req.user.companyId }, select: userSelect, orderBy: { createdAt: 'asc' } });
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
+
+// GET /api/admin/users/pending — legacy self-registered accounts awaiting approval
+router.get('/users/pending', auth, requireAdmin, async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({ where: { isApproved: false, OR: [{ companyId: req.user.companyId }, { companyId: null }] }, select: userSelect });
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
+
+// PUT /api/admin/users/:id/approve
+router.put('/users/:id/approve', auth, requireAdmin, async (req, res) => {
+  const { role } = req.body;
+  try {
+    const target = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!target || (target.companyId && target.companyId !== req.user.companyId)) return res.status(404).json({ msg: 'User not found.' });
     const user = await prisma.user.update({
       where: { id: req.params.id },
-      data: updateData
+      data: { isApproved: true, companyId: req.user.companyId, role: ROLES.includes(role) ? role : target.role },
+      select: userSelect,
     });
-
-    if (!user) {
-      return res.status(404).json({ msg: 'User not found' });
-    }
-
-    // Create an entry in ApprovedLog
-    await prisma.approvedLog.create({
-      data: {
-        approvedUserId: user.id,
-        approvedByUserId: req.user.id,
-        roleAssigned: user.role,
-        companyAssignedId: user.companyId || null,
-      },
-    });
-
+    await prisma.approvedLog.create({ data: { approvedUserId: user.id, approvedByUserId: req.user.id, roleAssigned: user.role, companyAssignedId: req.user.companyId } });
     res.json({ msg: 'User approved', user });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
+    res.status(500).json({ msg: 'Server error' });
   }
 });
 
-// @route   GET api/admin/users/pending
-// @desc    Get all pending user accounts
-// @access  Private (admin only)
-router.get('/users/pending', auth, async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ msg: 'Authorization denied. Not an admin.' });
-  }
-
+// PUT /api/admin/users/:id/update — change a teammate's role
+router.put('/users/:id/update', auth, requireAdmin, async (req, res) => {
+  const { role } = req.body;
+  if (!ROLES.includes(role)) return res.status(400).json({ msg: 'Invalid role.' });
   try {
-    const pendingUsers = await prisma.user.findMany({
-      where: { isApproved: false },
-      select: { id: true, username: true, email: true, role: true, isApproved: true, createdAt: true, company: { select: { id: true, name: true } } }
-    });
-    res.json(pendingUsers);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
-  }
-});
-
-// @route   GET api/admin/users
-// @desc    Get all user accounts
-// @access  Private (admin only)
-router.get('/users', auth, async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ msg: 'Authorization denied. Not an admin.' });
-  }
-
-  try {
-    const allUsers = await prisma.user.findMany({
-      select: { id: true, username: true, email: true, role: true, isApproved: true, createdAt: true, company: { select: { id: true, name: true } } }
-    });
-    res.json(allUsers);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
-  }
-});
-
-// @route   PUT api/admin/users/:id/update
-// @desc    Update an existing user's role and company
-// @access  Private (admin only)
-router.put('/users/:id/update', auth, async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ msg: 'Authorization denied. Not an admin.' });
-  }
-
-  const { role, companyId } = req.body;
-  const updateData = {};
-
-  if (role && ['viewer', 'editor', 'admin', 'approver'].includes(role)) {
-    updateData.role = role;
-  }
-  if (companyId) {
-    updateData.companyId = companyId;
-  } else if (companyId === null) { // Allow setting companyId to null
-    updateData.companyId = null;
-  }
-
-  if (Object.keys(updateData).length === 0) {
-    return res.status(400).json({ msg: 'No valid fields to update provided.' });
-  }
-
-  try {
-    const user = await prisma.user.update({
-      where: { id: req.params.id },
-      data: updateData,
-      select: { id: true, username: true, email: true, role: true, isApproved: true, createdAt: true, company: { select: { id: true, name: true } } }
-    });
-
-    if (!user) {
-      return res.status(404).json({ msg: 'User not found' });
+    const target = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!target || target.companyId !== req.user.companyId) return res.status(404).json({ msg: 'User not found.' });
+    if (target.id === req.user.id && role !== 'admin') {
+      const otherAdmins = await prisma.user.count({ where: { companyId: req.user.companyId, role: 'admin', id: { not: target.id } } });
+      if (otherAdmins === 0) return res.status(400).json({ msg: 'You are the only admin. Make someone else an admin first.' });
     }
-
+    const user = await prisma.user.update({ where: { id: req.params.id }, data: { role }, select: userSelect });
     res.json({ msg: 'User updated', user });
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
+    res.status(500).json({ msg: 'Server error' });
   }
 });
 
-// @route   GET api/admin/approvals/history
-// @desc    Get all approval log entries
-// @access  Private (admin only)
-router.get('/approvals/history', auth, async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ msg: 'Authorization denied. Not an admin.' });
-  }
-
+// DELETE /api/admin/users/:id — remove a teammate from the workspace
+router.delete('/users/:id', auth, requireAdmin, async (req, res) => {
   try {
-    const approvalHistory = await prisma.approvedLog.findMany({
-      include: {
-        approvedUser: { select: { username: true, email: true } },
-        approvedBy: { select: { username: true, email: true } },
-        companyAssigned: { select: { name: true } },
-      },
+    const target = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!target || target.companyId !== req.user.companyId) return res.status(404).json({ msg: 'User not found.' });
+    if (target.id === req.user.id) return res.status(400).json({ msg: 'You cannot remove yourself.' });
+    // Detach rather than delete so history (projects, answers, logs) stays intact.
+    await prisma.question.updateMany({ where: { assignedToId: target.id, project: { companyId: req.user.companyId } }, data: { assignedToId: null } });
+    await prisma.user.update({ where: { id: target.id }, data: { companyId: null, isApproved: false } });
+    res.json({ msg: 'Teammate removed.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
+
+// POST /api/admin/users — create a teammate directly with a password (admin)
+router.post('/users', auth, requireAdmin, async (req, res) => {
+  const { name, password, role } = req.body;
+  const email = String(req.body.email || '').trim().toLowerCase();
+  if (!email || !password) return res.status(400).json({ msg: 'Email and password are required.' });
+  if (password.length < 8) return res.status(400).json({ msg: 'Password must be at least 8 characters.' });
+  try {
+    if (await prisma.user.findUnique({ where: { email } })) return res.status(400).json({ msg: 'That email already has an account.' });
+    let username = email.split('@')[0].replace(/[^a-z0-9._-]/gi, '').toLowerCase() || 'user';
+    let n = 0;
+    while (await prisma.user.findUnique({ where: { username: n ? `${username}${n}` : username } })) n += 1;
+    username = n ? `${username}${n}` : username;
+    const hashed = await bcrypt.hash(password, await bcrypt.genSalt(10));
+    const user = await prisma.user.create({
+      data: { username, email, name: name ? String(name).trim() : null, password: hashed, role: ROLES.includes(role) ? role : 'editor', companyId: req.user.companyId, isApproved: true },
+      select: userSelect,
+    });
+    res.json({ msg: 'User created', user });
+  } catch (err) {
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
+
+// GET /api/admin/approvals/history — account approval log for this workspace
+router.get('/approvals/history', auth, requireAdmin, async (req, res) => {
+  try {
+    const history = await prisma.approvedLog.findMany({
+      where: { companyAssignedId: req.user.companyId },
+      include: { approvedUser: { select: { username: true, name: true, email: true } }, approvedBy: { select: { username: true, name: true, email: true } }, companyAssigned: { select: { name: true } } },
       orderBy: { approvedAt: 'desc' },
     });
-    res.json(approvalHistory);
+    res.json(history);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
-  }
-});
-
-// @route   POST api/admin/users
-// @desc    Create a new user
-// @access  Private (admin only)
-router.post('/users', auth, async (req, res) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ msg: 'Authorization denied. Not an admin.' });
-  }
-
-  const { username, email, password, role, companyId } = req.body;
-
-  try {
-    // Check if user already exists
-    let user = await prisma.user.findUnique({ where: { email } });
-    if (user) {
-      return res.status(400).json({ msg: 'User with that email already exists' });
-    }
-
-    user = await prisma.user.findUnique({ where: { username } });
-    if (user) {
-      return res.status(400).json({ msg: 'User with that username already exists' });
-    }
-
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Create new user
-    const newUser = await prisma.user.create({
-      data: {
-        username,
-        email,
-        password: hashedPassword,
-        role: role || 'viewer', // Default to viewer if not provided
-        companyId: companyId || null, // Assign company if provided
-        isApproved: true, // Manually added users are approved by default
-      },
-      select: { id: true, username: true, email: true, role: true, isApproved: true, createdAt: true, company: { select: { id: true, name: true } } }
-    });
-
-    res.json({ msg: 'User created successfully', user: newUser });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
+    res.status(500).json({ msg: 'Server error' });
   }
 });
 

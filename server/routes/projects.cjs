@@ -58,8 +58,9 @@ router.get('/', auth, async (req, res) => {
     const projects = await prisma.project.findMany({
       where: whereClause,
       include: {
-        owner: { select: { username: true } },
+        owner: { select: { id: true, username: true, name: true } },
         questions: {
+          orderBy: { createdAt: 'asc' },
           select: { // Use select for scalar fields
             id: true,
             text: true,
@@ -83,6 +84,44 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// @route   POST api/projects
+// @desc    Create a project with optional questions (admin or editor)
+router.post('/', auth, async (req, res) => {
+  const { name, description, deadlineDate, details, questions } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ msg: 'Project name is required.' });
+  if (!req.user.companyId) return res.status(400).json({ msg: 'You are not attached to a workspace.' });
+  if (!['admin', 'editor', 'approver'].includes(req.user.role)) return res.status(403).json({ msg: 'Viewers cannot create projects.' });
+  try {
+    const qs = Array.isArray(questions) ? questions.filter(q => q && q.text && q.text.trim()) : [];
+    const project = await prisma.project.create({
+      data: {
+        name: name.trim(),
+        description: description || null,
+        deadlineDate: deadlineDate ? new Date(deadlineDate) : null,
+        details: details || undefined,
+        ownerId: req.user.id,
+        companyId: req.user.companyId,
+        questions: {
+          create: qs.map(q => ({
+            text: q.text.trim(),
+            assignedToId: q.assignedToId || null,
+            maxLimit: q.maxLimit ? parseInt(q.maxLimit, 10) || null : null,
+            limitUnit: q.limitUnit || null,
+            status: 'pending',
+          })),
+        },
+      },
+      include: { questions: true, owner: { select: { username: true, name: true } } },
+    });
+    const logs = project.questions.filter(q => q.assignedToId).map(q => ({ questionId: q.id, assignedById: req.user.id, assignedToId: q.assignedToId }));
+    if (logs.length) await prisma.questionAssignmentLog.createMany({ data: logs });
+    res.json(project);
+  } catch (err) {
+    console.error('Create project error:', err);
+    res.status(500).json({ msg: 'Could not create the project.' });
+  }
+});
+
 // @route   GET api/projects/archived
 // @desc    Get all archived projects for the logged-in user's company
 // @access  Private
@@ -99,7 +138,7 @@ router.get('/archived', auth, async (req, res) => {
         isArchived: true,
       },
       include: {
-        owner: { select: { username: true } },
+        owner: { select: { id: true, username: true, name: true } },
         company: { select: { name: true } },
       },
     });
@@ -147,7 +186,7 @@ router.get('/completed', auth, async (req, res) => {
         companyId: user.companyId,
         isCompleted: true, // Filter for completed projects
       },
-      include: { owner: { select: { username: true } }, company: { select: { name: true } } },
+      include: { owner: { select: { id: true, username: true, name: true } }, company: { select: { name: true } } },
       orderBy: {
         createdAt: 'desc',
       },
@@ -218,9 +257,9 @@ router.get('/pending-approval', auth, async (req, res) => {
       },
       include: {
         project: {
-          include: { owner: { select: { username: true } } },
+          include: { owner: { select: { id: true, username: true, name: true } } },
         },
-        requestedBy: { select: { username: true } },
+        requestedBy: { select: { id: true, username: true, name: true } },
       },
       orderBy: {
         requestedAt: 'asc',
@@ -250,7 +289,7 @@ router.get('/rejected', auth, async (req, res) => {
         status: 'rejected', // Filter for rejected projects
       },
       include: {
-        owner: { select: { username: true } },
+        owner: { select: { id: true, username: true, name: true } },
         company: { select: { name: true } },
         approvalRequests: {
           where: { status: 'rejected' },
@@ -329,7 +368,7 @@ router.get('/with-assigned-questions', auth, async (req, res) => {
         questions: { some: {} }, // Filter for projects that have at least one question
       },
       include: {
-        owner: { select: { username: true } },
+        owner: { select: { id: true, username: true, name: true } },
         questions: {
           include: {
             assignedTo: { select: { id: true, username: true, name: true } },
@@ -527,7 +566,7 @@ router.post('/parse-pasted-text', auth, async (req, res) => {
         },
       },
       include: {
-        owner: { select: { username: true } },
+        owner: { select: { id: true, username: true, name: true } },
         company: { select: { name: true } },
         questions: true,
       }
@@ -540,6 +579,39 @@ router.post('/parse-pasted-text', auth, async (req, res) => {
   }
 });
 
+// @route   GET api/projects/dashboard
+// @desc    Summary numbers for the dashboard
+router.get('/dashboard/summary', auth, async (req, res) => {
+  try {
+    if (!req.user.companyId) return res.status(400).json({ msg: 'You are not attached to a workspace.' });
+    const companyId = req.user.companyId;
+    const [active, pendingApproval, myOpenQuestions, upcoming, recent] = await Promise.all([
+      prisma.project.count({ where: { companyId, isArchived: false, isCompleted: false } }),
+      prisma.project.count({ where: { companyId, isArchived: false, status: 'pending_approval' } }),
+      prisma.question.count({ where: { assignedToId: req.user.id, status: { not: 'submitted' }, project: { companyId, isArchived: false, isCompleted: false } } }),
+      prisma.project.findMany({
+        where: { companyId, isArchived: false, isCompleted: false, deadlineDate: { gte: new Date() } },
+        orderBy: { deadlineDate: 'asc' }, take: 5,
+        select: { id: true, name: true, deadlineDate: true, status: true, questions: { select: { status: true } } },
+      }),
+      prisma.project.findMany({
+        where: { companyId, isArchived: false },
+        orderBy: { createdAt: 'desc' }, take: 5,
+        select: { id: true, name: true, createdAt: true, status: true, isCompleted: true, owner: { select: { name: true, username: true } }, questions: { select: { status: true } } },
+      }),
+    ]);
+    let awaitingMyApproval = 0;
+    if (req.user.role === 'approver') {
+      awaitingMyApproval = await prisma.approvalRequest.count({ where: { approverId: req.user.id, status: 'pending' } });
+    }
+    res.json({ active, pendingApproval, myOpenQuestions, awaitingMyApproval, upcoming, recent });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+
 // @route   GET api/projects/:id
 // @desc    Get a single project by ID
 // @access  Private
@@ -548,8 +620,9 @@ router.get('/:id', auth, async (req, res) => {
     const project = await prisma.project.findUnique({
       where: { id: req.params.id },
       include: {
-        owner: { select: { username: true } },
+        owner: { select: { id: true, username: true, name: true } },
         questions: {
+          orderBy: { createdAt: 'asc' },
           include: {
             assignedTo: { select: { id: true, username: true, name: true } },
             assignmentLogs: {
@@ -561,10 +634,15 @@ router.get('/:id', auth, async (req, res) => {
           },
         },
         narrative: true,
+        company: { select: { name: true } },
+        approvalRequests: {
+          orderBy: { requestedAt: 'desc' },
+          include: { approver: { select: { id: true, username: true, name: true } }, requestedBy: { select: { id: true, username: true, name: true } } },
+        },
       },
     });
 
-    if (!project) {
+    if (!project || project.companyId !== req.user.companyId) {
       return res.status(404).json({ msg: 'Project not found' });
     }
 
@@ -588,7 +666,7 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(404).json({ msg: 'Project not found' });
     }
 
-    if (project.ownerId !== req.user.id) {
+    if (project.ownerId !== req.user.id && !(req.user.role === 'admin' && project.companyId === req.user.companyId)) {
       return res.status(401).json({ msg: 'User not authorized to update this project' });
     }
 
@@ -615,7 +693,8 @@ router.put('/:id', auth, async (req, res) => {
       data: {
         name: name || project.name,
         details: details || project.details,
-        description: description || project.description,
+        description: description !== undefined ? description : project.description,
+        deadlineDate: req.body.deadlineDate !== undefined ? (req.body.deadlineDate ? new Date(req.body.deadlineDate) : null) : project.deadlineDate,
         isCompleted: typeof isCompleted === 'boolean' ? isCompleted : project.isCompleted, // Update isCompleted
       },
     });
@@ -662,7 +741,7 @@ router.get('/:id/versions', auth, async (req, res) => {
     const projectVersions = await prisma.projectVersion.findMany({
       where: { projectId: req.params.id },
       orderBy: { createdAt: 'desc' },
-      include: { createdBy: { select: { username: true } } },
+      include: { createdBy: { select: { id: true, username: true, name: true } } },
     });
     res.json(projectVersions);
   } catch (err) {
@@ -826,9 +905,9 @@ router.get('/pending-approval', auth, async (req, res) => {
       },
       include: {
         project: {
-          include: { owner: { select: { username: true } } },
+          include: { owner: { select: { id: true, username: true, name: true } } },
         },
-        requestedBy: { select: { username: true } },
+        requestedBy: { select: { id: true, username: true, name: true } },
       },
       orderBy: {
         requestedAt: 'asc',
@@ -904,7 +983,7 @@ router.get('/rejected', auth, async (req, res) => {
         status: 'rejected', // Filter for rejected projects
       },
       include: {
-        owner: { select: { username: true } },
+        owner: { select: { id: true, username: true, name: true } },
         company: { select: { name: true } },
         approvalRequests: {
           where: { status: 'rejected' },
@@ -1235,12 +1314,18 @@ router.post('/:id/compile', auth, async (req, res) => {
       .map(q => `Q: ${q.text}\nA: ${q.answer || 'No answer provided'}`)
       .join('\n\n');
 
-    const narrative = await prisma.narrative.create({
-      data: {
+    const narrative = await prisma.narrative.upsert({
+      where: { projectId: project.id },
+      create: {
         title: `${project.name} - Narrative`,
         content: narrativeContent,
         authorId: req.user.id,
         projectId: project.id,
+      },
+      update: {
+        title: `${project.name} - Narrative`,
+        content: narrativeContent,
+        authorId: req.user.id,
       },
     });
 
@@ -1334,6 +1419,107 @@ router.put('/:id/rescind-approval', auth, async (req, res) => {
     });
 
     res.json({ msg: 'Project approval request rescinded successfully.' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+
+// @route   PUT api/projects/:id/unarchive
+router.put('/:id/unarchive', auth, async (req, res) => {
+  try {
+    const project = await prisma.project.findUnique({ where: { id: req.params.id } });
+    if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
+    if (project.ownerId !== req.user.id && req.user.role !== 'admin') return res.status(401).json({ msg: 'Not authorized' });
+    const updated = await prisma.project.update({ where: { id: req.params.id }, data: { isArchived: false } });
+    res.json(updated);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   POST api/projects/manual-project
+// @desc    Create a completed (past) project from typed Q&A pairs
+router.post('/manual-project', auth, async (req, res) => {
+  const { projectTitle, projectDescription, qaPairs } = req.body;
+  if (!projectTitle || !projectTitle.trim()) return res.status(400).json({ msg: 'Project title is required.' });
+  try {
+    if (!req.user.companyId) return res.status(400).json({ msg: 'You are not attached to a workspace.' });
+    const pairs = Array.isArray(qaPairs) ? qaPairs.filter(q => q && q.question && q.question.trim()) : [];
+    const project = await prisma.project.create({
+      data: {
+        name: projectTitle.trim(),
+        description: projectDescription || null,
+        ownerId: req.user.id,
+        companyId: req.user.companyId,
+        isCompleted: true,
+        status: 'completed',
+        questions: {
+          create: pairs.map(q => ({ text: q.question.trim(), answer: q.answer || null, status: 'completed', assignedToId: req.user.id })),
+        },
+      },
+      include: { owner: { select: { username: true, name: true } }, company: { select: { name: true } }, questions: true },
+    });
+    res.json({ msg: 'Project created', project });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   POST api/projects/:projectId/questions
+// @desc    Add a question to an existing project (owner or admin)
+router.post('/:projectId/questions', auth, async (req, res) => {
+  const { text, assignedToId, maxLimit, limitUnit } = req.body;
+  if (!text || !text.trim()) return res.status(400).json({ msg: 'Question text is required.' });
+  try {
+    const project = await prisma.project.findUnique({ where: { id: req.params.projectId } });
+    if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
+    if (project.ownerId !== req.user.id && req.user.role !== 'admin') return res.status(401).json({ msg: 'Not authorized to add questions' });
+    const question = await prisma.question.create({
+      data: {
+        projectId: project.id,
+        text: text.trim(),
+        assignedToId: assignedToId || null,
+        maxLimit: maxLimit ? parseInt(maxLimit, 10) : null,
+        limitUnit: limitUnit || null,
+        status: 'pending',
+      },
+      include: { assignedTo: { select: { id: true, username: true, name: true } } },
+    });
+    if (assignedToId) {
+      await prisma.questionAssignmentLog.create({ data: { questionId: question.id, assignedById: req.user.id, assignedToId } });
+    }
+    res.json(question);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   PUT api/projects/questions/:id/details
+// @desc    Edit a question's text, limits, or assignee (owner or admin)
+router.put('/questions/:id/details', auth, async (req, res) => {
+  const { text, assignedToId, maxLimit, limitUnit } = req.body;
+  try {
+    const question = await prisma.question.findUnique({ where: { id: req.params.id }, include: { project: true } });
+    if (!question || question.project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Question not found' });
+    if (question.project.ownerId !== req.user.id && req.user.role !== 'admin') return res.status(401).json({ msg: 'Not authorized' });
+    const data = {};
+    if (text !== undefined) data.text = text;
+    if (maxLimit !== undefined) data.maxLimit = maxLimit === null || maxLimit === '' ? null : parseInt(maxLimit, 10);
+    if (limitUnit !== undefined) data.limitUnit = limitUnit || null;
+    if (assignedToId !== undefined) {
+      data.assignedToId = assignedToId || null;
+      if (assignedToId && assignedToId !== question.assignedToId) {
+        await prisma.questionAssignmentLog.create({ data: { questionId: question.id, assignedById: req.user.id, assignedToId } });
+        if (question.status === 'submitted') data.status = 'pending';
+      }
+    }
+    const updated = await prisma.question.update({ where: { id: question.id }, data, include: { assignedTo: { select: { id: true, username: true, name: true } } } });
+    res.json(updated);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');

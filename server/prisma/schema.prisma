@@ -24,12 +24,14 @@ model User {
   approverLogs       ApprovedLog[]           @relation("ApproverUser")
   approvedLogs       ApprovedLog[]           @relation("ApprovedUser")
   files              File[]
-//  narratives         Narrative[]
+  narratives         Narrative[]
   projects           Project[]
   projectVersions    ProjectVersion[]
   assignedQuestions  Question[]              @relation("AssignedQuestions")
   assignedByLogs     QuestionAssignmentLog[] @relation("AssignedByLog")
   assignedToLogs     QuestionAssignmentLog[] @relation("AssignedToLog")
+  sentInvitations    Invitation[]            @relation("SentInvitations")
+  passwordResets     PasswordReset[]
   company            Company?                @relation(fields: [companyId], references: [id])
 }
 
@@ -41,6 +43,8 @@ model Company {
   files        File[]
   projects     Project[]
   users        User[]
+  invitations  Invitation[]
+  createdAt    DateTime      @default(now())
 }
 
 model Project {
@@ -58,24 +62,25 @@ model Project {
 
   aiReviewLogs     AIReviewLog[]
   approvalRequests ApprovalRequest[]
-//  narrative        Narrative?
+  narrative        Narrative?
   company          Company?          @relation(fields: [companyId], references: [id])
   owner            User              @relation(fields: [ownerId], references: [id])
   versions         ProjectVersion[]
   questions        Question[]
 }
 
-// model Narrative {
-//  id        String   @id @default(cuid())
-//  title     String
-//  content   String
-//  authorId  String
-//  status    String   @default("draft")
-//  createdAt DateTime @default(now())
-//  projectId String   @unique
-//  author    User     @relation(fields: [authorId], references: [id])
-//  project   Project  @relation(fields: [projectId], references: [id])
-//}
+model Narrative {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  authorId  String
+  status    String   @default("draft")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  projectId String   @unique
+  author    User     @relation(fields: [authorId], references: [id])
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
 
 model ProjectVersion {
   id            String   @id @default(cuid())
@@ -173,4 +178,28 @@ enum Role {
   editor
   admin
   approver
+}
+
+model Invitation {
+  id          String    @id @default(cuid())
+  email       String
+  role        Role      @default(editor)
+  token       String    @unique
+  companyId   String
+  invitedById String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invitedBy   User      @relation("SentInvitations", fields: [invitedById], references: [id])
+}
+
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

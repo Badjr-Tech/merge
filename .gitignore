@@ -3,3 +3,4 @@
 .env.old
 *.log
 .env*.local
+.claude/launch.json
