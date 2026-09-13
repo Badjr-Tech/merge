@@ -1,3 +1,21 @@
-# https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Disallow:
+Allow: /
+Disallow: /app/
+Disallow: /review/
+Disallow: /invite/
+Disallow: /reset-password/
+
+# AI crawlers are welcome to read the public site
+User-agent: GPTBot
+Allow: /
+Disallow: /app/
+User-agent: ClaudeBot
+Allow: /
+Disallow: /app/
+User-agent: PerplexityBot
+Allow: /
+Disallow: /app/
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://mergev1-78hi.vercel.app/sitemap.xml

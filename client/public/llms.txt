@@ -1,0 +1,26 @@
+# Merge
+
+> Merge is grant-writing software for nonprofits, consultants, and solo grant writers. It turns a funding application (RFP) into a checklist of questions, keeps every answer inside its word or character limit, suggests past answers, routes proposals for review or approval, and exports the finished narrative as PDF or Word. Built by Badjr.
+
+## What it does
+- Break an RFP into questions; each question has an owner, a status, and a word/character limit.
+- Live compliance: counts update while writing; a compliance page shows every answer against its limit.
+- Answer bank: every saved answer is searchable; similar past answers are suggested while writing.
+- Send for review: a read-only link where a reviewer approves or requests changes without an account.
+- Team approvals with history (team workspaces).
+- Ask Merge: a writing assistant that knows the organization profile, partners directory, and the open project.
+- AI reviewer: critiques a proposal against a funder's website and purpose statement.
+- Partners directory, past proposals library, file cabinet, grant calendar (with Google Calendar export), per-grant rich-text notes.
+- Merged narrative with editable document and version history; PDF and Word download.
+
+## Who it is for
+- Writer track (one person): Free (1 grant, 10 questions), Starter $6.99/mo, Premium $21.99/mo, Professional $59.99/mo (multiple client workspaces, integrations).
+- Team track: Team $22.99 per person/mo (up to 5), Enterprise $49.99 per person/mo (up to 20), Custom for larger networks.
+- Every new workspace starts with a free 14-day trial. No credit card required.
+
+## Links
+- Home: https://mergev1-78hi.vercel.app/
+- Pricing: https://mergev1-78hi.vercel.app/#pricing
+- Sign up: https://mergev1-78hi.vercel.app/signup
+- Full description: https://mergev1-78hi.vercel.app/llms-full.txt
+- Company: Badjr, https://badjr.vercel.app

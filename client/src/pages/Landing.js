@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '../components/ui';
+import useSeo from '../lib/seo';
 
 export default function Landing() {
   const [track, setTrack] = useState('writer');
+  useSeo({ path: '/' });
   return (
     <div>
       <section className="hero">

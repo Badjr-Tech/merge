@@ -4,8 +4,10 @@ import api, { errorMessage } from '../api';
 import { useAuth } from '../context/AuthContext';
 import AuthLayout from '../layout/AuthLayout';
 import { Button, Field, Input, Loading } from '../components/ui';
+import useSeo from '../lib/seo';
 
 export default function ResetPassword() {
+  useSeo({ title: 'Choose a new password', noindex: true });
   const { token } = useParams();
   const { signIn } = useAuth();
   const navigate = useNavigate();

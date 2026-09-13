@@ -7,6 +7,7 @@ import { Avatar } from '../components/ui';
 import { displayName } from '../lib/format';
 import Assistant from '../components/Assistant';
 import { usePlan } from '../context/PlanContext';
+import useSeo from '../lib/seo';
 
 const I = {
   home: '⌂', projects: '▤', bank: '◫', partners: '☍', tasks: '✎', approvals: '✓', past: '◷', files: '▣', ai: '✦', compliance: '☑', calendar: '▦', team: '☺', settings: '⚙', menu: '☰',
@@ -16,6 +17,7 @@ export default function AppShell() {
   const { user, isAdmin, isApprover, signOut } = useAuth();
   const { has, plan } = usePlan();
   const writerMode = plan?.kind === 'writer';
+  useSeo({ title: user?.company?.name || 'Workspace', path: '/app', noindex: true });
   const [open, setOpen] = useState(false);
   const [counts, setCounts] = useState({});
   const location = useLocation();

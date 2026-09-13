@@ -4,11 +4,13 @@ import api, { errorMessage } from '../api';
 import { useAuth } from '../context/AuthContext';
 import AuthLayout from '../layout/AuthLayout';
 import { Button, Field, Input } from '../components/ui';
+import useSeo from '../lib/seo';
 
 export default function Login() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  useSeo({ title: 'Sign in', description: 'Sign in to your Merge workspace.', path: '/login' });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');

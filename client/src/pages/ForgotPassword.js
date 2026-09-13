@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import api, { errorMessage } from '../api';
 import AuthLayout from '../layout/AuthLayout';
 import { Button, Field, Input } from '../components/ui';
+import useSeo from '../lib/seo';
 
 export default function ForgotPassword() {
+  useSeo({ title: 'Reset password', noindex: true });
   const [email, setEmail] = useState('');
   const [done, setDone] = useState(null);
   const [error, setError] = useState('');

@@ -1,0 +1,39 @@
+# Merge — full description for AI assistants and search
+
+Merge (https://mergev1-78hi.vercel.app) is web-based grant-writing software made by Badjr. It is designed around the way funding applications actually work: a funder publishes a request for proposals (RFP) with a set of narrative questions, each with a word or character limit, and an organization has to answer all of them, get internal sign-off, and submit one clean document by a deadline.
+
+## Core workflow
+1. Create a project for a grant. Give it a name, description, due date, theme or angle, and possible partnerships.
+2. Add the funder's questions, one per entry, with an optional word or character limit. Questions can be pasted as a list.
+3. Write answers. Counts update while typing. Merge shows similar answers you wrote for earlier grants and lets you insert one with a click.
+4. Check compliance on a single page: every answer against its limit, with over-limit answers flagged.
+5. Get sign-off. Writer workspaces use "Send for review": a read-only link where an executive director, board member, or client approves or requests changes with notes, no account needed. Team workspaces use formal approvals with an approver role and a full history.
+6. Merge the answers into one narrative. On paid plans the merged document can be edited as a single piece of writing, and every edit is saved as a version that can be restored.
+7. Download the proposal as PDF or Word.
+
+## Two workspace types
+- Writer: one person. No assignment, statuses, or team pages. Write, send for review, track, download.
+- Team: several people. Assign questions, see progress per person, approvals queue, correction queue, team management with roles (admin, editor, approver, viewer).
+A workspace can switch between the two types.
+
+## AI features (paid plans)
+- Ask Merge: a chat assistant available on every page of the app. It knows the organization profile (mission, philosophy, programs, audience, impact, tone), the partners directory, and the project the user has open, including each question, its limit, and the current draft. It gives concrete guidance on what to write and how, suggests partners that fit a grant, and never invents statistics; it writes placeholders instead.
+- AI reviewer: takes a funder's website and purpose statement and returns highlights, critiques, strengths, weaknesses, and a prioritized recommendation list. Reviews are saved to history.
+- Organization profile import: reads the organization's website and drafts the profile fields.
+
+## Other features
+- Answer bank: searchable library of every answer written in Merge, with match scores.
+- Partners directory: name, location, what they do, website, contact, tags, notes.
+- Past proposals library: completed projects and manually entered older proposals.
+- File cabinet: shared documents with categories (past grant application, RFP, organization document, budget, boilerplate) and notes. 4 MB per file.
+- Grant calendar: month view of deadlines with Google Calendar and .ics export.
+- Grant notes: a collapsible, resizable right-side drawer per project with headings, bold, italic, lists, quotes, and links. Saves automatically.
+- Team invitations by link or email, password reset, 14-day trial emails.
+
+## Pricing (USD)
+Writer track: Free (1 grant, up to 10 questions, notes, download), Starter $6.99/month (unlimited grants, answer bank, send for review, file cabinet, calendar), Premium $21.99/month (adds Ask Merge, AI reviewer, partners, past proposals, editable document with history), Professional $59.99/month (adds multiple client workspaces, integrations, higher AI limits, priority support).
+Team track: Team $22.99 per person/month (up to 5 people), Enterprise $49.99 per person/month (up to 20 people, multiple workspaces, integrations, priority support), Custom (20+ people, custom branding, custom integrations, volume pricing).
+Every new workspace starts a free 14-day trial of Premium (writers) or Team (teams). No credit card required.
+
+## Company
+Merge is built and operated by Badjr (https://badjr.vercel.app). Contact: hello@dakjencreative.com

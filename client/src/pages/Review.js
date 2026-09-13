@@ -3,9 +3,11 @@ import { useParams } from 'react-router-dom';
 import api, { errorMessage } from '../api';
 import logo from '../merge1.png';
 import { Badge, Button, Card, Field, Input, Loading, Textarea } from '../components/ui';
+import useSeo from '../lib/seo';
 import { formatDate, formatDateTime } from '../lib/format';
 
 export default function Review() {
+  useSeo({ title: 'Review a proposal', noindex: true });
   const { token } = useParams();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');

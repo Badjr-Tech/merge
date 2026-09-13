@@ -2,42 +2,106 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#0b2d65" />
-    <meta
-      name="description"
-      content="Merge: write grant proposals together. Assign questions, track word limits, get approvals, and merge answers into one narrative."
-    />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <!--
-      manifest.json provides metadata used when your web app is installed on a
-      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-    -->
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <!--
-      Notice the use of %PUBLIC_URL% in the tags above.
-      It will be replaced with the URL of the `public` folder during the build.
-      Only files inside the `public` folder can be referenced from the HTML.
-
-      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-      work correctly both with client-side routing and a non-root public URL.
-      Learn how to configure a non-root public URL by running `npm run build`.
-    -->
     <title>Merge · Grant proposals, written together</title>
+    <meta name="description" content="Merge is grant-writing software for nonprofits, consultants, and solo grant writers. Turn an RFP into questions, keep answers inside word limits, reuse past answers, get approvals, and download a finished proposal." />
+    <meta name="keywords" content="grant writing software, grant proposal software, grant management, nonprofit grant writing, RFP response tool, grant writer tools, proposal collaboration, grant application writing" />
+    <link rel="canonical" href="https://mergev1-78hi.vercel.app/" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="author" content="Badjr" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Merge" />
+    <meta property="og:title" content="Merge · Grant proposals, written together" />
+    <meta property="og:description" content="Grant-writing software that turns a funding application into a shared checklist: questions, word limits, past answers, approvals, and a downloadable proposal." />
+    <meta property="og:url" content="https://mergev1-78hi.vercel.app/" />
+    <meta property="og:image" content="https://mergev1-78hi.vercel.app/img/team.jpg" />
+    <meta property="og:image:alt" content="A nonprofit team reviewing a grant proposal together" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Merge · Grant proposals, written together" />
+    <meta name="twitter:description" content="Grant-writing software for nonprofits, consultants, and solo grant writers." />
+    <meta name="twitter:image" content="https://mergev1-78hi.vercel.app/img/team.jpg" />
+
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://mergev1-78hi.vercel.app/#app",
+          "name": "Merge",
+          "applicationCategory": "BusinessApplication",
+          "applicationSubCategory": "Grant writing software",
+          "operatingSystem": "Web",
+          "url": "https://mergev1-78hi.vercel.app/",
+          "description": "Grant-writing software for nonprofits, consultants, and solo grant writers. Turn an RFP into questions, keep answers inside word limits, reuse past answers, get approvals, and download a finished proposal as PDF or Word.",
+          "featureList": ["Break an RFP into questions", "Word and character limit compliance", "Answer bank with similar-answer suggestions", "Send for review by link", "Team approvals with history", "AI writing assistant", "AI grant reviewer", "Partners directory", "Grant calendar", "PDF and Word export"],
+          "offers": [
+            { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD" },
+            { "@type": "Offer", "name": "Starter (grant writers)", "price": "6.99", "priceCurrency": "USD", "priceSpecification": { "@type": "UnitPriceSpecification", "price": "6.99", "priceCurrency": "USD", "billingIncrement": 1, "unitText": "month" } },
+            { "@type": "Offer", "name": "Premium (grant writers)", "price": "21.99", "priceCurrency": "USD" },
+            { "@type": "Offer", "name": "Professional (grant writers)", "price": "59.99", "priceCurrency": "USD" },
+            { "@type": "Offer", "name": "Team", "price": "22.99", "priceCurrency": "USD", "description": "Per person per month, up to 5 people" },
+            { "@type": "Offer", "name": "Enterprise", "price": "49.99", "priceCurrency": "USD", "description": "Per person per month, up to 20 people" }
+          ],
+          "publisher": { "@id": "https://mergev1-78hi.vercel.app/#org" }
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://mergev1-78hi.vercel.app/#org",
+          "name": "Badjr",
+          "url": "https://badjr.vercel.app",
+          "brand": { "@type": "Brand", "name": "Merge" }
+        },
+        {
+          "@type": "WebSite",
+          "url": "https://mergev1-78hi.vercel.app/",
+          "name": "Merge",
+          "publisher": { "@id": "https://mergev1-78hi.vercel.app/#org" }
+        },
+        {
+          "@type": "FAQPage",
+          "mainEntity": [
+            { "@type": "Question", "name": "What is Merge?", "acceptedAnswer": { "@type": "Answer", "text": "Merge is grant-writing software. You enter the questions a funder asks, write or assign answers, keep each one inside its word limit, get sign-off, and download the finished proposal as a PDF or Word document." } },
+            { "@type": "Question", "name": "Who is Merge for?", "acceptedAnswer": { "@type": "Answer", "text": "Solo grant writers, nonprofit development teams, and consultants who manage proposals for several clients. There is a writer track for one person and a team track for organizations that write together." } },
+            { "@type": "Question", "name": "Does Merge use AI?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Ask Merge is a writing assistant that knows your organization profile, partners, and the project you have open. The AI reviewer critiques a proposal against a funder's website and purpose statement. AI features are on paid plans." } },
+            { "@type": "Question", "name": "How much does Merge cost?", "acceptedAnswer": { "@type": "Answer", "text": "Grant writers: Free for one grant, Starter $6.99 a month, Premium $21.99 a month, Professional $59.99 a month. Teams: Team $22.99 per person per month for up to 5 people, Enterprise $49.99 per person per month for up to 20, and Custom for larger networks. Every new workspace starts with a free 14-day trial." } },
+            { "@type": "Question", "name": "Can someone approve a proposal without an account?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Send for review creates a read-only link. The reviewer reads the proposal and either approves it or requests changes with notes, with no login required." } }
+          ]
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
-    <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
-
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
+    <noscript>Merge needs JavaScript to run the app. The overview below describes the product.</noscript>
+    <div id="root">
+      <!-- Static overview for crawlers and readers without JavaScript. React replaces this on load. -->
+      <main style="font-family:system-ui,sans-serif;max-width:760px;margin:40px auto;padding:0 20px;color:#3b3b3d;line-height:1.6">
+        <h1>Merge: grant proposals, written together</h1>
+        <p>Merge is grant-writing software for nonprofits, consultants, and solo grant writers. It turns a funding application into a shared checklist: split the RFP into questions, assign each one, keep every answer inside its word limit, reuse past answers, get sign-off, and merge everything into one narrative you can download as PDF or Word.</p>
+        <h2>What Merge does</h2>
+        <ul>
+          <li><strong>Questions, not documents.</strong> Each funder question becomes a task with an owner, a status, and a word or character limit.</li>
+          <li><strong>Compliance built in.</strong> Counts update as you type so every answer fits before submission day.</li>
+          <li><strong>Answer bank.</strong> Every saved answer is searchable, and Merge suggests similar past answers while you write.</li>
+          <li><strong>Send for review.</strong> Share a read-only link; a board member or executive director approves or requests changes with no account.</li>
+          <li><strong>Team approvals.</strong> Route a finished proposal to an approver and keep a paper trail.</li>
+          <li><strong>Ask Merge.</strong> A writing assistant that knows your organization profile, partners, and the project you have open.</li>
+          <li><strong>AI reviewer.</strong> A funder's-eye critique against the grant website and purpose statement.</li>
+          <li><strong>Partners, past proposals, file cabinet, grant calendar, and per-grant notes.</strong></li>
+        </ul>
+        <h2>Pricing</h2>
+        <p><strong>For grant writers:</strong> Free (1 grant), Starter $6.99/month, Premium $21.99/month, Professional $59.99/month. <strong>For teams:</strong> Team $22.99 per person/month (up to 5), Enterprise $49.99 per person/month (up to 20), Custom for larger networks. Every new workspace starts with a free 14-day trial.</p>
+        <p><a href="/signup">Create a workspace</a> · <a href="/login">Sign in</a> · Powered by <a href="https://badjr.vercel.app">Badjr</a></p>
+      </main>
+    </div>
   </body>
 </html>

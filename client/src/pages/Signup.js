@@ -4,10 +4,12 @@ import api, { errorMessage } from '../api';
 import { useAuth } from '../context/AuthContext';
 import AuthLayout from '../layout/AuthLayout';
 import { Button, Field, Input } from '../components/ui';
+import useSeo from '../lib/seo';
 
 export default function Signup() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  useSeo({ title: 'Create your workspace', description: 'Start a free 14-day trial of Merge, grant-writing software for writers and teams. No credit card required.', path: '/signup' });
   const [form, setForm] = useState({ companyName: '', name: '', email: '', password: '', kind: 'writer' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
