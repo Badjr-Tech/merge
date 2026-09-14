@@ -23,7 +23,7 @@ export default function Signup() {
     try {
       const res = await api.post('/api/auth/signup', form);
       signIn(res.data.token, res.data.user);
-      navigate('/app?welcome=1', { replace: true });
+      navigate('/app/welcome', { replace: true });
     } catch (err) {
       setError(errorMessage(err, 'Could not create your workspace.'));
     } finally {
@@ -55,7 +55,7 @@ export default function Signup() {
           <Input id="password" type="password" value={form.password} onChange={set('password')} autoComplete="new-password" required />
         </Field>
         <Button type="submit" block size="lg" loading={loading}>Create workspace</Button>
-        <p className="tiny faint mt-2" style={{ textAlign: 'center' }}>By continuing you agree to use Merge responsibly and keep your team's data private.</p>
+        <p className="tiny faint mt-2" style={{ textAlign: 'center' }}>By continuing you agree to the <Link to="/terms">terms</Link> and <Link to="/privacy">privacy policy</Link>.</p>
       </form>
     </AuthLayout>
   );

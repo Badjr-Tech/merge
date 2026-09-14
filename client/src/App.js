@@ -27,6 +27,9 @@ import Settings from './pages/Settings';
 import AnswerBank from './pages/AnswerBank';
 import Partners from './pages/Partners';
 import Review from './pages/Review';
+import { Privacy, Terms, NotFoundPublic, Welcome } from './pages/Legal';
+import CookieNotice from './components/CookieNotice';
+import Analytics from './components/Analytics';
 import { Loading } from './components/ui';
 
 function RequireAuth({ children }) {
@@ -58,9 +61,14 @@ export default function App() {
       <AuthProvider>
         <PlanProvider>
         <ToastProvider>
+          <Analytics />
+          <CookieNotice />
           <Routes>
             <Route element={<PublicLayout />}>
               <Route path="/" element={<Landing />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/404" element={<NotFoundPublic />} />
             </Route>
             <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
             <Route path="/signup" element={<PublicOnly><Signup /></PublicOnly>} />
@@ -72,6 +80,7 @@ export default function App() {
 
             <Route path="/app" element={<RequireAuth><AppShell /></RequireAuth>}>
               <Route index element={<Dashboard />} />
+              <Route path="welcome" element={<Welcome />} />
               <Route path="projects" element={<Projects />} />
               <Route path="projects/new" element={<NewProject />} />
               <Route path="projects/:id" element={<ProjectDetail />} />
@@ -96,7 +105,9 @@ export default function App() {
             <Route path="/api/projects/:id/view" element={<LegacyProject />} />
             <Route path="/tools/*" element={<Navigate to="/app" replace />} />
             <Route path="/admin/*" element={<Navigate to="/app/team" replace />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<PublicLayout />}>
+              <Route path="*" element={<NotFoundPublic />} />
+            </Route>
           </Routes>
         </ToastProvider>
         </PlanProvider>

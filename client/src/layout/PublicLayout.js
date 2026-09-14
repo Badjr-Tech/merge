@@ -24,7 +24,11 @@ export default function PublicLayout() {
         </div>
       </nav>
       <Outlet />
-      <footer className="site-footer">© {new Date().getFullYear()} Merge · Grant proposals, written together. <span className="powered">Powered by <a href="https://badjr.vercel.app" target="_blank" rel="noopener noreferrer">Badjr</a></span></footer>
+      <footer className="site-footer">
+        <div className="footer-links"><Link to="/privacy">Privacy</Link><Link to="/terms">Terms</Link><a href="mailto:hello@dakjencreative.com">Contact</a><a href="/#pricing">Pricing</a></div>
+        © {new Date().getFullYear()} Merge · Grant proposals, written together. <span className="powered">Powered by <a href="https://badjr.vercel.app" target="_blank" rel="noopener noreferrer">Badjr</a> · hello@dakjencreative.com</span>
+      </footer>
+      {!isAuthenticated && <Link to="/signup" className="sticky-cta">Start your free trial</Link>}
     </div>
   );
 }

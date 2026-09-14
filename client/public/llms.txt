@@ -23,4 +23,6 @@
 - Pricing: https://mergev1-78hi.vercel.app/#pricing
 - Sign up: https://mergev1-78hi.vercel.app/signup
 - Full description: https://mergev1-78hi.vercel.app/llms-full.txt
-- Company: Badjr, https://badjr.vercel.app
+- Privacy: https://mergev1-78hi.vercel.app/privacy
+- Terms: https://mergev1-78hi.vercel.app/terms
+- Company: Badjr, https://badjr.vercel.app · hello@dakjencreative.com
