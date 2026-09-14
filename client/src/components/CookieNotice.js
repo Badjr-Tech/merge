@@ -8,7 +8,7 @@ export default function CookieNotice() {
   const dismiss = () => { try { localStorage.setItem('cookieNoticeSeen', '1'); } catch { /* ignore */ } setShow(false); };
   return (
     <div className="cookie-notice" role="dialog" aria-label="Privacy notice">
-      <span>Merge uses browser storage to keep you signed in and cookie-free analytics to see which pages are used. No ad tracking. <Link to="/privacy">Privacy policy</Link></span>
+      <span>Merge uses browser storage to keep you signed in and Vercel Analytics, which is cookie-free, to see which pages are used. No ad tracking. <Link to="/privacy">Privacy policy</Link></span>
       <button className="btn btn-primary btn-sm" onClick={dismiss}>Got it</button>
     </div>
   );

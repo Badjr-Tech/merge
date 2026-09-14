@@ -17,7 +17,7 @@ export function Privacy() {
       <ul>
         <li><strong>Account details:</strong> your name, email address, and password (stored as a one-way hash), plus the workspace name and plan.</li>
         <li><strong>Content you add:</strong> projects, questions, answers, notes, organization profile, partners, files you upload, and messages you send to the writing assistant.</li>
-        <li><strong>Usage data:</strong> pages visited and features used, collected through privacy-respecting analytics that do not use cookies or track you across sites.</li>
+        <li><strong>Usage data:</strong> pages visited and features used, collected through Vercel Web Analytics, which does not use cookies or track you across sites.</li>
         <li><strong>Technical data:</strong> IP address, browser type, and timestamps in server logs, kept for security and troubleshooting.</li>
       </ul>
       <h2>How we use it</h2>
@@ -36,7 +36,7 @@ export function Privacy() {
       <h2>Your rights</h2>
       <p>You can export your work at any time (PDF and Word downloads), correct your profile in Settings, and request a copy or deletion of your data by email. If you are in the EU, UK, or California, you have additional rights under GDPR and CCPA, and we will honor them.</p>
       <h2>Cookies</h2>
-      <p>Merge uses one piece of browser storage to keep you signed in and a few to remember preferences such as the notes drawer width. We do not use advertising or cross-site tracking cookies. Our analytics provider does not set cookies.</p>
+      <p>Merge uses one piece of browser storage to keep you signed in and a few to remember preferences such as the notes drawer width. We do not use advertising or cross-site tracking cookies. Vercel Analytics does not set cookies.</p>
       <h2>Children</h2>
       <p>Merge is for organizations and professionals and is not directed at children under 16.</p>
       <h2>Changes</h2>

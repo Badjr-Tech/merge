@@ -1,24 +1,27 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { inject, track } from '@vercel/analytics';
 
-// Cookie-free analytics via Plausible. Set REACT_APP_PLAUSIBLE_DOMAIN to enable; nothing loads otherwise.
-const DOMAIN = process.env.REACT_APP_PLAUSIBLE_DOMAIN;
-
+// Vercel Web Analytics. Cookie-free. Private app and review URLs are reported as their section only.
 export default function Analytics() {
   const location = useLocation();
   useEffect(() => {
-    if (!DOMAIN || document.getElementById('plausible')) return;
-    const s = document.createElement('script');
-    s.id = 'plausible'; s.defer = true; s.setAttribute('data-domain', DOMAIN);
-    s.src = 'https://plausible.io/js/script.manual.js';
-    document.head.appendChild(s);
-    window.plausible = window.plausible || function () { (window.plausible.q = window.plausible.q || []).push(arguments); };
+    inject({
+      mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
+      beforeSend: (event) => {
+        try {
+          const url = new URL(event.url);
+          if (url.pathname.startsWith('/app')) url.pathname = '/app';
+          else if (url.pathname.startsWith('/review')) url.pathname = '/review';
+          else if (url.pathname.startsWith('/invite') || url.pathname.startsWith('/reset-password')) url.pathname = url.pathname.split('/').slice(0, 2).join('/');
+          url.search = '';
+          return { ...event, url: url.toString() };
+        } catch { return event; }
+      },
+    });
   }, []);
   useEffect(() => {
-    if (!DOMAIN || !window.plausible) return;
-    // Do not send private app URLs; only the section is useful
-    const path = location.pathname.startsWith('/app') ? '/app' : location.pathname.startsWith('/review') ? '/review' : location.pathname;
-    window.plausible('pageview', { u: `${window.location.origin}${path}` });
+    if (location.pathname === '/app/welcome') track('signup_completed');
   }, [location.pathname]);
   return null;
 }
