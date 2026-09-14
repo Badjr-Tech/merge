@@ -6,21 +6,25 @@ const W_PREMIUM = [...W_STARTER, 'assistant', 'ai_reviewer', 'partners', 'past_p
 const W_PRO = [...W_PREMIUM, 'multi_workspace', 'integrations', 'priority_support'];
 const TEAM = [...W_PREMIUM, 'team', 'approvals'];
 
+const ORG_SOLO = [...W_PREMIUM, 'external_review'];
+const ORG_TEAM = [...W_PREMIUM, 'team', 'approvals'];
+
 const PLANS = {
   free:         { track: 'writer', name: 'Free',         price: 0,     per: 'workspace', features: CORE,      limits: { seats: 1, totalProjects: 1, questionsPerProject: 10 } },
   writer:       { track: 'writer', name: 'Starter',      price: 6.99,  per: 'month',     features: W_STARTER, limits: { seats: 1, totalProjects: null, questionsPerProject: null } },
   writer_pro:   { track: 'writer', name: 'Premium',      price: 21.99, per: 'month',     features: W_PREMIUM, limits: { seats: 1, totalProjects: null, questionsPerProject: null } },
   professional: { track: 'writer', name: 'Professional', price: 59.99, per: 'month',     features: W_PRO,     limits: { seats: 1, totalProjects: null, questionsPerProject: null } },
-  team:         { track: 'team',   name: 'Team',         price: 22.99, per: 'person',    features: TEAM,      limits: { seats: 5, totalProjects: null, questionsPerProject: null } },
-  enterprise:   { track: 'team',   name: 'Enterprise',   price: 49.99, per: 'person',    features: [...TEAM, 'multi_workspace', 'integrations', 'priority_support'], limits: { seats: 20, totalProjects: null, questionsPerProject: null } },
-  custom:       { track: 'team',   name: 'Custom',       price: null,  per: 'custom',    features: [...TEAM, 'multi_workspace', 'integrations', 'priority_support', 'custom_branding'], limits: { seats: null, totalProjects: null, questionsPerProject: null } },
+  org_solo:     { track: 'team',   name: 'Solo Writer',  price: 14.99, per: 'month',     features: ORG_SOLO,  limits: { seats: 1, totalProjects: null, questionsPerProject: null } },
+  small_team:   { track: 'team',   name: 'Small Teams',  price: 12.99, per: 'person',    features: ORG_TEAM,  limits: { seats: 5, totalProjects: null, questionsPerProject: null } },
+  large_team:   { track: 'team',   name: 'Large Teams',  price: 21.99, per: 'person',    features: [...ORG_TEAM, 'multi_workspace'], limits: { seats: 20, totalProjects: null, questionsPerProject: null } },
+  company:      { track: 'team',   name: 'Companies',    price: 29.99, per: 'person',    features: [...ORG_TEAM, 'multi_workspace', 'integrations', 'priority_support', 'custom_branding'], limits: { seats: null, totalProjects: null, questionsPerProject: null } },
 };
 // Older plan keys still stored on some workspaces
-const ALIASES = { starter: 'writer', premium: 'team' };
+const ALIASES = { starter: 'writer', premium: 'small_team', team: 'small_team', enterprise: 'large_team', custom: 'company' };
 // Free on the team track is the same Free plan
 
 const TRIAL_DAYS = 14;
-const TRIAL_PLAN_BY_KIND = { writer: 'writer_pro', team: 'team' };
+const TRIAL_PLAN_BY_KIND = { writer: 'writer_pro', team: 'small_team' };
 
 const FEATURE_LABELS = {
   unlimited_projects: 'Unlimited projects', answer_bank: 'Answer bank', assistant: 'Ask Merge writing assistant',
@@ -32,7 +36,7 @@ const FEATURE_LABELS = {
 function normalizeKey(key) { return ALIASES[key] || key; }
 
 function minPlanFor(feature, kind) {
-  const order = kind === 'writer' ? ['free', 'writer', 'writer_pro', 'professional'] : ['free', 'team', 'enterprise'];
+  const order = kind === 'writer' ? ['free', 'writer', 'writer_pro', 'professional'] : ['free', 'org_solo', 'small_team', 'large_team', 'company'];
   const k = order.find(k => PLANS[k].features.includes(feature));
   return k ? PLANS[k].name : 'a higher plan';
 }

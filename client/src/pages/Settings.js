@@ -11,8 +11,10 @@ const PLAN_FEATURES = {
   writer: ['Unlimited grants', 'Answer bank', 'Send for review by link', 'File cabinet and calendar'],
   writer_pro: ['Everything in Starter', 'Ask Merge writing assistant', 'AI reviewer', 'Partners and past proposals', 'Editable document with history'],
   professional: ['Everything in Premium', 'Multiple workspaces (one per client)', 'Integrations', 'Higher AI limits', 'Priority support'],
-  team: ['Up to 5 people', 'Assign questions, approvals', 'Answer bank and Ask Merge', 'Partners and past proposals', 'Editable narrative with history', 'AI reviewer'],
-  enterprise: ['Up to 20 people', 'Everything in Team', 'Multiple workspaces', 'Integrations', 'Priority support'],
+  org_solo: ['1 person', 'Unlimited grants', 'Answer bank and Ask Merge', 'AI reviewer', 'Send for review by link', 'Partners and past proposals'],
+  small_team: ['Up to 5 people', 'Assign questions, approvals', 'Answer bank and Ask Merge', 'Partners and past proposals', 'Editable narrative with history', 'AI reviewer'],
+  large_team: ['Up to 20 people', 'Everything in Small Teams', 'Multiple workspaces'],
+  company: ['Unlimited people', 'Everything in Large Teams', 'Integrations', 'Custom branding', 'Priority support'],
 };
 const PER = { workspace: 'free', month: '/mo', person: '/person/mo' };
 
@@ -131,11 +133,11 @@ export default function Settings() {
           {plan?.trialExpired && plan.key === 'free' && <div className="callout callout-gold mb-2"><strong>Your trial has ended.</strong> You're on the Free plan. Choose a plan to bring back teammates, approvals, the answer bank, and Ask Merge.</div>}
           {usage && plan && plan.limits.totalProjects !== null && <p className="small muted">Grants: <strong>{usage.totalProjects} of {plan.limits.totalProjects}</strong>.</p>}
           <div className="callout mb-3 row-between">
-            <div><strong>Workspace type:</strong> {plan?.kind === 'writer' ? 'Writer (one person)' : 'Team'}<div className="tiny muted">{plan?.kind === 'writer' ? 'Switching to Team lets you invite people and use approvals. Plans differ by type.' : 'Switching to Writer is for a single person. Remove other members first.'}</div></div>
-            {isAdmin && <Button variant="secondary" size="sm" onClick={() => switchKind(plan?.kind === 'writer' ? 'team' : 'writer')} loading={busy === 'kind'}>Switch to {plan?.kind === 'writer' ? 'Team' : 'Writer'}</Button>}
+            <div><strong>Workspace type:</strong> {plan?.kind === 'writer' ? 'Grant writer' : 'Organization'}<div className="tiny muted">{plan?.kind === 'writer' ? 'Switching to Organization lets you invite people and use approvals. Plans differ by type.' : 'Switching to Grant writer is for a single professional. Remove other members first.'}</div></div>
+            {isAdmin && <Button variant="secondary" size="sm" onClick={() => switchKind(plan?.kind === 'writer' ? 'team' : 'writer')} loading={busy === 'kind'}>Switch to {plan?.kind === 'writer' ? 'Organization' : 'Grant writer'}</Button>}
           </div>
           <div className="plan-grid">
-            {plans.filter(p => p.key !== 'custom' && (p.key === 'free' || p.track === (plan?.kind === 'writer' ? 'writer' : 'team'))).map(p => (
+            {plans.filter(p => p.key === 'free' || p.track === (plan?.kind === 'writer' ? 'writer' : 'team')).map(p => (
               <button key={p.key} type="button" className={`plan-option ${plan?.key === p.key ? 'current' : ''}`} onClick={() => isAdmin && plan?.key !== p.key && changePlan(p.key)} disabled={!isAdmin || busy === 'plan'}>
                 <div className="row-between"><strong style={{ color: 'var(--navy)' }}>{p.name}</strong>{plan?.key === p.key && <span className="badge badge-green">{plan.trialing ? 'Trial' : 'Current'}</span>}</div>
                 <div className="p-price">{p.price === 0 ? 'Free' : `$${p.price}`}{p.price ? <span className="tiny muted"> {PER[p.per]}</span> : null}</div>
@@ -143,7 +145,7 @@ export default function Settings() {
               </button>
             ))}
           </div>
-          <p className="tiny faint mt-2">Need custom branding or 20+ people? <a href="mailto:hello@dakjencreative.com">Ask about Custom</a>.</p>
+          <p className="tiny faint mt-2">Questions about plans? <a href="mailto:hello@dakjencreative.com">Email us</a>.</p>
         </div>
       </Card>
       <Card pad>

@@ -108,7 +108,7 @@ router.post('/mine/profile/import', auth, async (req, res) => {
 router.put('/mine/plan', auth, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ msg: 'Admins only.' });
   const plan = normalizeKey(String(req.body.plan || ''));
-  if (!PLANS[plan] || plan === 'custom') return res.status(400).json({ msg: 'Pick one of the listed plans. Contact us for Custom.' });
+  if (!PLANS[plan]) return res.status(400).json({ msg: 'Pick one of the listed plans.' });
   try {
     const current = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { kind: true } });
     const kind = current.kind === 'writer' ? 'writer' : 'team';

@@ -84,10 +84,10 @@ export default function Landing() {
 
       <section className="section" id="pricing">
         <h2>Simple pricing</h2>
-        <p className="sub">Every new workspace starts with a free 14-day trial of {track === 'writer' ? 'Premium' : 'Team'}. No credit card.</p>
+        <p className="sub">Every new workspace starts with a free 14-day trial of {track === 'writer' ? 'Premium' : 'Small Teams'}. No credit card.</p>
         <div className="pricing-tabs" role="tablist">
           <button role="tab" className={track === 'writer' ? 'active' : ''} onClick={() => setTrack('writer')}>For grant writers</button>
-          <button role="tab" className={track === 'team' ? 'active' : ''} onClick={() => setTrack('team')}>For teams</button>
+          <button role="tab" className={track === 'team' ? 'active' : ''} onClick={() => setTrack('team')}>For organizations</button>
         </div>
         {track === 'writer' ? (
           <div className="grid-4 pricing-grid">
@@ -97,10 +97,11 @@ export default function Landing() {
             <Card className="price-card"><h3>Professional</h3><div className="price">$59.99<small>/mo</small></div><p className="small muted">For consultants with many clients.</p><ul><li>Everything in Premium</li><li>A workspace per client</li><li>Integrations</li><li>Higher AI limits, priority support</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Start free trial</Link></Card>
           </div>
         ) : (
-          <div className="grid-3">
-            <Card className="price-card featured"><span className="badge badge-green">Most popular</span><h3 className="mt-1">Team</h3><div className="price">$22.99<small>/person/mo</small></div><p className="small muted">For organizations that write together.</p><ul><li>Up to 5 people</li><li>Assign questions, track progress</li><li>Approvals with a paper trail</li><li>Answer bank and Ask Merge</li><li>Partners, past proposals, AI reviewer</li></ul><Link to="/signup" className="btn btn-primary btn-block">Start free trial</Link></Card>
-            <Card className="price-card"><h3>Enterprise</h3><div className="price">$49.99<small>/person/mo</small></div><p className="small muted">For larger organizations.</p><ul><li>Up to 20 people</li><li>Everything in Team</li><li>Multiple workspaces</li><li>Integrations: Drive, Zapier, webhooks</li><li>Priority support</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Start free trial</Link></Card>
-            <Card className="price-card"><h3>Custom</h3><div className="price" style={{ fontSize: 30 }}>Let's talk</div><p className="small muted">Networks and 20+ people.</p><ul><li>Everything in Enterprise</li><li>Custom branding</li><li>Custom integrations</li><li>Volume pricing</li></ul><a href="mailto:hello@dakjencreative.com" className="btn btn-secondary btn-block">Contact us</a></Card>
+          <div className="grid-4 pricing-grid">
+            <Card className="price-card"><h3>Solo Writer</h3><div className="price">$14.99<small>/mo</small></div><p className="small muted">One person writing grants for their organization.</p><ul><li>1 person</li><li>Unlimited grants</li><li>Ask Merge and AI reviewer</li><li>Send for review by link</li><li>Partners and past proposals</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Start free trial</Link></Card>
+            <Card className="price-card featured"><span className="badge badge-green">Most popular</span><h3 className="mt-1">Small Teams</h3><div className="price">$12.99<small>/person/mo</small></div><p className="small muted">Up to 5 people writing together.</p><ul><li>Assign questions, track progress</li><li>Approvals with a paper trail</li><li>Answer bank and Ask Merge</li><li>Partners, past proposals, AI reviewer</li><li>Editable narrative with history</li></ul><Link to="/signup" className="btn btn-primary btn-block">Start free trial</Link></Card>
+            <Card className="price-card"><h3>Large Teams</h3><div className="price">$21.99<small>/person/mo</small></div><p className="small muted">Up to 20 people.</p><ul><li>Everything in Small Teams</li><li>Multiple workspaces</li><li>Progress across departments</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Start free trial</Link></Card>
+            <Card className="price-card"><h3>Companies</h3><div className="price">$29.99<small>/person/mo</small></div><p className="small muted">Unlimited people.</p><ul><li>Everything in Large Teams</li><li>Integrations: Drive, Zapier, webhooks</li><li>Custom branding</li><li>Priority support</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Start free trial</Link></Card>
           </div>
         )}
       </section>
