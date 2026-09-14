@@ -309,7 +309,8 @@ img { max-width: 100%; }
 .price-card h3, .price-card p, .price-card li { overflow-wrap: anywhere; }
 .price-card ul { flex: 1; }
 @media (max-width: 1100px) and (min-width: 601px) { .pricing-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.price-card.featured { border-color: var(--green); box-shadow: var(--shadow); }
+.price-card.featured { border-color: var(--green); box-shadow: var(--shadow); position: relative; overflow: visible; }
+.price-card .popular { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: var(--green); color: #fff; white-space: nowrap; }
 .price-card .price { font-family: var(--font-display); font-size: 34px; font-weight: 600; line-height: 1.1; overflow-wrap: anywhere; color: var(--navy); margin: 8px 0; }
 .price-card .price small { display: block; font-size: 13px; color: var(--text-muted); font-weight: 500; font-family: var(--font); margin-top: 2px; }
 .price-card ul { list-style: none; padding: 0; margin: 18px 0 22px; text-align: left; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
