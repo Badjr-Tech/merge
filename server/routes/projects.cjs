@@ -100,7 +100,7 @@ router.post('/', auth, async (req, res) => {
     const plan = planFor(company);
     if (plan.limits.totalProjects !== null) {
       const total = await prisma.project.count({ where: { companyId: req.user.companyId } });
-      if (total >= plan.limits.totalProjects) return res.status(402).json({ msg: `The Free plan includes ${plan.limits.totalProjects} grant${plan.limits.totalProjects === 1 ? '' : 's'}. Upgrade to ${plan.kind === 'writer' ? 'Starter' : 'Solo Writer'} for unlimited projects.`, feature: 'unlimited_projects', upgrade: true });
+      if (total >= plan.limits.totalProjects) return res.status(402).json({ msg: `The Free plan includes one grant. Upgrade to ${plan.kind === 'writer' ? 'Starter' : 'Solo Writer'} for unlimited grants.`, feature: 'unlimited_projects', upgrade: true });
     }
     let qs = Array.isArray(questions) ? questions.filter(q => q && q.text && q.text.trim()) : [];
     if (plan.limits.questionsPerProject !== null && qs.length > plan.limits.questionsPerProject) return res.status(402).json({ msg: `The Free plan allows ${plan.limits.questionsPerProject} questions per project. Upgrade for unlimited questions.`, feature: 'unlimited_projects', upgrade: true });

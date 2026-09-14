@@ -84,20 +84,21 @@ export default function Landing() {
 
       <section className="section" id="pricing">
         <h2>Simple pricing</h2>
-        <p className="sub">Every new workspace starts with a free 14-day trial of {track === 'writer' ? 'Premium' : 'Small Teams'}. No credit card.</p>
+        <p className="sub">Every new workspace starts with a free 14-day trial of {track === 'writer' ? 'Premium' : 'Small Teams'}, then moves to Free unless you pick a plan. No credit card.</p>
         <div className="pricing-tabs" role="tablist">
           <button role="tab" className={track === 'writer' ? 'active' : ''} onClick={() => setTrack('writer')}>For grant writers</button>
           <button role="tab" className={track === 'team' ? 'active' : ''} onClick={() => setTrack('team')}>For organizations</button>
         </div>
         {track === 'writer' ? (
           <div className="grid-4 pricing-grid">
-            <Card className="price-card"><h3>Free</h3><div className="price">$0</div><p className="small muted">Try it on one real grant.</p><ul><li>1 grant, 10 questions</li><li>Limits and compliance</li><li>Grant notes</li><li>Download PDF or Word</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Get started</Link></Card>
+            <Card className="price-card"><h3>Free</h3><div className="price">$0</div><p className="small muted">Everything a solo writer gets, for one grant.</p><ul><li>1 grant</li><li>Ask Merge and AI reviewer</li><li>Answer bank and send for review</li><li>Download PDF or Word</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Get started</Link></Card>
             <Card className="price-card"><h3>Starter</h3><div className="price">$6.99<small>/mo</small></div><p className="small muted">For a working grant writer.</p><ul><li>Unlimited grants</li><li>Answer bank</li><li>Send for review by link</li><li>File cabinet and calendar</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Start free trial</Link></Card>
             <Card className="price-card featured"><span className="badge badge-green popular">Most popular</span><h3>Premium</h3><div className="price">$21.99<small>/mo</small></div><p className="small muted">Write faster with AI on your side.</p><ul><li>Everything in Starter</li><li>Ask Merge assistant</li><li>AI reviewer</li><li>Partners and past proposals</li><li>Editable document with history</li></ul><Link to="/signup" className="btn btn-primary btn-block">Start free trial</Link></Card>
             <Card className="price-card"><h3>Professional</h3><div className="price">$59.99<small>/mo</small></div><p className="small muted">For consultants with many clients.</p><ul><li>Everything in Premium</li><li>A workspace per client</li><li>Integrations</li><li>Higher AI limits, priority support</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Start free trial</Link></Card>
           </div>
         ) : (
-          <div className="grid-4 pricing-grid">
+          <div className="grid-4 pricing-grid pricing-5">
+            <Card className="price-card"><h3>Free</h3><div className="price">$0</div><p className="small muted">Solo Writer features, one grant.</p><ul><li>1 grant, 1 person</li><li>Ask Merge and AI reviewer</li><li>Answer bank and send for review</li><li>Download PDF or Word</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Get started</Link></Card>
             <Card className="price-card"><h3>Solo Writer</h3><div className="price">$14.99<small>/mo</small></div><p className="small muted">One person writing grants for their organization.</p><ul><li>1 person</li><li>Unlimited grants</li><li>Ask Merge and AI reviewer</li><li>Send for review by link</li><li>Partners and past proposals</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Start free trial</Link></Card>
             <Card className="price-card featured"><span className="badge badge-green popular">Most popular</span><h3>Small Teams</h3><div className="price">$12.99<small>/person/mo</small></div><p className="small muted">Up to 5 people writing together.</p><ul><li>Assign questions, track progress</li><li>Approvals with a paper trail</li><li>Answer bank and Ask Merge</li><li>Partners, past proposals, AI reviewer</li><li>Editable narrative with history</li></ul><Link to="/signup" className="btn btn-primary btn-block">Start free trial</Link></Card>
             <Card className="price-card"><h3>Large Teams</h3><div className="price">$21.99<small>/person/mo</small></div><p className="small muted">Up to 20 people.</p><ul><li>Everything in Small Teams</li><li>Multiple workspaces</li><li>Progress across departments</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Start free trial</Link></Card>

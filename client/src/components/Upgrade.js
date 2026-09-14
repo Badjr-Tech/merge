@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { Card } from './ui';
 
 export const FEATURE_COPY = {
-  unlimited_projects: { title: 'Unlimited grants', min: { writer: 'Starter', team: 'Solo Writer' }, text: 'Free includes one grant. Paid plans remove the cap.' },
+  unlimited_projects: { title: 'Unlimited grants', min: { writer: 'Starter', team: 'Solo Writer' }, text: 'Free includes one grant with every solo feature. Paid plans remove the cap.' },
   answer_bank: { title: 'Answer bank', min: { writer: 'Starter', team: 'Solo Writer' }, text: 'Every answer you write becomes searchable and reusable, with similar-answer suggestions while you write.' },
   assistant: { title: 'Ask Merge', min: { writer: 'Premium', team: 'Solo Writer' }, text: 'A writing assistant that knows your organization, your partners, and the project you have open.' },
   external_review: { title: 'Send for review', min: { writer: 'Starter', team: 'Solo Writer' }, text: 'Share a read-only link so an executive director or board member can approve or send back notes. No account needed.' },

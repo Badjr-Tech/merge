@@ -7,7 +7,7 @@ import { formatDate } from '../lib/format';
 import { usePlan } from '../context/PlanContext';
 
 const PLAN_FEATURES = {
-  free: ['1 grant, up to 10 questions', 'Compliance and limits', 'Grant notes', 'Download PDF or Word'],
+  free: ['1 grant', 'Everything in Solo Writer', 'Ask Merge and AI reviewer', 'Answer bank, partners, past proposals', 'Send for review, download'],
   writer: ['Unlimited grants', 'Answer bank', 'Send for review by link', 'File cabinet and calendar'],
   writer_pro: ['Everything in Starter', 'Ask Merge writing assistant', 'AI reviewer', 'Partners and past proposals', 'Editable document with history'],
   professional: ['Everything in Premium', 'Multiple workspaces (one per client)', 'Integrations', 'Higher AI limits', 'Priority support'],
@@ -137,7 +137,7 @@ export default function Settings() {
             {isAdmin && <Button variant="secondary" size="sm" onClick={() => switchKind(plan?.kind === 'writer' ? 'team' : 'writer')} loading={busy === 'kind'}>Switch to {plan?.kind === 'writer' ? 'Organization' : 'Grant writer'}</Button>}
           </div>
           <div className="plan-grid">
-            {plans.filter(p => p.key === 'free' || p.track === (plan?.kind === 'writer' ? 'writer' : 'team')).map(p => (
+            {plans.filter(p => p.track === 'both' || p.track === (plan?.kind === 'writer' ? 'writer' : 'team')).map(p => (
               <button key={p.key} type="button" className={`plan-option ${plan?.key === p.key ? 'current' : ''}`} onClick={() => isAdmin && plan?.key !== p.key && changePlan(p.key)} disabled={!isAdmin || busy === 'plan'}>
                 <div className="row-between"><strong style={{ color: 'var(--navy)' }}>{p.name}</strong>{plan?.key === p.key && <span className="badge badge-green">{plan.trialing ? 'Trial' : 'Current'}</span>}</div>
                 <div className="p-price">{p.price === 0 ? 'Free' : `$${p.price}`}{p.price ? <span className="tiny muted"> {PER[p.per]}</span> : null}</div>

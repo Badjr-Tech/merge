@@ -31,9 +31,9 @@ A workspace can switch between the two types.
 - Team invitations by link or email, password reset, 14-day trial emails.
 
 ## Pricing (USD)
-Writer track: Free (1 grant, up to 10 questions, notes, download), Starter $6.99/month (unlimited grants, answer bank, send for review, file cabinet, calendar), Premium $21.99/month (adds Ask Merge, AI reviewer, partners, past proposals, editable document with history), Professional $59.99/month (adds multiple client workspaces, integrations, higher AI limits, priority support).
-Organization track: Solo Writer $14.99/month (one person writing for their organization; Ask Merge, AI reviewer, send for review, partners, past proposals), Small Teams $12.99 per person/month (up to 5 people; assignments, approvals, shared library), Large Teams $21.99 per person/month (up to 20 people; multiple workspaces), Companies $29.99 per person/month (unlimited people; integrations, custom branding, priority support).
-Every new workspace starts a free 14-day trial of Premium (grant writers) or Small Teams (organizations). No credit card required.
+Writer track: Free (the Solo Writer feature set limited to one grant), Starter $6.99/month (unlimited grants, answer bank, send for review, file cabinet, calendar), Premium $21.99/month (adds Ask Merge, AI reviewer, partners, past proposals, editable document with history), Professional $59.99/month (adds multiple client workspaces, integrations, higher AI limits, priority support).
+Organization track: Free (Solo Writer features limited to one grant), Solo Writer $14.99/month (one person writing for their organization; Ask Merge, AI reviewer, send for review, partners, past proposals), Small Teams $12.99 per person/month (up to 5 people; assignments, approvals, shared library), Large Teams $21.99 per person/month (up to 20 people; multiple workspaces), Companies $29.99 per person/month (unlimited people; integrations, custom branding, priority support).
+Every new workspace starts a free 14-day trial of Premium (grant writers) or Small Teams (organizations), then moves to Free unless a plan is chosen. No credit card required.
 
 ## Company
 Merge is built and operated by Badjr (https://badjr.vercel.app). Contact: hello@dakjencreative.com

@@ -14,8 +14,8 @@
 - Merged narrative with editable document and version history; PDF and Word download.
 
 ## Who it is for
-- Writer track (one person): Free (1 grant, 10 questions), Starter $6.99/mo, Premium $21.99/mo, Professional $59.99/mo (multiple client workspaces, integrations).
-- Organization track: Solo Writer $14.99/mo (one in-house person), Small Teams $12.99 per person/mo (up to 5), Large Teams $21.99 per person/mo (up to 20), Companies $29.99 per person/mo (unlimited people, integrations, custom branding).
+- Writer track (one person): Free (all solo features, one grant), Starter $6.99/mo, Premium $21.99/mo, Professional $59.99/mo (multiple client workspaces, integrations).
+- Organization track: Free (Solo Writer features, one grant), Solo Writer $14.99/mo (one in-house person), Small Teams $12.99 per person/mo (up to 5), Large Teams $21.99 per person/mo (up to 20), Companies $29.99 per person/mo (unlimited people, integrations, custom branding).
 - Every new workspace starts with a free 14-day trial. No credit card required.
 
 ## Links
