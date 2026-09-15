@@ -20,7 +20,7 @@ app.use(cors({
 }));
 
 // then your middleware and routes
-app.use(express.json());
+app.use(express.json({ limit: '3mb' }));
 
 app.get('/', (req, res) => {
   console.log('Request URL:', req.url);
@@ -39,6 +39,7 @@ app.use('/api/users', require('./routes/users.cjs'));
 app.use('/api/partners', require('./routes/partners.cjs'));
 app.use('/api/cron', require('./routes/cron.cjs'));
 app.use('/api/review', require('./routes/review.cjs'));
+app.use('/api/feedback', require('./routes/feedback.cjs'));
 
 app.get('/api/test', (req, res) => {
   res.send('Test route is working!');

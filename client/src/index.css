@@ -449,7 +449,7 @@ body.notes-open .content { padding-right: calc(var(--notes-w, 400px) + 20px); }
 body.notes-resizing { cursor: col-resize; user-select: none; }
 body.notes-resizing .notes-drawer { transition: none; }
 @media (max-width: 1100px) { body.notes-open .content { padding-right: 28px; } body.notes-open .assistant-fab, body.notes-open .assistant-panel { right: 22px; } }
-.notes-toggle { position: fixed; right: 0; top: 50%; transform: translateY(-50%) rotate(-90deg); transform-origin: right bottom; background: var(--navy); color: #fff; border: none; border-radius: 8px 8px 0 0; padding: 8px 16px; font-weight: 700; font-size: 13px; cursor: pointer; z-index: 55; box-shadow: var(--shadow); }
+.notes-toggle { position: fixed; right: 0; top: 62%; transform: translateY(-50%) rotate(-90deg); transform-origin: right bottom; background: var(--navy); color: #fff; border: none; border-radius: 8px 8px 0 0; padding: 8px 16px; font-weight: 700; font-size: 13px; cursor: pointer; z-index: 55; box-shadow: var(--shadow); }
 .notes-toggle:hover { background: var(--indigo); }
 body.notes-open .notes-toggle { display: none; }
 
@@ -488,3 +488,15 @@ body.notes-open .notes-toggle { display: none; }
   .cookie-notice { bottom: 72px; flex-direction: column; align-items: stretch; }
   .site-footer { padding-bottom: 80px; }
 }
+
+/* ---------- Feedback ---------- */
+.feedback-tab { position: fixed; right: -34px; top: 45%; transform: rotate(-90deg); transform-origin: center; background: var(--green); color: #fff; border: none; border-radius: 8px 8px 0 0; padding: 7px 16px; font-weight: 700; font-size: 12px; cursor: pointer; z-index: 54; box-shadow: var(--shadow); letter-spacing: .02em; }
+.feedback-tab:hover { background: var(--green-dark); }
+body.notes-open .feedback-tab { display: none; }
+.feedback-types { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.feedback-type { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border-strong); background: var(--surface); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 13px; font-weight: 600; color: var(--navy); cursor: pointer; text-align: left; }
+.feedback-type.active { border-color: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
+.feedback-stars { display: flex; align-items: center; gap: 2px; }
+.feedback-stars button { background: none; border: none; font-size: 20px; color: var(--border-strong); cursor: pointer; padding: 0 1px; line-height: 1; }
+.feedback-stars button.on { color: #e0a82e; }
+@media (max-width: 700px) { .feedback-tab { top: auto; bottom: 150px; } }

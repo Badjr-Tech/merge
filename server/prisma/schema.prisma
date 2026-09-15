@@ -33,6 +33,7 @@ model User {
   sentInvitations    Invitation[]            @relation("SentInvitations")
   passwordResets     PasswordReset[]
   assistantMessages  AssistantMessage[]
+  feedback           Feedback[]
   company            Company?                @relation(fields: [companyId], references: [id])
 }
 
@@ -54,6 +55,7 @@ model Company {
   trialEndedSentAt    DateTime?
   assistantMessages AssistantMessage[]
   partners     Partner[]
+  feedback     Feedback[]
 }
 
 model Project {
@@ -268,4 +270,24 @@ model Partner {
   company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
+}
+
+model Feedback {
+  id          String    @id @default(cuid())
+  companyId   String
+  userId      String
+  type        String    // bug | idea | question | praise
+  message     String
+  page        String?
+  rating      Int?
+  screenshot  Bytes?
+  userAgent   String?
+  status      String    @default("new") // new | seen | planned | done | closed
+  adminNotes  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
 }
