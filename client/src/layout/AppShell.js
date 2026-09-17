@@ -21,8 +21,6 @@ export default function AppShell() {
   useSeo({ title: user?.company?.name || 'Workspace', path: '/app', noindex: true });
   const [open, setOpen] = useState(false);
   const [counts, setCounts] = useState({});
-  const [staff, setStaff] = useState(false);
-  useEffect(() => { api.get('/api/feedback/admin/access').then(r => setStaff(Boolean(r.data.staff))).catch(() => {}); }, []);
   const location = useLocation();
 
   useEffect(() => { setOpen(false); }, [location.pathname]);
@@ -68,7 +66,6 @@ export default function AppShell() {
           <div className="nav-section">Workspace</div>
           {isAdmin && !writerMode && link('/app/team', 'Team', I.team)}
           {link('/app/settings', 'Settings', I.settings)}
-          {staff && link('/app/feedback-inbox', 'Feedback inbox', '✉')}
         </nav>
         <div className="sidebar-footer">
           <Link to="/app/settings" className="user-chip">

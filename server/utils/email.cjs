@@ -11,7 +11,7 @@ function parseFrom(raw) {
 
 function emailConfigured() { return Boolean(process.env.BREVO_API_KEY); }
 
-async function sendEmail({ to, subject, html, text }) {
+async function sendEmail({ to, subject, html, text, replyTo, attachments }) {
   if (!emailConfigured()) {
     console.log(`[email disabled] to=${to} subject="${subject}"`);
     return false;
@@ -26,10 +26,12 @@ async function sendEmail({ to, subject, html, text }) {
       },
       body: JSON.stringify({
         sender: parseFrom(FROM_RAW),
-        to: [{ email: to }],
+        to: String(to).split(',').map(e => ({ email: e.trim() })).filter(x => x.email),
+        replyTo: replyTo ? { email: replyTo } : undefined,
         subject,
         htmlContent: html,
         textContent: text,
+        attachment: attachments && attachments.length ? attachments : undefined,
       }),
     });
     if (!res.ok) {

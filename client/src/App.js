@@ -28,7 +28,6 @@ import AnswerBank from './pages/AnswerBank';
 import Partners from './pages/Partners';
 import Review from './pages/Review';
 import { Privacy, Terms, NotFoundPublic, Welcome } from './pages/Legal';
-import FeedbackInbox from './pages/FeedbackInbox';
 import CookieNotice from './components/CookieNotice';
 import Analytics from './components/Analytics';
 import { Loading } from './components/ui';
@@ -97,7 +96,6 @@ export default function App() {
               <Route path="calendar" element={<Calendar />} />
               <Route path="team" element={<RequireAdmin><Team /></RequireAdmin>} />
               <Route path="settings" element={<Settings />} />
-              <Route path="feedback-inbox" element={<FeedbackInbox />} />
               <Route path="*" element={<NotFound />} />
             </Route>
 

@@ -51,7 +51,7 @@ export default function FeedbackWidget() {
             <div className="modal-body">
               {done ? (
                 <div>
-                  <div className="form-success">Thanks! We read every message and reply by email when there's news.</div>
+                  <div className="form-success">Thanks! Your message is on its way to feedback@badjrtech.com. We reply by email.</div>
                   <Button block onClick={() => setOpen(false)}>Done</Button>
                 </div>
               ) : (

@@ -46,10 +46,8 @@ Create a local Postgres database and apply migrations with `npx prisma migrate d
 - **Grant calendar**: built-in month view of project deadlines, with Google Calendar and .ics export links.
 - **File cabinet**: 4 MB per file (Vercel request bodies are capped at 4.5 MB); files carry a category and notes.
 
-## Customer feedback (added 2026-09-15)
-- Every signed-in page has a green **Feedback** tab on the right edge. Type (bug / idea / question / praise), message, optional 1–5 rating and screenshot. The current page path and user agent are recorded.
-- Stored in `Feedback`. Each submission emails `FEEDBACK_NOTIFY` (defaults to `FEEDBACK_ADMINS`).
-- Staff inbox at `/app/feedback-inbox` for accounts whose email is listed in `FEEDBACK_ADMINS` (comma-separated). Filter by status/type/search, open to see screenshot, set status (new → seen → planned → done / closed), keep internal notes, reply by email.
+## Customer feedback (added 2026-09-15, simplified 2026-09-17)
+- Every signed-in page has a green **Feedback** tab. Type, message, optional rating and screenshot. Nothing is stored: the API emails it to `FEEDBACK_NOTIFY` (default feedback@badjrtech.com) with the sender as reply-to and the screenshot attached. Requires Brevo.
 
 ## Stupid-proofing checklist (what a new deploy should always have)
-Custom 404 · sitemap.xml · robots.txt · llms.txt · per-route titles and descriptions · Open Graph image · loading and error states on every fetch · compressed images with alt text · mobile breakpoints and hamburger nav · sticky mobile CTA · privacy and terms pages · cookie notice · contact email in footer · welcome page after signup · Vercel Web Analytics with private URLs masked · feedback widget + inbox · 4 MB upload cap enforced on both sides · plan gating checked on the server, never only in the UI.
+Custom 404 · sitemap.xml · robots.txt · llms.txt · per-route titles and descriptions · Open Graph image · loading and error states on every fetch · compressed images with alt text · mobile breakpoints and hamburger nav · sticky mobile CTA · privacy and terms pages · cookie notice · contact email in footer · welcome page after signup · Vercel Web Analytics with private URLs masked · feedback widget that emails you · 4 MB upload cap enforced on both sides · plan gating checked on the server, never only in the UI.
