@@ -29,7 +29,7 @@ router.get('/trial-emails', async (req, res) => {
         await sendEmail({
           to: a.email,
           subject: `Your Merge trial ends in 3 days`,
-          html: layout('3 days left on your trial', `<p>Hi ${a.name || a.username}, your trial for <strong>${c.name}</strong> ends on ${new Date(c.trialEndsAt).toDateString()}.</p><p>After that, your workspace moves to the Free plan: everything a solo writer gets, limited to one grant. Teammates and approvals pause until you choose a plan.</p>${button(appUrl('/app/settings#plan'), 'Choose a plan')}`),
+          html: layout('3 days left on your trial', `<p>Hi ${a.name || a.username}, your trial for <strong>${c.name}</strong> ends on ${new Date(c.trialEndsAt).toDateString()}.</p><p>After that, your workspace moves to the Free plan: one grant, no AI. Teammates, approvals, Ask Merge, and the AI reviewer pause until you choose a plan.</p>${button(appUrl('/app/settings#plan'), 'Choose a plan')}`),
           text: `Your Merge Premium trial for ${c.name} ends on ${new Date(c.trialEndsAt).toDateString()}. Choose a plan: ${appUrl('/app/settings#plan')}`,
         });
       }
@@ -44,7 +44,7 @@ router.get('/trial-emails', async (req, res) => {
         await sendEmail({
           to: a.email,
           subject: `Your Merge trial has ended — you're on the Free plan`,
-          html: layout('Your trial has ended', `<p>Hi ${a.name || a.username}, the trial for <strong>${c.name}</strong> is over and the workspace is now on the Free plan.</p><p>Everything you wrote is still there. You keep every feature a solo writer has, limited to one grant. To bring back teammates, approvals, and unlimited grants, pick a plan any time.</p>${button(appUrl('/app/settings#plan'), 'See plans')}`),
+          html: layout('Your trial has ended', `<p>Hi ${a.name || a.username}, the trial for <strong>${c.name}</strong> is over and the workspace is now on the Free plan.</p><p>Everything you wrote is still there. You keep your one grant and can download it. To bring back AI, teammates, approvals, and unlimited grants, pick a plan any time.</p>${button(appUrl('/app/settings#plan'), 'See plans')}`),
           text: `Your Merge trial for ${c.name} has ended. The workspace is on the Free plan. See plans: ${appUrl('/app/settings#plan')}`,
         });
       }

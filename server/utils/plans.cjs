@@ -10,8 +10,8 @@ const ORG_SOLO = [...W_PREMIUM, 'external_review'];
 const ORG_TEAM = [...W_PREMIUM, 'team', 'approvals'];
 
 const PLANS = {
-  // Free = the Solo Writer feature set, capped at one grant. Both tracks land here after a trial.
-  free:         { track: 'both',   name: 'Free',         price: 0,     per: 'workspace', features: ORG_SOLO,  limits: { seats: 1, totalProjects: 1, questionsPerProject: null } },
+  // Free = the Solo Writer feature set minus AI, capped at one grant. Both tracks land here after a trial.
+  free:         { track: 'both',   name: 'Free',         price: 0,     per: 'workspace', features: ORG_SOLO.filter(f => !['assistant', 'ai_reviewer'].includes(f)), limits: { seats: 1, totalProjects: 1, questionsPerProject: null } },
   writer:       { track: 'writer', name: 'Starter',      price: 6.99,  per: 'month',     features: W_STARTER, limits: { seats: 1, totalProjects: null, questionsPerProject: null } },
   writer_pro:   { track: 'writer', name: 'Premium',      price: 21.99, per: 'month',     features: W_PREMIUM, limits: { seats: 1, totalProjects: null, questionsPerProject: null } },
   professional: { track: 'writer', name: 'Professional', price: 59.99, per: 'month',     features: W_PRO,     limits: { seats: 1, totalProjects: null, questionsPerProject: null } },

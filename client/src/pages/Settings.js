@@ -7,7 +7,7 @@ import { formatDate } from '../lib/format';
 import { usePlan } from '../context/PlanContext';
 
 const PLAN_FEATURES = {
-  free: ['1 grant', 'Everything in Solo Writer', 'Ask Merge and AI reviewer', 'Answer bank, partners, past proposals', 'Send for review, download'],
+  free: ['1 grant', 'Answer bank, partners, past proposals', 'Send for review, download', 'No AI features'],
   writer: ['Unlimited grants', 'Answer bank', 'Send for review by link', 'File cabinet and calendar'],
   writer_pro: ['Everything in Starter', 'Ask Merge writing assistant', 'AI reviewer', 'Partners and past proposals', 'Editable document with history'],
   professional: ['Everything in Premium', 'Multiple workspaces (one per client)', 'Integrations', 'Higher AI limits', 'Priority support'],
