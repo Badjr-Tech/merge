@@ -8,6 +8,8 @@ import useSeo from '../lib/seo';
 export default function ForgotPassword() {
   useSeo({ title: 'Reset password', noindex: true });
   const [email, setEmail] = useState('');
+  const [website, setWebsite] = useState('');
+  const openedAt = React.useRef(Date.now());
   const [done, setDone] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,7 +19,7 @@ export default function ForgotPassword() {
     setLoading(true);
     setError('');
     try {
-      const res = await api.post('/api/auth/forgot-password', { email });
+      const res = await api.post('/api/auth/forgot-password', { email, website, t: Date.now() - openedAt.current });
       setDone(res.data);
     } catch (err) {
       setError(errorMessage(err));
@@ -39,6 +41,7 @@ export default function ForgotPassword() {
         <form onSubmit={submit} noValidate>
           {error && <div className="form-error">{error}</div>}
           <Field label="Email" htmlFor="email"><Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus /></Field>
+          <div className="hp" aria-hidden="true"><label htmlFor="website">Website</label><input id="website" tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} /></div>
           <Button type="submit" block size="lg" loading={loading}>Send reset link</Button>
         </form>
       )}

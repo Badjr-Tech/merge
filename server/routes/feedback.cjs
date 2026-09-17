@@ -3,12 +3,13 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const prisma = require('../utils/prisma.cjs');
 const { sendEmail, emailConfigured, layout } = require('../utils/email.cjs');
+const { rateLimit } = require('../middleware/antispam.cjs');
 
 const TYPES = ['bug', 'idea', 'question', 'praise'];
 const TO = () => (process.env.FEEDBACK_NOTIFY || 'feedback@badjrtech.com').split(',').map(s => s.trim()).filter(Boolean);
 
 // POST /api/feedback — emails the message to the feedback address. Nothing is stored.
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, rateLimit({ max: 10 }), async (req, res) => {
   const type = TYPES.includes(req.body.type) ? req.body.type : 'idea';
   const message = String(req.body.message || '').trim().slice(0, 5000);
   const page = req.body.page ? String(req.body.page).slice(0, 300) : 'n/a';

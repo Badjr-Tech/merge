@@ -11,6 +11,8 @@ export default function Signup() {
   const navigate = useNavigate();
   useSeo({ title: 'Create your workspace', description: 'Start a free 14-day trial of Merge, grant-writing software for writers and teams. No credit card required.', path: '/signup' });
   const [form, setForm] = useState({ companyName: '', name: '', email: '', password: '', kind: 'writer' });
+  const [website, setWebsite] = useState(''); // honeypot: humans never see this field
+  const openedAt = React.useRef(Date.now());
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
@@ -21,7 +23,7 @@ export default function Signup() {
     if (form.password.length < 8) { setError('Password must be at least 8 characters.'); return; }
     setLoading(true);
     try {
-      const res = await api.post('/api/auth/signup', form);
+      const res = await api.post('/api/auth/signup', { ...form, website, t: Date.now() - openedAt.current });
       signIn(res.data.token, res.data.user);
       navigate('/app/welcome', { replace: true });
     } catch (err) {
@@ -51,6 +53,7 @@ export default function Signup() {
         <Field label="Work email" htmlFor="email">
           <Input id="email" type="email" value={form.email} onChange={set('email')} autoComplete="email" required />
         </Field>
+        <div className="hp" aria-hidden="true"><label htmlFor="website">Website</label><input id="website" name="website" tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} /></div>
         <Field label="Password" htmlFor="password" hint="At least 8 characters.">
           <Input id="password" type="password" value={form.password} onChange={set('password')} autoComplete="new-password" required />
         </Field>

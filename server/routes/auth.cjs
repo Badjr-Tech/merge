@@ -7,6 +7,7 @@ const prisma = require('../utils/prisma.cjs');
 const auth = require('../middleware/auth');
 const { sendEmail, emailConfigured, appUrl, layout, button } = require('../utils/email.cjs');
 const { planFor, TRIAL_DAYS, TRIAL_PLAN_BY_KIND, PLANS } = require('../utils/plans.cjs');
+const { rateLimit, honeypot } = require('../middleware/antispam.cjs');
 
 const TOKEN_TTL = '7d';
 const INVITE_TTL_DAYS = 7;
@@ -62,7 +63,7 @@ function validatePassword(password) {
 }
 
 // POST /api/auth/signup — create a workspace (company) and its first admin
-router.post('/signup', async (req, res) => {
+router.post('/signup', rateLimit({ max: 5 }), honeypot, async (req, res) => {
   const { companyName, name, password } = req.body;
   const email = normalizeEmail(req.body.email);
   const kind = req.body.kind === 'writer' ? 'writer' : 'team';
@@ -113,7 +114,7 @@ router.post('/signup', async (req, res) => {
 });
 
 // POST /api/auth/login — email (or legacy username) + password
-router.post('/login', async (req, res) => {
+router.post('/login', rateLimit({ max: 20 }), async (req, res) => {
   const identifier = String(req.body.email || req.body.username || '').trim();
   const { password } = req.body;
   if (!identifier || !password) return res.status(400).json({ msg: 'Email and password are required.' });
@@ -292,7 +293,7 @@ router.get('/invitations/token/:token', async (req, res) => {
 });
 
 // POST /api/auth/invitations/token/:token/accept (public)
-router.post('/invitations/token/:token/accept', async (req, res) => {
+router.post('/invitations/token/:token/accept', rateLimit({ max: 10 }), async (req, res) => {
   const { name, password } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ msg: 'Your name is required.' });
   const pwError = validatePassword(password);
@@ -343,7 +344,7 @@ async function createResetToken(userId) {
 }
 
 // POST /api/auth/forgot-password (public)
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', rateLimit({ max: 5 }), honeypot, async (req, res) => {
   const email = normalizeEmail(req.body.email);
   const generic = { msg: 'If an account exists for that email, a reset link has been sent.' };
   if (!email) return res.json(generic);
@@ -378,7 +379,7 @@ router.get('/reset-password/:token', async (req, res) => {
 });
 
 // POST /api/auth/reset-password/:token (public)
-router.post('/reset-password/:token', async (req, res) => {
+router.post('/reset-password/:token', rateLimit({ max: 10 }), async (req, res) => {
   const { password } = req.body;
   const pwError = validatePassword(password);
   if (pwError) return res.status(400).json({ msg: pwError });

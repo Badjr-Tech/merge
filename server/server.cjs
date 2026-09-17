@@ -20,7 +20,9 @@ app.use(cors({
 }));
 
 // then your middleware and routes
+app.set('trust proxy', 1);
 app.use(express.json({ limit: '3mb' }));
+app.use((req, res, next) => { res.set('X-Content-Type-Options', 'nosniff'); res.set('Referrer-Policy', 'strict-origin-when-cross-origin'); next(); });
 
 app.get('/', (req, res) => {
   console.log('Request URL:', req.url);

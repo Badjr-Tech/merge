@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../utils/prisma.cjs');
 const { sendEmail, appUrl, layout, button } = require('../utils/email.cjs');
+const { rateLimit } = require('../middleware/antispam.cjs');
 
 async function load(token) {
   return prisma.project.findUnique({
@@ -26,7 +27,7 @@ router.get('/:token', async (req, res) => {
 });
 
 // POST /api/review/:token/respond — approve or request changes
-router.post('/:token/respond', async (req, res) => {
+router.post('/:token/respond', rateLimit({ max: 20 }), async (req, res) => {
   const decision = req.body.decision === 'approved' ? 'approved' : req.body.decision === 'changes' ? 'changes' : null;
   const name = req.body.name ? String(req.body.name).trim().slice(0, 120) : null;
   const comments = req.body.comments ? String(req.body.comments).trim().slice(0, 4000) : null;
@@ -52,7 +53,7 @@ router.post('/:token/respond', async (req, res) => {
 });
 
 // POST /api/review/:token/comments — leave a note on one question or on the whole proposal
-router.post('/:token/comments', async (req, res) => {
+router.post('/:token/comments', rateLimit({ max: 60 }), async (req, res) => {
   const body = String(req.body.body || '').trim().slice(0, 4000);
   const name = req.body.name ? String(req.body.name).trim().slice(0, 120) : null;
   const questionId = req.body.questionId ? String(req.body.questionId) : null;
