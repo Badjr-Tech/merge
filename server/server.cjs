@@ -21,6 +21,8 @@ app.use(cors({
 
 // then your middleware and routes
 app.set('trust proxy', 1);
+// Stripe needs the raw body to verify signatures, so this route is mounted before the JSON parser
+app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), require('./routes/billing.cjs').webhook);
 app.use(express.json({ limit: '3mb' }));
 app.use((req, res, next) => { res.set('X-Content-Type-Options', 'nosniff'); res.set('Referrer-Policy', 'strict-origin-when-cross-origin'); next(); });
 
@@ -42,6 +44,7 @@ app.use('/api/partners', require('./routes/partners.cjs'));
 app.use('/api/cron', require('./routes/cron.cjs'));
 app.use('/api/review', require('./routes/review.cjs'));
 app.use('/api/feedback', require('./routes/feedback.cjs'));
+app.use('/api/billing', require('./routes/billing.cjs').router);
 
 app.get('/api/test', (req, res) => {
   res.send('Test route is working!');

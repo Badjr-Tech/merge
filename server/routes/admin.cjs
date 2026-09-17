@@ -79,6 +79,7 @@ router.delete('/users/:id', auth, requireAdmin, async (req, res) => {
     // Detach rather than delete so history (projects, answers, logs) stays intact.
     await prisma.question.updateMany({ where: { assignedToId: target.id, project: { companyId: req.user.companyId } }, data: { assignedToId: null } });
     await prisma.user.update({ where: { id: target.id }, data: { companyId: null, isApproved: false } });
+    require('./billing.cjs').syncSeats(req.user.companyId);
     res.json({ msg: 'Teammate removed.' });
   } catch (err) {
     console.error(err);
@@ -107,6 +108,7 @@ router.post('/users', auth, requireAdmin, async (req, res) => {
       data: { username, email, name: name ? String(name).trim() : null, password: hashed, role: ROLES.includes(role) ? role : 'editor', companyId: req.user.companyId, isApproved: true },
       select: userSelect,
     });
+    require('./billing.cjs').syncSeats(req.user.companyId);
     res.json({ msg: 'User created', user });
   } catch (err) {
     res.status(500).json({ msg: 'Server error' });

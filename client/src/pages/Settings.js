@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext';
 import { Button, Card, Field, Input, PageHeader, Textarea } from '../components/ui';
 import { formatDate } from '../lib/format';
 import { usePlan } from '../context/PlanContext';
+import { useSearchParams } from 'react-router-dom';
 
 const PLAN_FEATURES = {
   free: ['1 grant', 'Send for review with notes', 'Answer bank, partners, past proposals', 'Download PDF or Word', 'No AI features'],
@@ -22,6 +23,19 @@ export default function Settings() {
   const { user, isAdmin, updateUser } = useAuth();
   const toast = useToast();
   const { plan, usage, refresh: refreshPlan } = usePlan();
+  const [params, setParams] = useSearchParams();
+  const [billing, setBilling] = useState(null);
+  const loadBilling = () => api.get('/api/billing/status').then(r => setBilling(r.data)).catch(() => setBilling({ configured: false }));
+  useEffect(() => { loadBilling(); }, []);
+  useEffect(() => {
+    const b = params.get('billing');
+    if (b === 'success') { toast.success('Payment received. Your plan is active.'); refreshPlan(); loadBilling(); setParams({}); }
+    if (b === 'cancel') { toast.info('Checkout cancelled. Nothing was charged.'); setParams({}); }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const openPortal = async () => {
+    setBusy('portal');
+    try { const r = await api.post('/api/billing/portal'); window.location.href = r.data.url; } catch (err) { toast.error(errorMessage(err)); setBusy(''); }
+  };
   const switchKind = async (kind) => {
     setBusy('kind');
     try { await api.put('/api/companies/mine/kind', { kind }); await refreshPlan(); toast.success(kind === 'writer' ? 'Switched to a writer workspace.' : 'Switched to a team workspace.'); }
@@ -31,8 +45,16 @@ export default function Settings() {
   useEffect(() => { api.get('/api/companies/plans').then(r => setPlans(r.data)).catch(() => {}); }, []);
   const changePlan = async (key) => {
     setBusy('plan');
-    try { await api.put('/api/companies/mine/plan', { plan: key }); await refreshPlan(); toast.success(`Switched to ${key.charAt(0).toUpperCase() + key.slice(1)}.`); }
-    catch (err) { toast.error(errorMessage(err)); } finally { setBusy(''); }
+    try {
+      if (billing?.configured && key !== 'free') {
+        const r = await api.post('/api/billing/checkout', { plan: key });
+        if (r.data.url) { window.location.href = r.data.url; return; }
+        await refreshPlan(); loadBilling(); toast.success('Plan updated. Any price difference is prorated on your next invoice.');
+      } else {
+        const r = await api.put('/api/companies/mine/plan', { plan: key });
+        await refreshPlan(); loadBilling(); toast.success(r.data.msg || 'Plan updated.');
+      }
+    } catch (err) { toast.error(errorMessage(err)); } finally { setBusy(''); }
   };
   const [name, setName] = useState(user?.name || '');
   const [company, setCompany] = useState(null);
@@ -127,8 +149,14 @@ export default function Settings() {
         <div className="form-actions"><Button onClick={savePassword} loading={busy === 'pw'} disabled={!pw.oldPassword || !pw.newPassword}>Update password</Button></div>
       </Card>
       <Card className="mb-3" id="plan">
-        <div className="card-header"><div><h3>Plan</h3><div className="tiny muted">Billing isn't connected yet, so admins can switch plans here while Merge is in early access.</div></div>{plan && <span className="badge badge-green">{plan.name}</span>}</div>
+        <div className="card-header"><div><h3>Plan and billing</h3><div className="tiny muted">{billing?.configured ? 'Secure checkout by Stripe. Change or cancel any time.' : 'Billing is not connected yet; admins can switch plans here.'}</div></div>{plan && <span className="badge badge-green">{plan.name}</span>}</div>
         <div className="card-body">
+          {billing?.hasSubscription && (
+            <div className="callout mb-2 row-between">
+              <span className="small">{billing.cancelAtPeriodEnd ? <><strong>Cancels</strong> at the end of this period{billing.currentPeriodEnd ? ` (${formatDate(billing.currentPeriodEnd)})` : ''}. Pick a plan below to keep it.</> : <>{billing.subscriptionStatus === 'past_due' ? <strong style={{ color: 'var(--danger)' }}>Payment failed. Update your card to keep access.</strong> : <>Subscription <strong>{billing.subscriptionStatus}</strong>{billing.currentPeriodEnd ? `, renews ${formatDate(billing.currentPeriodEnd)}` : ''}</>}{plan?.per === 'person' ? ` · ${billing.seats} seat${billing.seats === 1 ? '' : 's'}` : ''}</>}</span>
+              {isAdmin && <Button variant="secondary" size="sm" onClick={openPortal} loading={busy === 'portal'}>Manage billing</Button>}
+            </div>
+          )}
           {plan?.trialing && <div className="callout callout-green mb-2"><strong>Premium trial:</strong> {plan.trialDaysLeft} day{plan.trialDaysLeft === 1 ? '' : 's'} left. Pick a plan below any time. If you don't, the workspace moves to Free when the trial ends and nothing you wrote is lost.</div>}
           {plan?.trialExpired && plan.key === 'free' && <div className="callout callout-gold mb-2"><strong>Your trial has ended.</strong> You're on the Free plan. Choose a plan to bring back teammates, approvals, the answer bank, and Ask Merge.</div>}
           {usage && plan && plan.limits.totalProjects !== null && <p className="small muted">Grants: <strong>{usage.totalProjects} of {plan.limits.totalProjects}</strong>.</p>}
@@ -140,6 +168,7 @@ export default function Settings() {
             {plans.filter(p => p.track === 'both' || p.track === (plan?.kind === 'writer' ? 'writer' : 'team')).map(p => (
               <button key={p.key} type="button" className={`plan-option ${plan?.key === p.key ? 'current' : ''}`} onClick={() => isAdmin && plan?.key !== p.key && changePlan(p.key)} disabled={!isAdmin || busy === 'plan'}>
                 <div className="row-between"><strong style={{ color: 'var(--navy)' }}>{p.name}</strong>{plan?.key === p.key && <span className="badge badge-green">{plan.trialing ? 'Trial' : 'Current'}</span>}</div>
+                {p.per === 'person' && billing?.seats > 1 && plan?.key !== p.key && <div className="tiny muted">≈ ${(p.price * billing.seats).toFixed(2)}/mo for {billing.seats} people</div>}
                 <div className="p-price">{p.price === 0 ? 'Free' : `$${p.price}`}{p.price ? <span className="tiny muted"> {PER[p.per]}</span> : null}</div>
                 <ul>{(PLAN_FEATURES[p.key] || []).map(f => <li key={f}>{f}</li>)}</ul>
               </button>

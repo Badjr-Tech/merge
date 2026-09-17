@@ -325,6 +325,7 @@ router.post('/invitations/token/:token/accept', rateLimit({ max: 10 }), async (r
       await tx.invitation.update({ where: { id: invite.id }, data: { acceptedAt: new Date() } });
       return created;
     });
+    require('./billing.cjs').syncSeats(invite.companyId);
 
     res.json({ token: signToken(user), user: publicUser(user) });
   } catch (err) {

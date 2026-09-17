@@ -109,12 +109,20 @@ router.put('/mine/plan', auth, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ msg: 'Admins only.' });
   const plan = normalizeKey(String(req.body.plan || ''));
   if (!PLANS[plan]) return res.status(400).json({ msg: 'Pick one of the listed plans.' });
+  const billing = require('../utils/stripe.cjs');
+  if (billing.configured() && plan !== 'free') return res.status(400).json({ msg: 'Paid plans are set up through checkout.', checkout: true });
   try {
     const current = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { kind: true } });
     const kind = current.kind === 'writer' ? 'writer' : 'team';
     if (plan !== 'free' && PLANS[plan].track !== kind) return res.status(400).json({ msg: `${PLANS[plan].name} is a ${PLANS[plan].track} plan. Switch your workspace type first.` });
+    const before = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { stripeSubscriptionId: true } });
+    if (plan === 'free' && before.stripeSubscriptionId && billing.configured()) {
+      try { await billing.stripe().subscriptions.update(before.stripeSubscriptionId, { cancel_at_period_end: true }); } catch (e) { console.error('Cancel error:', e.message); }
+      const company = await prisma.company.update({ where: { id: req.user.companyId }, data: { cancelAtPeriodEnd: true }, select: { id: true, plan: true, trialEndsAt: true, kind: true } });
+      return res.json({ ...company, planInfo: publicPlan(company), msg: 'Your plan will end at the close of the current billing period.' });
+    }
     // Picking a plan ends the trial; the chosen plan applies immediately.
-    const company = await prisma.company.update({ where: { id: req.user.companyId }, data: { plan, trialEndsAt: null }, select: { id: true, plan: true, trialEndsAt: true } });
+    const company = await prisma.company.update({ where: { id: req.user.companyId }, data: { plan, trialEndsAt: null }, select: { id: true, plan: true, trialEndsAt: true, kind: true } });
     res.json({ ...company, planInfo: publicPlan(company) });
   } catch (err) { res.status(500).json({ msg: 'Server error' }); }
 });

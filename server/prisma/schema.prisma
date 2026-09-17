@@ -49,6 +49,11 @@ model Company {
   profile      Json?
   plan         String        @default("starter")
   kind         String        @default("team")
+  stripeCustomerId     String?  @unique
+  stripeSubscriptionId String?  @unique
+  subscriptionStatus   String?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean  @default(false)
   trialEndsAt  DateTime?
   trialReminderSentAt DateTime?
   trialEndedSentAt    DateTime?
