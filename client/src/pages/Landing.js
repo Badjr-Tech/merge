@@ -122,7 +122,7 @@ export default function Landing() {
 
       <section className="section" id="pricing">
         <h2>Simple pricing</h2>
-        <p className="sub">Every new workspace starts with a free 14-day trial of {track === 'writer' ? 'Premium' : 'Small Teams'}, then moves to Free unless you pick a plan. No credit card for the trial. Secure payments by Stripe.</p>
+        <p className="sub">Every new workspace starts with a free 14-day trial of {track === 'writer' ? 'Premium' : 'Small Teams'}, then moves to Free unless you pick a plan. No credit card for the trial. Secure payments by Stripe. Premium, Professional, Large Teams, and Companies include referral rewards: $5 off for you, 10% off for them.</p>
         <div className="pricing-tabs" role="tablist">
           <button role="tab" className={track === 'writer' ? 'active' : ''} onClick={() => setTrack('writer')}>For grant writers</button>
           <button role="tab" className={track === 'team' ? 'active' : ''} onClick={() => setTrack('team')}>For organizations</button>

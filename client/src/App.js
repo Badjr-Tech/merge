@@ -27,6 +27,7 @@ import Settings from './pages/Settings';
 import AnswerBank from './pages/AnswerBank';
 import Partners from './pages/Partners';
 import Review from './pages/Review';
+import Referrals from './pages/Referrals';
 import { Privacy, Terms, NotFoundPublic, Welcome } from './pages/Legal';
 import CookieNotice from './components/CookieNotice';
 import Analytics from './components/Analytics';
@@ -96,6 +97,7 @@ export default function App() {
               <Route path="calendar" element={<Calendar />} />
               <Route path="team" element={<RequireAdmin><Team /></RequireAdmin>} />
               <Route path="settings" element={<Settings />} />
+              <Route path="referrals" element={<Referrals />} />
               <Route path="*" element={<NotFound />} />
             </Route>
 

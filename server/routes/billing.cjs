@@ -5,6 +5,7 @@ const prisma = require('../utils/prisma.cjs');
 const { stripe, configured, PRICE_BY_PLAN, PLAN_BY_PRICE, PORTAL_CONFIG, perSeat } = require('../utils/stripe.cjs');
 const { PLANS, publicPlan } = require('../utils/plans.cjs');
 const { appUrl } = require('../utils/email.cjs');
+const referrals = require('./referrals.cjs');
 
 async function seatCount(companyId) {
   return Math.max(1, await prisma.user.count({ where: { companyId, isApproved: true } }));
@@ -48,11 +49,12 @@ router.post('/checkout', auth, async (req, res) => {
       customerId = cust.id;
       await prisma.company.update({ where: { id: company.id }, data: { stripeCustomerId: customerId } });
     }
+    const discounts = company.referredByCode && !company.stripeSubscriptionId ? [{ coupon: referrals.REFERRED_COUPON }] : undefined;
     const session = await stripe().checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
       line_items: [{ price, quantity: seats }],
-      allow_promotion_codes: true,
+      ...(discounts ? { discounts } : { allow_promotion_codes: true }),
       success_url: appUrl('/app/settings?billing=success'),
       cancel_url: appUrl('/app/settings?billing=cancel'),
       subscription_data: { metadata: { companyId: company.id, plan } },
@@ -101,6 +103,7 @@ async function applySubscription(sub) {
   if (!company) company = await prisma.company.findUnique({ where: { stripeCustomerId: sub.customer } });
   if (!company) { console.warn('Webhook: no company for subscription', sub.id); return; }
   const active = ['active', 'trialing', 'past_due'].includes(sub.status);
+  const wasUnpaid = !company.stripeSubscriptionId;
   await prisma.company.update({
     where: { id: company.id },
     data: {
@@ -113,6 +116,7 @@ async function applySubscription(sub) {
       trialEndsAt: active ? null : company.trialEndsAt,
     },
   });
+  if (active && wasUnpaid && company.referredByCode) referrals.onReferredPaid(company.id, stripe()).catch(() => {});
 }
 
 async function webhook(req, res) {

@@ -65,6 +65,7 @@ export default function AppShell() {
           {link('/app/calendar', 'Grant calendar', I.calendar)}
           <div className="nav-section">Workspace</div>
           {isAdmin && !writerMode && link('/app/team', 'Team', I.team)}
+          {link('/app/referrals', 'Refer a friend', '♥')}
           {link('/app/settings', 'Settings', I.settings)}
         </nav>
         <div className="sidebar-footer">

@@ -45,6 +45,7 @@ app.use('/api/cron', require('./routes/cron.cjs'));
 app.use('/api/review', require('./routes/review.cjs'));
 app.use('/api/feedback', require('./routes/feedback.cjs'));
 app.use('/api/billing', require('./routes/billing.cjs').router);
+app.use('/api/referrals', require('./routes/referrals.cjs').router);
 
 app.get('/api/test', (req, res) => {
   res.send('Test route is working!');

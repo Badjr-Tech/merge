@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api, { errorMessage } from '../api';
 import { useAuth } from '../context/AuthContext';
 import AuthLayout from '../layout/AuthLayout';
@@ -9,6 +9,14 @@ import useSeo from '../lib/seo';
 export default function Signup() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const [ref, setRef] = useState((params.get('ref') || '').toUpperCase());
+  const [refInfo, setRefInfo] = useState(null);
+  useEffect(() => {
+    if (!ref || ref.length < 5) { setRefInfo(null); return undefined; }
+    const t = setTimeout(() => api.get(`/api/referrals/check/${encodeURIComponent(ref)}`).then(r => setRefInfo(r.data)).catch(() => setRefInfo({ valid: false })), 300);
+    return () => clearTimeout(t);
+  }, [ref]);
   useSeo({ title: 'Create your workspace', description: 'Start a free 14-day trial of Merge, grant-writing software for writers and teams. No credit card required.', path: '/signup' });
   const [form, setForm] = useState({ companyName: '', name: '', email: '', password: '', kind: 'writer' });
   const [website, setWebsite] = useState(''); // honeypot: humans never see this field
@@ -23,7 +31,7 @@ export default function Signup() {
     if (form.password.length < 8) { setError('Password must be at least 8 characters.'); return; }
     setLoading(true);
     try {
-      const res = await api.post('/api/auth/signup', { ...form, website, t: Date.now() - openedAt.current });
+      const res = await api.post('/api/auth/signup', { ...form, website, t: Date.now() - openedAt.current, ref: refInfo?.valid ? ref : undefined });
       signIn(res.data.token, res.data.user);
       navigate('/app/welcome', { replace: true });
     } catch (err) {
@@ -56,6 +64,9 @@ export default function Signup() {
         <div className="hp" aria-hidden="true"><label htmlFor="website">Website</label><input id="website" name="website" tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} /></div>
         <Field label="Password" htmlFor="password" hint="At least 8 characters.">
           <Input id="password" type="password" value={form.password} onChange={set('password')} autoComplete="new-password" required />
+        </Field>
+        <Field label="Referral code" htmlFor="ref" hint={refInfo?.valid ? `From ${refInfo.from}. You'll get ${refInfo.discount}.` : ref && refInfo && !refInfo.valid ? 'That code is not valid.' : 'Optional. 10% off your first 3 months.'} error={ref && refInfo && !refInfo.valid ? ' ' : ''}>
+          <Input id="ref" value={ref} onChange={e => setRef(e.target.value.toUpperCase())} placeholder="e.g. RIVERS-7K2Q" />
         </Field>
         <Button type="submit" block size="lg" loading={loading}>Create workspace</Button>
         <p className="tiny faint mt-2" style={{ textAlign: 'center' }}>By continuing you agree to the <Link to="/terms">terms</Link> and <Link to="/privacy">privacy policy</Link>.</p>

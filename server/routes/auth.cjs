@@ -106,6 +106,7 @@ router.post('/signup', rateLimit({ max: 5 }), honeypot, async (req, res) => {
       html: layout(`Welcome, ${name.trim().split(' ')[0]}!`, `<p>Your workspace <strong>${companyName.trim()}</strong> is ready, and you have full ${PLANS[TRIAL_PLAN_BY_KIND[kind]].name} access for the next ${TRIAL_DAYS} days.</p><p>Three things to do first:</p><ol><li>Create a project from a grant application.</li><li>Fill in your organization profile under Settings so Ask Merge writes in your voice.</li>${kind === 'team' ? '<li>Invite a teammate from the Team page.</li>' : '<li>Add a past proposal so the answer bank has something to suggest.</li>'}</ol>${button(appUrl('/app'), 'Open Merge')}`),
       text: `Welcome to Merge. Your ${TRIAL_DAYS}-day trial has started. Open Merge: ${appUrl('/app')}`,
     }).catch(() => {});
+    if (req.body.ref) require('./referrals.cjs').recordReferral(user.companyId, String(req.body.ref).slice(0, 40)).catch(() => {});
     res.json({ token: signToken(user), user: publicUser(user) });
   } catch (err) {
     console.error('Signup error:', err);

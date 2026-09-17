@@ -26,3 +26,6 @@
 - Privacy: https://mergev1-78hi.vercel.app/privacy
 - Terms: https://mergev1-78hi.vercel.app/terms
 - Company: Badjr, https://badjr.vercel.app · hello@dakjencreative.com
+
+## Referral program
+Workspaces on Premium, Professional, Large Teams, or Companies get a referral link. Each referred workspace that becomes a paying customer earns the referrer $5 off their next invoice; the referred workspace gets 10% off its first 3 months, applied automatically at checkout.

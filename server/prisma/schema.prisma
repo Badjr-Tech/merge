@@ -54,6 +54,10 @@ model Company {
   subscriptionStatus   String?
   currentPeriodEnd     DateTime?
   cancelAtPeriodEnd    Boolean  @default(false)
+  referralCode         String?  @unique
+  referredByCode       String?
+  referralRewardedAt   DateTime?
+  referralsMade        Referral[] @relation("Referrer")
   trialEndsAt  DateTime?
   trialReminderSentAt DateTime?
   trialEndedSentAt    DateTime?
@@ -288,4 +292,17 @@ model ReviewComment {
   project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, createdAt])
+}
+
+model Referral {
+  id             String   @id @default(cuid())
+  referrerId     String
+  referredId     String   @unique
+  status         String   @default("signed_up") // signed_up | paid | rewarded
+  createdAt      DateTime @default(now())
+  paidAt         DateTime?
+  rewardedAt     DateTime?
+  referrer       Company  @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId])
 }
