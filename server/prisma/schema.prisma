@@ -78,6 +78,7 @@ model Project {
   reviewComments   String?
   reviewSentAt     DateTime?
   reviewRespondedAt DateTime?
+  reviewComments2  ReviewComment[]
 
   aiReviewLogs     AIReviewLog[]
   approvalRequests ApprovalRequest[]
@@ -290,4 +291,17 @@ model Feedback {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([status, createdAt])
+}
+
+model ReviewComment {
+  id           String   @id @default(cuid())
+  projectId    String
+  questionId   String?
+  reviewerName String?
+  body         String
+  resolved     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
 }

@@ -1,6 +1,6 @@
 // Plan definitions for two tracks: "writer" (one person, no collaboration layer) and "team".
 // Feature keys are checked on the server (requireFeature) and mirrored to the client.
-const CORE = ['projects', 'exports', 'notes'];
+const CORE = ['projects', 'exports', 'notes', 'external_review'];
 const W_STARTER = [...CORE, 'unlimited_projects', 'answer_bank', 'external_review', 'file_cabinet', 'calendar'];
 const W_PREMIUM = [...W_STARTER, 'assistant', 'ai_reviewer', 'partners', 'past_proposals', 'narrative_editing'];
 const W_PRO = [...W_PREMIUM, 'multi_workspace', 'integrations', 'priority_support'];

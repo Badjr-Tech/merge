@@ -6,7 +6,7 @@
 - Break an RFP into questions; each question has an owner, a status, and a word/character limit.
 - Live compliance: counts update while writing; a compliance page shows every answer against its limit.
 - Answer bank: every saved answer is searchable; similar past answers are suggested while writing.
-- Send for review: a read-only link where a reviewer approves or requests changes without an account.
+- Send for review (every plan, including Free): email a link; the reviewer reads the proposal, leaves notes on individual sections, and approves or requests changes, with no account. Notes appear inline in the project and the writer is emailed.
 - Team approvals with history (team workspaces).
 - Ask Merge: a writing assistant that knows the organization profile, partners directory, and the open project.
 - AI reviewer: critiques a proposal against a funder's website and purpose statement.

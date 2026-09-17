@@ -8,7 +8,6 @@ export const FEATURE_COPY = {
   unlimited_projects: { title: 'Unlimited grants', min: { writer: 'Starter', team: 'Solo Writer' }, text: 'Free includes one grant. Paid plans remove the cap.' },
   answer_bank: { title: 'Answer bank', min: { writer: 'Starter', team: 'Solo Writer' }, text: 'Every answer you write becomes searchable and reusable, with similar-answer suggestions while you write.' },
   assistant: { title: 'Ask Merge', min: { writer: 'Premium', team: 'Solo Writer' }, text: 'A writing assistant that knows your organization, your partners, and the project you have open.' },
-  external_review: { title: 'Send for review', min: { writer: 'Starter', team: 'Solo Writer' }, text: 'Share a read-only link so an executive director or board member can approve or send back notes. No account needed.' },
   team: { title: 'Teammates', min: { writer: 'an organization workspace', team: 'Small Teams' }, text: 'Invite people, assign questions, and write together.' },
   approvals: { title: 'Approvals', min: { writer: 'an organization workspace', team: 'Small Teams' }, text: 'Route a finished proposal to an approver and track sign-off.' },
   partners: { title: 'Partners directory', min: { writer: 'Premium', team: 'Solo Writer' }, text: 'Keep the organizations you collaborate with in one place and let Ask Merge recommend which ones fit a grant.' },

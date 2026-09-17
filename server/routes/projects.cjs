@@ -811,6 +811,7 @@ router.get('/:id', auth, async (req, res) => {
           orderBy: { requestedAt: 'desc' },
           include: { approver: { select: { id: true, username: true, name: true } }, requestedBy: { select: { id: true, username: true, name: true } } },
         },
+        reviewComments2: { orderBy: { createdAt: 'asc' } },
       },
     });
 
@@ -1747,7 +1748,7 @@ router.post('/:id/review-link', auth, requireFeature(prisma, 'external_review'),
     const token = crypto.randomBytes(20).toString('hex');
     const updated = await prisma.project.update({
       where: { id: project.id },
-      data: { reviewToken: token, reviewStatus: 'pending', reviewerName, reviewerEmail, reviewComments: null, reviewSentAt: new Date(), reviewRespondedAt: null, status: project.status === 'draft' ? 'pending_approval' : project.status },
+      data: { reviewToken: token, reviewStatus: 'pending', reviewerName, reviewerEmail, reviewComments: null, reviewSentAt: new Date(), reviewRespondedAt: null, status: ['draft', 'approved', 'rejected'].includes(project.status) ? 'pending_approval' : project.status, reviewComments2: { updateMany: { where: {}, data: { resolved: true } } } },
       select: { id: true, reviewToken: true, reviewStatus: true, reviewerName: true, reviewerEmail: true, reviewSentAt: true },
     });
     const link = appUrl(`/review/${token}`);
@@ -1772,6 +1773,16 @@ router.delete('/:id/review-link', auth, async (req, res) => {
     if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
     await prisma.project.update({ where: { id: project.id }, data: { reviewToken: null, reviewStatus: null, reviewComments: null, reviewRespondedAt: null, status: project.status === 'pending_approval' ? 'draft' : project.status } });
     res.json({ msg: 'Review request withdrawn.' });
+  } catch (err) { res.status(500).send('Server Error'); }
+});
+
+// @route   PUT api/projects/:id/review-comments/:cid — mark a reviewer note resolved / unresolved
+router.put('/:id/review-comments/:cid', auth, async (req, res) => {
+  try {
+    const c = await prisma.reviewComment.findUnique({ where: { id: req.params.cid }, include: { project: { select: { companyId: true } } } });
+    if (!c || c.projectId !== req.params.id || c.project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Note not found' });
+    const updated = await prisma.reviewComment.update({ where: { id: c.id }, data: { resolved: Boolean(req.body.resolved) } });
+    res.json(updated);
   } catch (err) { res.status(500).send('Server Error'); }
 });
 

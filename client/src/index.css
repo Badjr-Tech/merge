@@ -500,3 +500,8 @@ body.notes-open .feedback-tab { display: none; }
 .feedback-stars button { background: none; border: none; font-size: 20px; color: var(--border-strong); cursor: pointer; padding: 0 1px; line-height: 1; }
 .feedback-stars button.on { color: #e0a82e; }
 @media (max-width: 700px) { .feedback-tab { top: auto; bottom: 150px; } }
+
+.review-section { padding: 14px 0; border-bottom: 1px solid var(--border); }
+.review-section:last-child { border-bottom: none; }
+.review-note { background: var(--gold-soft); border-left: 3px solid #e0a82e; border-radius: 6px; padding: 8px 12px; margin: 8px 0; font-size: 14px; }
+.review-note.resolved { background: var(--gray); border-left-color: var(--border-strong); color: var(--text-muted); }

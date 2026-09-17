@@ -10,7 +10,7 @@ import { usePlan } from '../context/PlanContext';
 import { FEATURE_COPY } from '../components/Upgrade';
 import { displayName, dueLabel, formatDate, formatDateTime, limitCheck, projectProgress, projectStatus, questionStatus, googleCalendarUrl } from '../lib/format';
 
-function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, writerMode }) {
+function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, writerMode, reviewNotes = [], onResolveNote }) {
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -61,11 +61,20 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
             {q.answer && <span className={lc.over ? 'strong' : ''} style={{ color: lc.over ? 'var(--danger)' : undefined }}>· {limitCheck(q.answer, q.maxLimit, q.limitUnit).count} {lc.unit}{lc.over ? ' (over)' : ''}</span>}
           </div>
         </div>
-        <div className="row">{writerMode ? (q.answer ? <Badge tone="green">Answered</Badge> : <Badge tone="gray">Empty</Badge>) : <Badge tone={st.tone}>{st.label}</Badge>}<span className="muted">{open ? '▴' : '▾'}</span></div>
+        <div className="row">{reviewNotes.filter(n => !n.resolved).length > 0 && <Badge tone="gold">{reviewNotes.filter(n => !n.resolved).length} reviewer note{reviewNotes.filter(n => !n.resolved).length === 1 ? '' : 's'}</Badge>}{writerMode ? (q.answer ? <Badge tone="green">Answered</Badge> : <Badge tone="gray">Empty</Badge>) : <Badge tone={st.tone}>{st.label}</Badge>}<span className="muted">{open ? '▴' : '▾'}</span></div>
       </div>
 
       {open && !editing && (
         <div className="mt-2">
+          {reviewNotes.length > 0 && (
+            <div className="mb-2">
+              {reviewNotes.map(n => (
+                <div key={n.id} className={`review-note ${n.resolved ? 'resolved' : ''}`}>
+                  <div className="row-between"><span><strong>{n.reviewerName || 'Reviewer'}:</strong> <span className="pre-wrap">{n.body}</span></span>{onResolveNote && <button type="button" className="link-button tiny" onClick={() => onResolveNote(n)}>{n.resolved ? 'Reopen' : 'Resolve'}</button>}</div>
+                </div>
+              ))}
+            </div>
+          )}
           {canAnswer ? (
             <>
               {(writerMode || q.status !== 'submitted') && <SimilarAnswers questionId={q.id} onUse={(text) => { setAnswer(a => a.trim() ? `${a}\n\n${text}` : text); toast.success('Added to your draft. Edit it, then save or submit.'); }} />}
@@ -219,6 +228,9 @@ export default function ProjectDetail() {
   };
   const restoreVersion = (v) => act(`Restored version ${v.versionNumber}.`, () => api.post(`/api/projects/${id}/narrative/restore/${v.id}`), { title: `Restore version ${v.versionNumber}`, message: 'The current text will be saved as a new version before restoring.', confirmLabel: 'Restore' });
   const canEditNarrative = has('narrative_editing') && (canManage || ['editor', 'approver'].includes(user.role)) && !project?.isCompleted;
+  const resolveNote = async (n) => {
+    try { await api.put(`/api/projects/${id}/review-comments/${n.id}`, { resolved: !n.resolved }); load(); } catch (err) { toast.error(errorMessage(err)); }
+  };
   const sendForReview = async () => {
     setBusy(true);
     try {
@@ -270,7 +282,7 @@ export default function ProjectDetail() {
         <div className="callout callout-green mb-3"><strong>Approved{project.reviewerName ? ` by ${project.reviewerName}` : ''}</strong>{project.reviewRespondedAt && ` on ${formatDateTime(project.reviewRespondedAt)}`}.{project.reviewComments && <div className="mt-1 pre-wrap">{project.reviewComments}</div>}</div>
       )}
       {project.reviewStatus === 'changes' && (
-        <div className="callout callout-danger mb-3"><strong>Changes requested{project.reviewerName ? ` by ${project.reviewerName}` : ''}:</strong> <span className="pre-wrap">{project.reviewComments}</span></div>
+        <div className="callout callout-danger mb-3"><strong>Changes requested{project.reviewerName ? ` by ${project.reviewerName}` : ''}:</strong> <span className="pre-wrap">{project.reviewComments}</span>{(project.reviewComments2 || []).filter(n => !n.questionId && !n.resolved).map(n => <div key={n.id} className="mt-1 small">• {n.body}</div>)}{(project.reviewComments2 || []).some(n => n.questionId && !n.resolved) && <div className="tiny mt-1">Open the questions marked with reviewer notes below.</div>}</div>
       )}
       {!writerMode && project.status === 'rejected' && !project.reviewToken && latestApproval?.comments && (
         <div className="callout callout-danger mb-3"><strong>Changes requested by {displayName(latestApproval.approver)}:</strong> {latestApproval.comments}</div>
@@ -295,7 +307,7 @@ export default function ProjectDetail() {
           </div>
           {project.questions.length === 0 ? (
             <Card><EmptyState icon="✎" title="No questions yet" action={canManage && <Button size="sm" onClick={() => setAddOpen(true)}>Add the first question</Button>}>Add the questions from the funder's application so teammates can start writing.</EmptyState></Card>
-          ) : project.questions.map(q => <QuestionRow key={q.id} q={q} project={project} users={users} canManage={canManage && !project.isCompleted} isAdmin={isAdmin} me={user} onChanged={load} writerMode={writerMode} />)}
+          ) : project.questions.map(q => <QuestionRow key={q.id} q={q} project={project} users={users} canManage={canManage && !project.isCompleted} isAdmin={isAdmin} me={user} onChanged={load} writerMode={writerMode} reviewNotes={(project.reviewComments2 || []).filter(n => n.questionId === q.id)} onResolveNote={resolveNote} />)}
         </div>
       )}
 
