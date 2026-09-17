@@ -315,8 +315,11 @@ img { max-width: 100%; }
 .price-card .popular { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: var(--green); color: #fff; white-space: nowrap; }
 .price-card .price { font-family: var(--font-display); font-size: 34px; font-weight: 600; line-height: 1.1; overflow-wrap: anywhere; color: var(--navy); margin: 8px 0; }
 .price-card .price small { display: block; font-size: 13px; color: var(--text-muted); font-weight: 500; font-family: var(--font); margin-top: 2px; }
-.price-card ul { list-style: none; padding: 0; margin: 18px 0 22px; text-align: left; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
-.price-card li::before { content: '✓'; color: var(--green); font-weight: 700; margin-right: 8px; }
+.price-card ul { list-style: none; padding: 0; margin: 18px 0 22px; text-align: left; display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+.price-card li.feat { display: flex; flex-direction: column; gap: 1px; padding-left: 18px; position: relative; }
+.price-card li.feat::before { content: '✓'; color: var(--green); font-weight: 700; position: absolute; left: 0; top: 0; }
+.feat-name { font-weight: 600; color: var(--navy); }
+.feat-text { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
 .cta-band { background: var(--navy); color: var(--cream); text-align: center; padding: 56px 32px; margin-top: 32px; }
 .cta-band h2 { color: #fff; }
 .cta-band p { color: rgba(255,252,240,.8); margin-bottom: 20px; }

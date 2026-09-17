@@ -3,6 +3,44 @@ import { Link } from 'react-router-dom';
 import { Card } from '../components/ui';
 import useSeo from '../lib/seo';
 
+
+const F = {
+  grants1: ['1 grant', 'Enough to try Merge on a real application.'],
+  grants: ['Unlimited grants', 'As many applications as you write.'],
+  bank: ['Answer bank', 'Reuse answers from past grants when a new one asks something similar.'],
+  review: ['Send for review', 'Email a link. Your director or board member reads, leaves notes, approves or sends back. No account needed.'],
+  partners: ['Partners directory', 'The organizations you work with, ready to drop into any proposal.'],
+  past: ['Past proposals', 'A searchable library of finished applications, including ones from before Merge.'],
+  files: ['File cabinet and calendar', 'Shared documents plus every deadline on one calendar.'],
+  notes: ['Grant notes', 'A notes panel on each project for angle, contacts, and reminders.'],
+  download: ['Download PDF or Word', 'Merge the answers into one document and export it.'],
+  ask: ['Ask Merge', 'A writing assistant that knows your mission, programs, and impact.'],
+  aireview: ['AI reviewer', 'Reads your proposal like a funder and returns strengths, weaknesses, and fixes.'],
+  edit: ['Editable document', 'Polish the merged narrative as one piece, with version history.'],
+  assign: ['Assign questions', 'Give each question to a teammate and watch progress fill in.'],
+  approvals: ['Approvals', 'A formal sign-off queue with a paper trail.'],
+  workspaces: ['Multiple workspaces', 'Separate clients or departments under one login.'],
+  integrations: ['Integrations', 'Google Drive export, Zapier, and webhooks.'],
+  branding: ['Custom branding', 'Your logo and colors on review pages and exports.'],
+  support: ['Priority support', 'A person answers within one business day.'],
+  people1: ['1 person', 'One writer. Reviewers never need a seat.'],
+  people5: ['Up to 5 people', 'Everyone who writes gets a seat.'],
+  people20: ['Up to 20 people', 'Everyone who writes gets a seat.'],
+  peopleAll: ['Unlimited people', 'No seat cap.'],
+  noai: ['No AI features', 'Ask Merge and the AI reviewer start at the next plan up.'],
+};
+const Feat = ({ k, t }) => { const [name, text] = F[k]; return <li className="feat"><span className="feat-name">{t || name}</span><span className="feat-text">{text}</span></li>; };
+const Plan = ({ name, price, per, blurb, feats, cta, to, featured, badge }) => (
+  <Card className={`price-card ${featured ? 'featured' : ''}`}>
+    {badge && <span className="badge badge-green popular">{badge}</span>}
+    <h3>{name}</h3>
+    <div className="price">{price}{per && <small>{per}</small>}</div>
+    <p className="small muted">{blurb}</p>
+    <ul>{feats.map(f => Array.isArray(f) ? <Feat key={f[0]} k={f[0]} t={f[1]} /> : <Feat key={f} k={f} />)}</ul>
+    {to ? <Link to={to} className={`btn ${featured ? 'btn-primary' : 'btn-secondary'} btn-block`}>{cta}</Link> : <a href="mailto:hello@dakjencreative.com" className="btn btn-secondary btn-block">{cta}</a>}
+  </Card>
+);
+
 export default function Landing() {
   const [track, setTrack] = useState('writer');
   useSeo({ path: '/' });
@@ -91,21 +129,23 @@ export default function Landing() {
         </div>
         {track === 'writer' ? (
           <div className="grid-4 pricing-grid">
-            <Card className="price-card"><h3>Free</h3><div className="price">$0</div><p className="small muted">Try Merge on one real grant.</p><ul><li>1 grant</li><li>Answer bank and send for review</li><li>Partners and past proposals</li><li>Download PDF or Word</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Get started</Link></Card>
-            <Card className="price-card"><h3>Starter</h3><div className="price">$6.99<small>/mo</small></div><p className="small muted">For a working grant writer.</p><ul><li>Unlimited grants</li><li>Answer bank and send for review</li><li>File cabinet and calendar</li><li>No AI features</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Start free trial</Link></Card>
-            <Card className="price-card featured"><span className="badge badge-green popular">Most popular</span><h3>Premium</h3><div className="price">$21.99<small>/mo</small></div><p className="small muted">Write faster with AI on your side.</p><ul><li>Everything in Starter</li><li>Ask Merge assistant</li><li>AI reviewer</li><li>Partners and past proposals</li><li>Editable document with history</li></ul><Link to="/signup" className="btn btn-primary btn-block">Start free trial</Link></Card>
-            <Card className="price-card"><h3>Professional</h3><div className="price">$59.99<small>/mo</small></div><p className="small muted">For consultants with many clients.</p><ul><li>Everything in Premium</li><li>A workspace per client</li><li>Integrations</li><li>Higher AI limits, priority support</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Start free trial</Link></Card>
+            <Plan name="Free" price="$0" blurb="Try Merge on one real grant." feats={['grants1', 'review', 'bank', 'past', 'download', 'noai']} cta="Get started" to="/signup" />
+            <Plan name="Starter" price="$6.99" per="/mo" blurb="For a working grant writer." feats={['grants', 'bank', 'review', 'partners', 'files', 'noai']} cta="Start free trial" to="/signup" />
+            <Plan name="Premium" price="$21.99" per="/mo" blurb="Write faster with AI on your side." feats={[['grants', 'Everything in Starter'], 'ask', 'aireview', 'edit']} cta="Start free trial" to="/signup" featured badge="Most popular" />
+            <Plan name="Professional" price="$59.99" per="/mo" blurb="For consultants with many clients." feats={[['ask', 'Everything in Premium'], 'workspaces', 'integrations', 'support']} cta="Start free trial" to="/signup" />
           </div>
         ) : (
           <div className="grid-4 pricing-grid pricing-5">
-            <Card className="price-card"><h3>Free</h3><div className="price">$0</div><p className="small muted">Try Merge on one real grant.</p><ul><li>1 grant, 1 person</li><li>Answer bank and send for review</li><li>Partners and past proposals</li><li>Download PDF or Word</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Get started</Link></Card>
-            <Card className="price-card"><h3>Solo Writer</h3><div className="price">$14.99<small>/mo</small></div><p className="small muted">One person writing grants for their organization.</p><ul><li>1 person</li><li>Unlimited grants</li><li>Ask Merge and AI reviewer</li><li>Send for review by link</li><li>Partners and past proposals</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Start free trial</Link></Card>
-            <Card className="price-card featured"><span className="badge badge-green popular">Most popular</span><h3>Small Teams</h3><div className="price">$12.99<small>/person/mo</small></div><p className="small muted">Up to 5 people writing together.</p><ul><li>Assign questions, track progress</li><li>Approvals with a paper trail</li><li>Answer bank and Ask Merge</li><li>Partners, past proposals, AI reviewer</li><li>Editable narrative with history</li></ul><Link to="/signup" className="btn btn-primary btn-block">Start free trial</Link></Card>
-            <Card className="price-card"><h3>Large Teams</h3><div className="price">$21.99<small>/person/mo</small></div><p className="small muted">Up to 20 people.</p><ul><li>Everything in Small Teams</li><li>Multiple workspaces</li><li>Progress across departments</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Start free trial</Link></Card>
-            <Card className="price-card"><h3>Companies</h3><div className="price">$29.99<small>/person/mo</small></div><p className="small muted">Unlimited people.</p><ul><li>Everything in Large Teams</li><li>Integrations: Drive, Zapier, webhooks</li><li>Custom branding</li><li>Priority support</li></ul><Link to="/signup" className="btn btn-secondary btn-block">Start free trial</Link></Card>
+            <Plan name="Free" price="$0" blurb="Try Merge on one real grant." feats={['grants1', 'people1', 'review', 'bank', 'download', 'noai']} cta="Get started" to="/signup" />
+            <Plan name="Solo Writer" price="$14.99" per="/mo" blurb="One person writing grants for their organization." feats={['people1', 'grants', 'ask', 'aireview', 'review', 'partners']} cta="Start free trial" to="/signup" />
+            <Plan name="Small Teams" price="$12.99" per="/person/mo" blurb="Up to 5 people writing together." feats={['people5', 'assign', 'approvals', 'bank', 'ask', 'aireview', 'edit']} cta="Start free trial" to="/signup" featured badge="Most popular" />
+            <Plan name="Large Teams" price="$21.99" per="/person/mo" blurb="Up to 20 people." feats={['people20', ['assign', 'Everything in Small Teams'], 'workspaces']} cta="Start free trial" to="/signup" />
+            <Plan name="Companies" price="$29.99" per="/person/mo" blurb="Unlimited people." feats={['peopleAll', ['assign', 'Everything in Large Teams'], 'integrations', 'branding', 'support']} cta="Start free trial" to="/signup" />
           </div>
         )}
       </section>
+
+
 
       <section className="cta-band">
         <h2>Ready to write your next proposal together?</h2>
