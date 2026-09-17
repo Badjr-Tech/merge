@@ -29,14 +29,14 @@ const F = {
   peopleAll: ['Unlimited people', 'No seat cap.'],
   noai: ['No AI features', 'Ask Merge and the AI reviewer start at the next plan up.'],
 };
-const Feat = ({ k, t }) => { const [name, text] = F[k]; return <li className="feat"><span className="feat-name">{t || name}</span><span className="feat-text">{text}</span></li>; };
+const Feat = ({ k, t, d }) => { const [name, text] = F[k]; return <li className="feat"><span className="feat-name">{t || name}</span><span className="feat-text">{d || text}</span></li>; };
 const Plan = ({ name, price, per, blurb, feats, cta, to, featured, badge }) => (
   <Card className={`price-card ${featured ? 'featured' : ''}`}>
     {badge && <span className="badge badge-green popular">{badge}</span>}
     <h3>{name}</h3>
     <div className="price">{price}{per && <small>{per}</small>}</div>
     <p className="small muted">{blurb}</p>
-    <ul>{feats.map(f => Array.isArray(f) ? <Feat key={f[0]} k={f[0]} t={f[1]} /> : <Feat key={f} k={f} />)}</ul>
+    <ul>{feats.map(f => Array.isArray(f) ? <Feat key={f[1]} k={f[0]} t={f[1]} d={f[2]} /> : <Feat key={f} k={f} />)}</ul>
     {to ? <Link to={to} className={`btn ${featured ? 'btn-primary' : 'btn-secondary'} btn-block`}>{cta}</Link> : <a href="mailto:hello@dakjencreative.com" className="btn btn-secondary btn-block">{cta}</a>}
   </Card>
 );
@@ -131,16 +131,16 @@ export default function Landing() {
           <div className="grid-4 pricing-grid">
             <Plan name="Free" price="$0" blurb="Try Merge on one real grant." feats={['grants1', 'review', 'bank', 'past', 'download', 'noai']} cta="Get started" to="/signup" />
             <Plan name="Starter" price="$6.99" per="/mo" blurb="For a working grant writer." feats={['grants', 'bank', 'review', 'partners', 'files', 'noai']} cta="Start free trial" to="/signup" />
-            <Plan name="Premium" price="$21.99" per="/mo" blurb="Write faster with AI on your side." feats={[['grants', 'Everything in Starter'], 'ask', 'aireview', 'edit']} cta="Start free trial" to="/signup" featured badge="Most popular" />
-            <Plan name="Professional" price="$59.99" per="/mo" blurb="For consultants with many clients." feats={[['ask', 'Everything in Premium'], 'workspaces', 'integrations', 'support']} cta="Start free trial" to="/signup" />
+            <Plan name="Premium" price="$21.99" per="/mo" blurb="Write faster with AI on your side." feats={[['grants', 'Everything in Starter', 'Unlimited grants, answer bank, review links, partners, files.'], 'ask', 'aireview', 'edit']} cta="Start free trial" to="/signup" featured badge="Most popular" />
+            <Plan name="Professional" price="$59.99" per="/mo" blurb="For consultants with many clients." feats={[['ask', 'Everything in Premium', 'Ask Merge, AI reviewer, editable document.'], 'workspaces', 'integrations', 'support']} cta="Start free trial" to="/signup" />
           </div>
         ) : (
           <div className="grid-4 pricing-grid pricing-5">
             <Plan name="Free" price="$0" blurb="Try Merge on one real grant." feats={['grants1', 'people1', 'review', 'bank', 'download', 'noai']} cta="Get started" to="/signup" />
             <Plan name="Solo Writer" price="$14.99" per="/mo" blurb="One person writing grants for their organization." feats={['people1', 'grants', 'ask', 'aireview', 'review', 'partners']} cta="Start free trial" to="/signup" />
             <Plan name="Small Teams" price="$12.99" per="/person/mo" blurb="Up to 5 people writing together." feats={['people5', 'assign', 'approvals', 'bank', 'ask', 'aireview', 'edit']} cta="Start free trial" to="/signup" featured badge="Most popular" />
-            <Plan name="Large Teams" price="$21.99" per="/person/mo" blurb="Up to 20 people." feats={['people20', ['assign', 'Everything in Small Teams'], 'workspaces']} cta="Start free trial" to="/signup" />
-            <Plan name="Companies" price="$29.99" per="/person/mo" blurb="Unlimited people." feats={['peopleAll', ['assign', 'Everything in Large Teams'], 'integrations', 'branding', 'support']} cta="Start free trial" to="/signup" />
+            <Plan name="Large Teams" price="$21.99" per="/person/mo" blurb="Up to 20 people." feats={['people20', ['assign', 'Everything in Small Teams', 'Assignments, approvals, AI, shared library.'], 'workspaces']} cta="Start free trial" to="/signup" />
+            <Plan name="Companies" price="$29.99" per="/person/mo" blurb="Unlimited people." feats={['peopleAll', ['assign', 'Everything in Large Teams', 'Multiple workspaces plus all team features.'], 'integrations', 'branding', 'support']} cta="Start free trial" to="/signup" />
           </div>
         )}
       </section>
