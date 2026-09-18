@@ -17,7 +17,7 @@ export default function Assistant() {
   const { user } = useAuth();
   const { has, plan } = usePlan();
   const location = useLocation();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => new URLSearchParams(window.location.search).get('ask') === '1');
   const [messages, setMessages] = useState(null);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);

@@ -10,9 +10,9 @@ import { usePlan } from '../context/PlanContext';
 import { FEATURE_COPY } from '../components/Upgrade';
 import { displayName, dueLabel, formatDate, formatDateTime, limitCheck, projectProgress, projectStatus, questionStatus, googleCalendarUrl } from '../lib/format';
 
-function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, writerMode, reviewNotes = [], onResolveNote }) {
+function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, writerMode, reviewNotes = [], onResolveNote, initiallyOpen = false }) {
   const toast = useToast();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen);
   const [editing, setEditing] = useState(false);
   const [edit, setEdit] = useState({ text: q.text, assignedToId: q.assignedToId || '', maxLimit: q.maxLimit || '', limitUnit: q.limitUnit || 'words' });
   const [answer, setAnswer] = useState(q.answer || '');
@@ -136,7 +136,7 @@ export default function ProjectDetail() {
   const { plan, has } = usePlan();
   const writerMode = plan?.kind === 'writer';
   const [project, setProject] = useState(null);
-  const [notesOpen, setNotesOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(() => new URLSearchParams(window.location.search).get('notes') === '1');
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewForm, setReviewForm] = useState({ reviewerName: '', reviewerEmail: '', message: '' });
   const [reviewResult, setReviewResult] = useState(null);
@@ -307,7 +307,7 @@ export default function ProjectDetail() {
           </div>
           {project.questions.length === 0 ? (
             <Card><EmptyState icon="✎" title="No questions yet" action={canManage && <Button size="sm" onClick={() => setAddOpen(true)}>Add the first question</Button>}>Add the questions from the funder's application so teammates can start writing.</EmptyState></Card>
-          ) : project.questions.map(q => <QuestionRow key={q.id} q={q} project={project} users={users} canManage={canManage && !project.isCompleted} isAdmin={isAdmin} me={user} onChanged={load} writerMode={writerMode} reviewNotes={(project.reviewComments2 || []).filter(n => n.questionId === q.id)} onResolveNote={resolveNote} />)}
+          ) : project.questions.map(q => <QuestionRow key={q.id} q={q} project={project} users={users} canManage={canManage && !project.isCompleted} isAdmin={isAdmin} me={user} onChanged={load} writerMode={writerMode} reviewNotes={(project.reviewComments2 || []).filter(n => n.questionId === q.id)} onResolveNote={resolveNote} initiallyOpen={params.get('open') === q.id} />)}
         </div>
       )}
 
