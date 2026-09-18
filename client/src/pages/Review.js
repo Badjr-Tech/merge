@@ -105,7 +105,7 @@ export default function Review() {
         </Card>
       )}
       {responded && !done && <p className="tiny muted">Already reviewed. If you need to change your answer, ask the writer to send a new link.</p>}
-      <p className="tiny faint mt-3"><Badge tone="gray">Merge</Badge> Grant proposals, written together. Powered by Badjr.</p>
+      <p className="tiny faint mt-3"><Badge tone="gray">Merge</Badge> Merge your team's best work. Powered by Badjr.</p>
     </div>
   );
 }

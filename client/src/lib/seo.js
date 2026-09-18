@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 const SITE = 'https://mergev1-78hi.vercel.app';
-const DEFAULT_TITLE = 'Merge · Grant proposals, written together';
+const DEFAULT_TITLE = "Merge · Merge your team's best work";
 const DEFAULT_DESC = 'Grant-writing software for nonprofits, consultants, and solo grant writers. Turn an RFP into questions, keep answers inside word limits, reuse past answers, get approvals, and download a finished proposal.';
 
 function setMeta(selector, attr, value) {

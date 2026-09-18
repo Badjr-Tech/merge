@@ -48,8 +48,8 @@ export default function Landing() {
     <div>
       <section className="hero">
         <div>
-          <h1>Grant proposals, <span>written together.</span></h1>
-          <p className="lead">Merge turns a funding application into a shared checklist. Split the RFP into questions, assign each one to a teammate, keep every answer inside its word limit, and merge the whole thing into one polished narrative.</p>
+          <h1>Merge your team's <span>best work.</span></h1>
+          <p className="lead">Grant proposals, written together. Split the application into questions, give each one to a teammate, keep every answer inside its word limit, and merge it all into one polished narrative.</p>
           <div className="cta">
             <Link to="/signup" className="btn btn-primary btn-lg">Start your workspace</Link>
             <a href="#how" className="btn btn-secondary btn-lg">See how it works</a>
