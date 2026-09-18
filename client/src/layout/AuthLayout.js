@@ -8,7 +8,7 @@ export default function AuthLayout({ title, lead, children, footer, side }) {
       <div className="auth-side">
         <Link to="/"><img src={logo} alt="Merge" style={{ height: 42 }} /></Link>
         <div>
-          <h2>{side?.title || "One workspace. Every grant. Written together."}</h2>
+          <h2>{side?.title || "Merge your workspace. Merge your teamwork."}</h2>
           <p>{side?.text || 'Break an RFP into questions, assign them to your team, track word limits, get approvals, and merge everything into one narrative.'}</p>
           <ul>
             <li><span className="tick">✓</span> Assign questions to teammates and watch progress</li>

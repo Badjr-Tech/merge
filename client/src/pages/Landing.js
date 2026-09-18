@@ -48,7 +48,7 @@ export default function Landing() {
     <div>
       <section className="hero">
         <div>
-          <h1>One workspace. Every grant. <span>Written together.</span></h1>
+          <h1>Merge your workspace. <span>Merge your teamwork.</span></h1>
           <p className="lead">Merge is the shared workspace where your team writes grant proposals. Split the application into questions, give each one to a teammate, keep every answer inside its word limit, and merge it all into one polished narrative.</p>
           <div className="cta">
             <Link to="/signup" className="btn btn-primary btn-lg">Start your workspace</Link>
