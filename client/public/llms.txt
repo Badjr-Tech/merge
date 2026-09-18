@@ -1,6 +1,6 @@
 # Merge
 
-Slogan: Merge your team's best work. Tagline: Grant proposals, written together.
+Slogan: One workspace. Every grant. Written together.
 
 > Merge is grant-writing software for nonprofits, consultants, and solo grant writers. It turns a funding application (RFP) into a checklist of questions, keeps every answer inside its word or character limit, suggests past answers, routes proposals for review or approval, and exports the finished narrative as PDF or Word. Built by Badjr.
 

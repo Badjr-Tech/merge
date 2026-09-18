@@ -28,7 +28,7 @@ export default function PublicLayout() {
       <Outlet />
       <footer className="site-footer">
         <div className="footer-links"><Link to="/privacy">Privacy</Link><Link to="/terms">Terms</Link><a href="mailto:hello@dakjencreative.com">Contact</a><a href="/#pricing">Pricing</a></div>
-        © {new Date().getFullYear()} Merge · Merge your team's best work. <span className="powered">Powered by <a href="https://badjr.vercel.app" target="_blank" rel="noopener noreferrer">Badjr</a> · hello@dakjencreative.com</span>
+        © {new Date().getFullYear()} Merge · One workspace. Every grant. Written together. <span className="powered">Powered by <a href="https://badjr.vercel.app" target="_blank" rel="noopener noreferrer">Badjr</a> · hello@dakjencreative.com</span>
       </footer>
       {!isAuthenticated && <Link to="/signup" className="sticky-cta">Start your free trial</Link>}
     </div>
