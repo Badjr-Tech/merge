@@ -1,29 +1,36 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 
 // Vercel Web Analytics via its script tag (no npm dependency). Cookie-free.
-// Private app and review URLs are reported as their section only.
+// We disable auto-tracking and send each page view ourselves so private app and review URLs are masked.
+function masked(pathname) {
+  if (pathname.startsWith('/app')) return '/app';
+  if (pathname.startsWith('/review')) return '/review';
+  if (pathname.startsWith('/invite') || pathname.startsWith('/reset-password')) return pathname.split('/').slice(0, 2).join('/');
+  return pathname;
+}
+
 export default function Analytics() {
   const location = useLocation();
+  const loaded = useRef(false);
+
   useEffect(() => {
-    if (process.env.NODE_ENV !== 'production' || document.getElementById('va')) return;
+    if (process.env.NODE_ENV !== 'production' || loaded.current) return;
+    loaded.current = true;
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-    window.va('beforeSend', (event) => {
-      try {
-        const url = new URL(event.url);
-        if (url.pathname.startsWith('/app')) url.pathname = '/app';
-        else if (url.pathname.startsWith('/review')) url.pathname = '/review';
-        else if (url.pathname.startsWith('/invite') || url.pathname.startsWith('/reset-password')) url.pathname = url.pathname.split('/').slice(0, 2).join('/');
-        url.search = '';
-        return { ...event, url: url.toString() };
-      } catch { return event; }
-    });
     const s = document.createElement('script');
-    s.id = 'va'; s.defer = true; s.src = '/_vercel/insights/script.js';
+    s.id = 'va'; s.defer = true;
+    s.src = '/_vercel/insights/script.js';
+    s.setAttribute('data-disable-auto-track', '1');
     document.head.appendChild(s);
   }, []);
+
   useEffect(() => {
-    if (location.pathname === '/app/welcome' && window.va) window.va('event', { name: 'signup_completed' });
+    if (process.env.NODE_ENV !== 'production') return;
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    window.va('pageview', { route: masked(location.pathname), path: masked(location.pathname) });
+    if (location.pathname === '/app/welcome') window.va('event', { name: 'signup_completed' });
   }, [location.pathname]);
+
   return null;
 }
