@@ -82,6 +82,38 @@ router.post('/portal', auth, async (req, res) => {
   }
 });
 
+// POST /api/billing/cancel — cancel at period end, no portal round-trip. Keeps access until the paid period ends.
+router.post('/cancel', auth, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ msg: 'Only admins can cancel the plan.' });
+  try {
+    const c = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { stripeSubscriptionId: true, plan: true, trialEndsAt: true } });
+    if (!c.stripeSubscriptionId) {
+      // No paid subscription (trial or free): drop to Free immediately
+      await prisma.company.update({ where: { id: req.user.companyId }, data: { plan: 'free', trialEndsAt: null } });
+      return res.json({ msg: 'Your workspace is now on the Free plan.', immediate: true });
+    }
+    const sub = await stripe().subscriptions.update(c.stripeSubscriptionId, { cancel_at_period_end: true });
+    const ends = sub.current_period_end ? new Date(sub.current_period_end * 1000) : null;
+    await prisma.company.update({ where: { id: req.user.companyId }, data: { cancelAtPeriodEnd: true, currentPeriodEnd: ends } });
+    res.json({ msg: `Cancelled. You keep full access until ${ends ? ends.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'the end of the billing period'}, then move to Free. No further charges.`, endsAt: ends });
+  } catch (err) {
+    console.error('Cancel error:', err.message);
+    res.status(500).json({ msg: 'Could not cancel right now. Email hello@dakjencreative.com and we will do it for you.' });
+  }
+});
+
+// POST /api/billing/resume — undo a pending cancellation
+router.post('/resume', auth, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ msg: 'Only admins can change the plan.' });
+  try {
+    const c = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { stripeSubscriptionId: true } });
+    if (!c.stripeSubscriptionId) return res.status(400).json({ msg: 'No subscription to resume.' });
+    await stripe().subscriptions.update(c.stripeSubscriptionId, { cancel_at_period_end: false });
+    await prisma.company.update({ where: { id: req.user.companyId }, data: { cancelAtPeriodEnd: false } });
+    res.json({ msg: 'Your plan will continue.' });
+  } catch (err) { res.status(500).json({ msg: 'Could not resume. Try again.' }); }
+});
+
 // POST /api/billing/sync-seats — called after invites/removals so per-seat subscriptions stay accurate
 async function syncSeats(companyId) {
   try {

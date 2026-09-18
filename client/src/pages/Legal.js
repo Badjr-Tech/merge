@@ -62,7 +62,7 @@ export function Terms() {
       <h2>AI features</h2>
       <p>Ask Merge and the AI reviewer generate suggestions. They can be wrong. Review everything before it goes into a proposal, and do not treat AI output as legal, financial, or compliance advice.</p>
       <h2>Plans, trials, and billing</h2>
-      <p>New workspaces get a free 14-day trial and then move to the Free plan unless a paid plan is chosen. Paid plans are billed monthly per workspace or per person as shown on the pricing page. You can change or cancel a plan at any time from Settings; changes take effect at the next billing date. We may change prices with 30 days' notice by email.</p>
+      <p>New workspaces get a free 14-day trial and then move to the Free plan unless a paid plan is chosen. Paid plans are billed monthly per workspace or per person as shown on the pricing page. You can cancel at any time from Settings with two clicks, no call or email required. You keep access until the end of the period you already paid for, and you are not charged again. Plan changes take effect immediately with prorated billing. We may change prices with 30 days' notice by email.</p>
       <h2>Acceptable use</h2>
       <p>Do not use Merge to store or send unlawful content, to attack the service, to scrape other users' data, or to resell access without a Companies or Custom agreement.</p>
       <h2>Availability</h2>

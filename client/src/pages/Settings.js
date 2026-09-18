@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import api, { errorMessage } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { Button, Card, Field, Input, PageHeader, Textarea } from '../components/ui';
+import { Button, Card, Field, Input, PageHeader, Textarea, useConfirm } from '../components/ui';
 import { formatDate } from '../lib/format';
 import { usePlan } from '../context/PlanContext';
 import { useSearchParams } from 'react-router-dom';
@@ -22,6 +22,7 @@ const PER = { workspace: 'free', month: '/mo', person: '/person/mo' };
 export default function Settings() {
   const { user, isAdmin, updateUser } = useAuth();
   const toast = useToast();
+  const [confirm, confirmDialog] = useConfirm();
   const { plan, usage, refresh: refreshPlan } = usePlan();
   const [params, setParams] = useSearchParams();
   const [billing, setBilling] = useState(null);
@@ -32,6 +33,15 @@ export default function Settings() {
     if (b === 'success') { toast.success('Payment received. Your plan is active.'); refreshPlan(); loadBilling(); setParams({}); }
     if (b === 'cancel') { toast.info('Checkout cancelled. Nothing was charged.'); setParams({}); }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const cancelPlan = async () => {
+    if (!(await confirm({ title: 'Cancel your plan?', message: billing?.hasSubscription ? 'You keep everything until the end of the current billing period, then your workspace moves to Free. Nothing is deleted, and you can come back any time.' : 'Your workspace moves to the Free plan right away. Nothing is deleted.', confirmLabel: 'Yes, cancel', danger: true }))) return;
+    setBusy('cancel');
+    try { const r = await api.post('/api/billing/cancel'); toast.success(r.data.msg); await refreshPlan(); loadBilling(); } catch (err) { toast.error(errorMessage(err)); } finally { setBusy(''); }
+  };
+  const resumePlan = async () => {
+    setBusy('resume');
+    try { const r = await api.post('/api/billing/resume'); toast.success(r.data.msg); await refreshPlan(); loadBilling(); } catch (err) { toast.error(errorMessage(err)); } finally { setBusy(''); }
+  };
   const openPortal = async () => {
     setBusy('portal');
     try { const r = await api.post('/api/billing/portal'); window.location.href = r.data.url; } catch (err) { toast.error(errorMessage(err)); setBusy(''); }
@@ -102,6 +112,7 @@ export default function Settings() {
 
   return (
     <div className="content-narrow">
+      {confirmDialog}
       <PageHeader title="Settings" subtitle="Your profile, your workspace, and what the writing assistant knows about your organization." />
       <Card className="mb-3" id="organization">
         <div className="card-header">
@@ -154,8 +165,11 @@ export default function Settings() {
           {billing?.hasSubscription && (
             <div className="callout mb-2 row-between">
               <span className="small">{billing.cancelAtPeriodEnd ? <><strong>Cancels</strong> at the end of this period{billing.currentPeriodEnd ? ` (${formatDate(billing.currentPeriodEnd)})` : ''}. Pick a plan below to keep it.</> : <>{billing.subscriptionStatus === 'past_due' ? <strong style={{ color: 'var(--danger)' }}>Payment failed. Update your card to keep access.</strong> : <>Subscription <strong>{billing.subscriptionStatus}</strong>{billing.currentPeriodEnd ? `, renews ${formatDate(billing.currentPeriodEnd)}` : ''}</>}{plan?.per === 'person' ? ` · ${billing.seats} seat${billing.seats === 1 ? '' : 's'}` : ''}</>}</span>
-              {isAdmin && <Button variant="secondary" size="sm" onClick={openPortal} loading={busy === 'portal'}>Manage billing</Button>}
+              {isAdmin && <span className="row">{billing.cancelAtPeriodEnd ? <Button size="sm" onClick={resumePlan} loading={busy === 'resume'}>Keep my plan</Button> : <Button variant="danger" size="sm" onClick={cancelPlan} loading={busy === 'cancel'}>Cancel plan</Button>}<Button variant="secondary" size="sm" onClick={openPortal} loading={busy === 'portal'}>Manage billing</Button></span>}
             </div>
+          )}
+          {isAdmin && !billing?.hasSubscription && plan && plan.key !== 'free' && (
+            <div className="callout mb-2 row-between"><span className="small">You're on <strong>{plan.name}</strong>{plan.trialing ? ' (trial)' : ''} with no card on file.</span><Button variant="danger" size="sm" onClick={cancelPlan} loading={busy === 'cancel'}>Switch to Free</Button></div>
           )}
           {plan?.trialing && <div className="callout callout-green mb-2"><strong>Premium trial:</strong> {plan.trialDaysLeft} day{plan.trialDaysLeft === 1 ? '' : 's'} left. Pick a plan below any time. If you don't, the workspace moves to Free when the trial ends and nothing you wrote is lost.</div>}
           {plan?.trialExpired && plan.key === 'free' && <div className="callout callout-gold mb-2"><strong>Your trial has ended.</strong> You're on the Free plan. Choose a plan to bring back teammates, approvals, the answer bank, and Ask Merge.</div>}
