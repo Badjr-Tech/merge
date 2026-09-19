@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api, { errorMessage } from '../api';
 import useSeo from '../lib/seo';
-import logo from '../merge1.png';
 import { Badge, Button, Card, Field, Input, Loading, Textarea } from '../components/ui';
 import { formatDate, formatDateTime } from '../lib/format';
+
+const logo = '/img/merge-logo.png';
 
 function NoteBox({ label, onSave, disabled }) {
   const [text, setText] = useState('');

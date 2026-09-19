@@ -2,13 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
-import logo from '../merge1.png';
 import { Avatar } from '../components/ui';
 import { displayName } from '../lib/format';
 import Assistant from '../components/Assistant';
 import FeedbackWidget from '../components/FeedbackWidget';
 import { usePlan } from '../context/PlanContext';
 import useSeo from '../lib/seo';
+
+const logo = '/img/merge-logo.png';
 
 const I = {
   home: '⌂', projects: '▤', bank: '◫', partners: '☍', tasks: '✎', approvals: '✓', past: '◷', files: '▣', ai: '✦', compliance: '☑', calendar: '▦', team: '☺', settings: '⚙', menu: '☰',
