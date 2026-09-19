@@ -20,6 +20,7 @@ export default function UpgradeGate({ feature, children }) {
   const { has, plan } = usePlan();
   const { isAdmin } = useAuth();
   if (has(feature)) return children;
+  if (!plan) return <div className="loading-block"><span className="spinner" /></div>;
   const raw = FEATURE_COPY[feature] || { title: 'Paid feature', text: 'This feature is included in paid plans.' };
   const kind = plan?.kind === 'writer' ? 'writer' : 'team';
   const copy = { ...raw, min: typeof raw.min === 'object' ? raw.min[kind] : raw.min };

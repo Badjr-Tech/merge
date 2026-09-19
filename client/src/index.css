@@ -170,7 +170,7 @@ img { max-width: 100%; }
 .avatar-sm { width: 26px; height: 26px; font-size: 11px; }
 .avatar-lg { width: 44px; height: 44px; font-size: 16px; }
 
-.empty { text-align: center; padding: 48px 24px; color: var(--text-muted); }
+.empty { text-align: center; padding: 56px 24px; color: var(--text-muted); }
 .empty .empty-icon { font-size: 34px; margin-bottom: 8px; }
 .empty h3 { color: var(--navy); margin-bottom: 4px; }
 .empty p { max-width: 380px; margin: 0 auto 16px; }
@@ -249,8 +249,8 @@ img { max-width: 100%; }
 .topbar { height: 60px; display: flex; align-items: center; gap: 12px; padding: 0 28px; background: rgba(255,252,240,0.9); backdrop-filter: blur(8px); position: sticky; top: 0; z-index: 20; border-bottom: 1px solid var(--border); }
 .topbar h1 { font-size: 18px; margin: 0; font-family: var(--font); }
 .topbar .crumbs { color: var(--text-muted); font-size: 14px; }
-.content { padding: 28px; max-width: 1180px; width: 100%; }
-.content-narrow { max-width: 760px; }
+.content { padding: 28px 32px; max-width: 1600px; width: 100%; }
+.content-narrow { max-width: 860px; }
 .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
 .page-header > div:first-child { flex: 1 1 320px; min-width: 0; }
 .page-header p { max-width: 720px; }

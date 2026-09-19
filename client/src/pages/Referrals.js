@@ -12,7 +12,7 @@ export default function Referrals() {
   useEffect(() => { api.get('/api/referrals/mine').then(r => setData(r.data)).catch(err => setError(errorMessage(err))); }, []);
 
   return (
-    <div className="content-narrow">
+    <div>
       <PageHeader title="Refer a friend" subtitle="Know another grant writer or organization? Send them Merge. They save, and so do you." />
       {error && <ErrorBlock message={error} />}
       {!data && !error && <Loading />}

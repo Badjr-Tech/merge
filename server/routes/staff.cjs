@@ -111,4 +111,71 @@ router.get('/overview', auth, async (req, res) => {
   } catch (err) { console.error(err); res.status(500).json({ msg: 'Server error' }); }
 });
 
+
+// GET /api/staff/tickets?status=
+router.get('/tickets', auth, async (req, res) => {
+  if (!isStaff(req)) return res.status(403).json({ msg: 'Staff only.' });
+  const status = String(req.query.status || '');
+  try {
+    const where = status && status !== 'all' ? { status } : {};
+    const [items, counts] = await Promise.all([
+      prisma.feedbackTicket.findMany({ where, orderBy: { createdAt: 'desc' }, take: 300 }),
+      prisma.feedbackTicket.groupBy({ by: ['status'], _count: { _all: true } }),
+    ]);
+    res.json({ items, counts: Object.fromEntries(counts.map(c => [c.status, c._count._all])) });
+  } catch (err) { res.status(500).json({ msg: 'Server error' }); }
+});
+router.put('/tickets/:id', auth, async (req, res) => {
+  if (!isStaff(req)) return res.status(403).json({ msg: 'Staff only.' });
+  const data = {};
+  if (['open', 'in_progress', 'resolved'].includes(req.body.status)) data.status = req.body.status;
+  if (req.body.notes !== undefined) data.notes = String(req.body.notes).slice(0, 5000);
+  try { res.json(await prisma.feedbackTicket.update({ where: { id: req.params.id }, data })); } catch (err) { res.status(500).json({ msg: 'Server error' }); }
+});
+
+// GET /api/staff/users?q=
+router.get('/users', auth, async (req, res) => {
+  if (!isStaff(req)) return res.status(403).json({ msg: 'Staff only.' });
+  const q = String(req.query.q || '').trim();
+  try {
+    const users = await prisma.user.findMany({
+      where: q ? { OR: [{ email: { contains: q, mode: 'insensitive' } }, { name: { contains: q, mode: 'insensitive' } }, { username: { contains: q, mode: 'insensitive' } }] } : {},
+      orderBy: { createdAt: 'desc' }, take: 100,
+      select: { id: true, email: true, name: true, username: true, role: true, isApproved: true, createdAt: true, company: { select: { id: true, name: true, plan: true, kind: true } }, _count: { select: { projects: true, assignedQuestions: true } } },
+    });
+    res.json(users);
+  } catch (err) { res.status(500).json({ msg: 'Server error' }); }
+});
+
+// GET /api/staff/workspaces/:id — one workspace in depth
+router.get('/workspaces/:id', auth, async (req, res) => {
+  if (!isStaff(req)) return res.status(403).json({ msg: 'Staff only.' });
+  try {
+    const c = await prisma.company.findUnique({
+      where: { id: req.params.id },
+      select: { id: true, name: true, kind: true, plan: true, trialEndsAt: true, compedUntil: true, compNote: true, createdAt: true, stripeCustomerId: true, stripeSubscriptionId: true, subscriptionStatus: true, currentPeriodEnd: true, cancelAtPeriodEnd: true, referralCode: true, referredByCode: true, profile: true,
+        users: { select: { id: true, email: true, name: true, username: true, role: true, isApproved: true, createdAt: true }, orderBy: { createdAt: 'asc' } },
+        projects: { select: { id: true, name: true, status: true, isCompleted: true, isArchived: true, deadlineDate: true, createdAt: true, _count: { select: { questions: true } } }, orderBy: { createdAt: 'desc' }, take: 50 },
+        _count: { select: { files: true, partners: true, assistantMessages: true } } },
+    });
+    if (!c) return res.status(404).json({ msg: 'Not found' });
+    const tickets = await prisma.feedbackTicket.findMany({ where: { companyId: c.id }, orderBy: { createdAt: 'desc' }, take: 20 });
+    res.json({ ...c, planInfo: publicPlan(c), tickets });
+  } catch (err) { res.status(500).json({ msg: 'Server error' }); }
+});
+
+// POST /api/staff/impersonate-link/:userId — a one-time sign-in link for support (logged)
+router.post('/users/:id/reset-link', auth, async (req, res) => {
+  if (!isStaff(req)) return res.status(403).json({ msg: 'Staff only.' });
+  try {
+    const target = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!target) return res.status(404).json({ msg: 'User not found.' });
+    const crypto = require('crypto');
+    await prisma.passwordReset.deleteMany({ where: { userId: target.id, usedAt: null } });
+    const reset = await prisma.passwordReset.create({ data: { userId: target.id, token: crypto.randomBytes(24).toString('hex'), expiresAt: new Date(Date.now() + 2 * 3600 * 1000) } });
+    const { appUrl } = require('../utils/email.cjs');
+    res.json({ link: appUrl(`/reset-password/${reset.token}`), expiresAt: reset.expiresAt });
+  } catch (err) { res.status(500).json({ msg: 'Server error' }); }
+});
+
 module.exports = router;

@@ -70,7 +70,7 @@ export default function MyTasks() {
   const open = visible.reduce((n, p) => n + p.mine.filter(q => q.status !== 'submitted').length, 0);
 
   return (
-    <div className="content-narrow">
+    <div>
       <PageHeader title="My tasks" subtitle={groups ? (open ? `${open} question${open === 1 ? '' : 's'} waiting on you.` : 'You are all caught up.') : ' '} />
       {error && <ErrorBlock message={error} retry={load} />}
       {!groups && !error && <Loading />}

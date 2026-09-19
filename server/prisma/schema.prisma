@@ -308,3 +308,22 @@ model Referral {
 
   @@index([referrerId])
 }
+
+model FeedbackTicket {
+  id        String   @id @default(cuid())
+  companyId String?
+  userEmail String
+  userName  String?
+  workspace String?
+  plan      String?
+  type      String
+  message   String
+  page      String?
+  rating    Int?
+  status    String   @default("open") // open | in_progress | resolved
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([status, createdAt])
+}
