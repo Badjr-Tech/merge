@@ -5,18 +5,26 @@ const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = re
 function sections(project) {
   if (project.narrativeText) {
     // Edited narrative: split on numbered headings "1. Question" produced by merge, else fall back to one block
-    const parts = project.narrativeText.split(/\n(?=\d+\.\s)/).map(t => t.trim()).filter(Boolean);
+    const parts = project.narrativeText.split(/\n(?=\d+\.\s|## )/).map(t => t.trim()).filter(Boolean);
     return parts.map((block, i) => {
+      const h = block.match(/^##\s+(.+)$/m);
+      if (h && block.trim().split('\n').length === 1) return { heading: h[1].trim() };
       const m = block.match(/^(\d+)\.\s+([^\n]+)\n+([\s\S]*)$/);
       if (m) return { n: parseInt(m[1], 10), question: m[2].trim(), answer: m[3].trim() || '[No answer provided]' };
       return { n: i + 1, question: '', answer: block };
     });
   }
-  return (project.questions || []).map((q, i) => ({
-    n: i + 1,
-    question: q.text,
-    answer: (q.answer && q.answer.trim()) || '[No answer provided]',
-  }));
+  const out = [];
+  let section = null;
+  (project.questions || []).forEach((q, i) => {
+    if ((q.section || null) !== section) { section = q.section || null; if (section) out.push({ heading: section }); }
+    out.push({
+      n: i + 1,
+      question: q.text,
+      answer: q.type === 'upload' ? (q.file ? `[Attachment: ${q.file.filename}]` : '[Attachment not uploaded yet]') : ((q.answer && q.answer.trim()) || '[No answer provided]'),
+    });
+  });
+  return out;
 }
 
 function meta(project, company) {
@@ -45,6 +53,7 @@ function buildPdf(project, company) {
 
     sections(project).forEach(s => {
       if (doc.y > 660) doc.addPage();
+      if (s.heading) { doc.font('Helvetica-Bold').fontSize(14).fillColor('#476c2e').text(s.heading); doc.moveDown(0.6); return; }
       if (s.question) { doc.font('Helvetica-Bold').fontSize(12).fillColor('#0b2d65').text(`${s.n}. ${s.question}`); doc.moveDown(0.3); }
       doc.font('Helvetica').fontSize(11).fillColor('#3b3b3d').text(s.answer, { lineGap: 3 });
       doc.moveDown(1);
@@ -67,6 +76,7 @@ async function buildDocx(project, company) {
   ];
   if (project.description) children.push(new Paragraph({ children: [new TextRun({ text: project.description, italics: true })], spacing: { after: 300 } }));
   sections(project).forEach(s => {
+    if (s.heading) { children.push(new Paragraph({ text: s.heading, heading: HeadingLevel.HEADING_1, spacing: { before: 400, after: 160 } })); return; }
     if (s.question) children.push(new Paragraph({ text: `${s.n}. ${s.question}`, heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 120 } }));
     s.answer.split(/\n{2,}/).forEach(par => {
       children.push(new Paragraph({ children: [new TextRun({ text: par.replace(/\n/g, ' ') })], spacing: { after: 160 }, alignment: AlignmentType.LEFT }));
@@ -79,6 +89,7 @@ async function buildDocx(project, company) {
       default: { document: { run: { font: 'Calibri', size: 22 } } },
       paragraphStyles: [
         { id: 'Title', name: 'Title', basedOn: 'Normal', run: { size: 40, bold: true, color: '0B2D65', font: 'Calibri' }, paragraph: { spacing: { after: 120 } } },
+        { id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true, run: { size: 30, bold: true, color: '476C2E', font: 'Calibri' } },
         { id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true, run: { size: 26, bold: true, color: '0B2D65', font: 'Calibri' } },
       ],
     },

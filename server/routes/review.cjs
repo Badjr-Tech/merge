@@ -7,7 +7,7 @@ const { rateLimit } = require('../middleware/antispam.cjs');
 async function load(token) {
   return prisma.project.findUnique({
     where: { reviewToken: token },
-    include: { company: { select: { name: true } }, owner: { select: { name: true, username: true } }, narrative: true, questions: { orderBy: { createdAt: 'asc' }, select: { id: true, text: true, answer: true } }, reviewComments2: { orderBy: { createdAt: 'asc' } } },
+    include: { company: { select: { name: true } }, owner: { select: { name: true, username: true } }, narrative: true, questions: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { id: true, text: true, answer: true } }, reviewComments2: { orderBy: { createdAt: 'asc' } } },
   });
 }
 

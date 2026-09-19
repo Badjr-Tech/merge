@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../utils/prisma.cjs');
 const { requireFeature } = require('../utils/plans.cjs');
 const gemini = require('../utils/gemini.cjs');
 const { generateText } = gemini;
@@ -278,7 +277,7 @@ router.post('/chat', auth, requireFeature(prisma, 'assistant'), async (req, res)
   try {
     const [company, project, history, user, partners] = await Promise.all([
       prisma.company.findUnique({ where: { id: req.user.companyId }, select: { name: true, profile: true } }),
-      projectId ? prisma.project.findFirst({ where: { id: projectId, companyId: req.user.companyId }, include: { questions: { orderBy: { createdAt: 'asc' }, select: { text: true, answer: true, status: true, maxLimit: true, limitUnit: true } } } }) : null,
+      projectId ? prisma.project.findFirst({ where: { id: projectId, companyId: req.user.companyId }, include: { questions: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { text: true, answer: true, status: true, maxLimit: true, limitUnit: true } } } }) : null,
       prisma.assistantMessage.findMany({ where: { companyId: req.user.companyId, userId: req.user.id }, orderBy: { createdAt: 'desc' }, take: CHAT_HISTORY, select: { role: true, content: true } }),
       prisma.user.findUnique({ where: { id: req.user.id }, select: { name: true, username: true } }),
       prisma.partner.findMany({ where: { companyId: req.user.companyId }, orderBy: { name: 'asc' }, take: 60 }),

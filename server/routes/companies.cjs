@@ -16,7 +16,7 @@ router.get('/mine', auth, async (req, res) => {
       },
     });
     const totalProjects = await prisma.project.count({ where: { companyId: req.user.companyId } });
-    res.json({ ...company, planInfo: publicPlan(company), usage: { totalProjects, seats: company._count.users } });
+    res.json({ ...company, _count: { ...company._count, projects: totalProjects }, planInfo: publicPlan(company), usage: { totalProjects, seats: company._count.users } });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ msg: 'Server error' });

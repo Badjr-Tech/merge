@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../utils/prisma.cjs');
 
 // @route   POST api/narratives
 // @desc    Create a narrative

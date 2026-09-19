@@ -14,8 +14,11 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
   const toast = useToast();
   const [open, setOpen] = useState(initiallyOpen);
   const [editing, setEditing] = useState(false);
-  const [edit, setEdit] = useState({ text: q.text, assignedToId: q.assignedToId || '', maxLimit: q.maxLimit || '', limitUnit: q.limitUnit || 'words' });
+  const [edit, setEdit] = useState({ text: q.text, section: q.section || '', type: q.type || 'text', assignedToId: q.assignedToId || '', maxLimit: q.maxLimit || '', limitUnit: q.limitUnit || 'words' });
   const [answer, setAnswer] = useState(q.answer || '');
+  const isUpload = q.type === 'upload';
+  const [files, setFiles] = useState(null);
+  const [fileId, setFileId] = useState(q.fileId || '');
   const [saving, setSaving] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
   const st = questionStatus(q);
@@ -23,11 +26,31 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
   const canAnswer = q.assignedToId === me.id || isAdmin || writerMode;
 
   useEffect(() => { setAnswer(q.answer || ''); }, [q.answer]);
+  useEffect(() => { setFileId(q.fileId || ''); }, [q.fileId]);
+  useEffect(() => {
+    if (!open || !isUpload || !canAnswer || files !== null) return;
+    api.get('/api/files').then(r => setFiles(r.data)).catch(() => setFiles([]));
+  }, [open, isUpload, canAnswer, files]);
+
+  const markUploaded = async (status) => {
+    if (!fileId) { toast.error('Pick the file from your cabinet first.'); return; }
+    setSaving(true);
+    try {
+      await api.put(`/api/projects/questions/${q.id}`, { fileId, status: writerMode ? 'submitted' : (status || 'submitted') });
+      toast.success('Marked as uploaded.');
+      onChanged();
+    } catch (err) { toast.error(errorMessage(err)); } finally { setSaving(false); }
+  };
+  const clearUpload = async () => {
+    setSaving(true);
+    try { await api.put(`/api/projects/questions/${q.id}`, { fileId: null, status: 'pending' }); setFileId(''); onChanged(); }
+    catch (err) { toast.error(errorMessage(err)); } finally { setSaving(false); }
+  };
 
   const saveDetails = async () => {
     setSaving(true);
     try {
-      await api.put(`/api/projects/questions/${q.id}/details`, { text: edit.text, assignedToId: edit.assignedToId || null, maxLimit: edit.maxLimit || null, limitUnit: edit.limitUnit });
+      await api.put(`/api/projects/questions/${q.id}/details`, { text: edit.text, section: edit.section || null, type: edit.type, assignedToId: edit.assignedToId || null, maxLimit: edit.type === 'upload' ? null : (edit.maxLimit || null), limitUnit: edit.limitUnit });
       toast.success('Question updated.');
       setEditing(false);
       onChanged();
@@ -54,11 +77,12 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
       {confirmDialog}
       <div className="row-between" style={{ cursor: 'pointer' }} onClick={() => setOpen(o => !o)}>
         <div className="grow">
-          <div className="q-text">{q.text}</div>
+          <div className="q-text">{isUpload && <span className="q-type-tag" title="Upload a file">📎</span>}{q.text}</div>
           <div className="q-meta">
             {!writerMode && <span className="row"><Avatar user={q.assignedTo} size="sm" /> {displayName(q.assignedTo)}</span>}
-            {q.maxLimit ? <span>· {q.maxLimit} {(q.limitUnit || 'words').startsWith('char') ? 'characters' : 'words'} max</span> : null}
-            {q.answer && <span className={lc.over ? 'strong' : ''} style={{ color: lc.over ? 'var(--danger)' : undefined }}>· {limitCheck(q.answer, q.maxLimit, q.limitUnit).count} {lc.unit}{lc.over ? ' (over)' : ''}</span>}
+            {isUpload && <span>· {q.file ? <a href={`${api.defaults.baseURL}/api/files/${q.file.id}?token=${encodeURIComponent(localStorage.getItem('token') || '')}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>{q.file.filename}</a> : 'File needed'}</span>}
+            {!isUpload && q.maxLimit ? <span>· {q.maxLimit} {(q.limitUnit || 'words').startsWith('char') ? 'characters' : 'words'} max</span> : null}
+            {!isUpload && q.answer && <span className={lc.over ? 'strong' : ''} style={{ color: lc.over ? 'var(--danger)' : undefined }}>· {limitCheck(q.answer, q.maxLimit, q.limitUnit).count} {lc.unit}{lc.over ? ' (over)' : ''}</span>}
           </div>
         </div>
         <div className="row">{reviewNotes.filter(n => !n.resolved).length > 0 && <Badge tone="gold">{reviewNotes.filter(n => !n.resolved).length} reviewer note{reviewNotes.filter(n => !n.resolved).length === 1 ? '' : 's'}</Badge>}{writerMode ? (q.answer ? <Badge tone="green">Answered</Badge> : <Badge tone="gray">Empty</Badge>) : <Badge tone={st.tone}>{st.label}</Badge>}<span className="muted">{open ? '▴' : '▾'}</span></div>
@@ -75,7 +99,30 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
               ))}
             </div>
           )}
-          {canAnswer ? (
+          {isUpload ? (
+            <div className="callout">
+              {q.file ? (
+                <div className="row-between wrap">
+                  <span className="small">📎 <strong>{q.file.filename}</strong> is in the <Link to="/app/files">file cabinet</Link>.</span>
+                  {canAnswer && q.status !== 'submitted' && <Button size="sm" onClick={() => markUploaded('submitted')} loading={saving}>Mark as uploaded</Button>}
+                  {canAnswer && q.status === 'submitted' && <Button variant="secondary" size="sm" onClick={clearUpload} loading={saving}>Change file</Button>}
+                </div>
+              ) : canAnswer ? (
+                <>
+                  <div className="small mb-1">Pick the document from your <Link to="/app/files">file cabinet</Link>, then mark this as uploaded. Not there yet? <Link to="/app/files">Upload it</Link> first.</div>
+                  <div className="row wrap">
+                    <Select className="select-sm" value={fileId} onChange={e => setFileId(e.target.value)} style={{ maxWidth: 360 }}>
+                      <option value="">{files === null ? 'Loading files…' : files.length ? 'Choose a file…' : 'No files in your cabinet yet'}</option>
+                      {(files || []).map(f => <option key={f.id} value={f.id}>{f.filename}</option>)}
+                    </Select>
+                    <Button size="sm" onClick={() => markUploaded('submitted')} loading={saving} disabled={!fileId}>Mark as uploaded</Button>
+                  </div>
+                </>
+              ) : (
+                <span className="faint small">Not uploaded yet.</span>
+              )}
+            </div>
+          ) : canAnswer ? (
             <>
               {(writerMode || q.status !== 'submitted') && <SimilarAnswers questionId={q.id} onUse={(text) => { setAnswer(a => a.trim() ? `${a}\n\n${text}` : text); toast.success('Added to your draft. Edit it, then save or submit.'); }} />}
               <Textarea rows={6} value={answer} onChange={e => setAnswer(e.target.value)} placeholder="No answer yet. Write one here…" />
@@ -87,8 +134,8 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
           <div className="row wrap mt-2" style={{ justifyContent: 'flex-end' }}>
             {canManage && <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>Edit question</Button>}
             {isAdmin && <Button variant="danger" size="sm" onClick={remove}>Delete</Button>}
-            {canAnswer && writerMode && <Button size="sm" onClick={() => saveAnswer()} loading={saving}>Save</Button>}
-            {canAnswer && !writerMode && (q.status === 'submitted' ? (
+            {canAnswer && !isUpload && writerMode && <Button size="sm" onClick={() => saveAnswer()} loading={saving}>Save</Button>}
+            {canAnswer && !isUpload && !writerMode && (q.status === 'submitted' ? (
               <Button variant="secondary" size="sm" onClick={() => saveAnswer('in-progress')} loading={saving}>Reopen</Button>
             ) : (
               <>
@@ -105,17 +152,23 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
 
       {open && editing && (
         <div className="mt-2">
-          <Field label="Question"><Textarea rows={2} value={edit.text} onChange={e => setEdit({ ...edit, text: e.target.value })} /></Field>
+          <Field label={edit.type === 'upload' ? 'Document' : 'Question'}><Textarea rows={2} value={edit.text} onChange={e => setEdit({ ...edit, text: e.target.value })} /></Field>
+          <div className="grid-2 mb-2">
+            <Field label="Section" hint="Optional heading this belongs under"><Input className="input-sm" value={edit.section} onChange={e => setEdit({ ...edit, section: e.target.value })} placeholder="e.g. Statement of Need" /></Field>
+            <Field label="Type"><Select className="select-sm" value={edit.type} onChange={e => setEdit({ ...edit, type: e.target.value })}><option value="text">Written answer</option><option value="upload">Upload a file</option></Select></Field>
+          </div>
           <div className="row wrap">
             {!writerMode && <Select className="select-sm" value={edit.assignedToId} onChange={e => setEdit({ ...edit, assignedToId: e.target.value })} style={{ maxWidth: 220 }}>
               <option value="">Unassigned</option>
               {users.map(u => <option key={u.id} value={u.id}>{displayName(u)}</option>)}
             </Select>}
-            <Input className="input-sm" type="number" min="0" placeholder="Limit" value={edit.maxLimit} onChange={e => setEdit({ ...edit, maxLimit: e.target.value })} style={{ width: 90 }} />
-            <Select className="select-sm" value={edit.limitUnit} onChange={e => setEdit({ ...edit, limitUnit: e.target.value })} style={{ width: 130 }}>
-              <option value="words">words</option>
-              <option value="characters">characters</option>
-            </Select>
+            {edit.type !== 'upload' && <>
+              <Input className="input-sm" type="number" min="0" placeholder="Limit" value={edit.maxLimit} onChange={e => setEdit({ ...edit, maxLimit: e.target.value })} style={{ width: 90 }} />
+              <Select className="select-sm" value={edit.limitUnit} onChange={e => setEdit({ ...edit, limitUnit: e.target.value })} style={{ width: 130 }}>
+                <option value="words">words</option>
+                <option value="characters">characters</option>
+              </Select>
+            </>}
           </div>
           <div className="form-actions">
             <Button variant="secondary" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
@@ -155,7 +208,7 @@ export default function ProjectDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [edit, setEdit] = useState({});
   const [addOpen, setAddOpen] = useState(false);
-  const [newQ, setNewQ] = useState({ text: '', assignedToId: '', maxLimit: '', limitUnit: 'words' });
+  const [newQ, setNewQ] = useState({ text: '', section: '', type: 'text', assignedToId: '', maxLimit: '', limitUnit: 'words' });
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [approverId, setApproverId] = useState('');
   const [snapshot, setSnapshot] = useState(null);
@@ -199,8 +252,8 @@ export default function ProjectDetail() {
     if (!newQ.text.trim()) return;
     setBusy(true);
     try {
-      await api.post(`/api/projects/${id}/questions`, { text: newQ.text, assignedToId: newQ.assignedToId || null, maxLimit: newQ.maxLimit || null, limitUnit: newQ.limitUnit });
-      toast.success('Question added.'); setAddOpen(false); setNewQ({ text: '', assignedToId: '', maxLimit: '', limitUnit: 'words' }); load();
+      await api.post(`/api/projects/${id}/questions`, { text: newQ.text, section: newQ.section || null, type: newQ.type, assignedToId: newQ.assignedToId || null, maxLimit: newQ.type === 'upload' ? null : (newQ.maxLimit || null), limitUnit: newQ.limitUnit });
+      toast.success('Question added.'); setAddOpen(false); setNewQ({ text: '', section: '', type: 'text', assignedToId: '', maxLimit: '', limitUnit: 'words' }); load();
     } catch (err) { toast.error(errorMessage(err)); } finally { setBusy(false); }
   };
   const requestApproval = async () => {
@@ -274,7 +327,7 @@ export default function ProjectDetail() {
           {canManage && (project.isArchived
             ? <Button variant="secondary" onClick={() => act('Project restored.', () => api.put(`/api/projects/${id}/unarchive`))}>Restore</Button>
             : <Button variant="secondary" onClick={() => act('Project archived.', () => api.put(`/api/projects/${id}/archive`), { title: 'Archive project', message: 'Archived projects are hidden from the main list but can be restored.', confirmLabel: 'Archive' })}>Archive</Button>)}
-          {isAdmin && <Button variant="danger" onClick={() => act('Project deleted.', async () => { await api.delete(`/api/projects/${id}`); navigate('/app/projects'); }, { title: 'Delete project', message: 'This permanently deletes the project, its questions, answers, and history.', confirmLabel: 'Delete forever', danger: true })}>Delete</Button>}
+          {isAdmin && <Button variant="danger" onClick={() => act('Project removed. Find it under Settings → Removed.', async () => { await api.delete(`/api/projects/${id}`); navigate('/app/projects'); }, { title: 'Remove project', message: 'This takes the project off the portal for everyone. Its questions and answers are kept under Settings → Removed, where you can restore it or delete it for good.', confirmLabel: 'Remove', danger: true })}>Remove</Button>}
         </div>
       </div>
 
@@ -319,7 +372,7 @@ export default function ProjectDetail() {
           </div>
           {project.questions.length === 0 ? (
             <Card><EmptyState icon="✎" title="No questions yet" action={canManage && <Button size="sm" onClick={() => setAddOpen(true)}>Add the first question</Button>}>Add the questions from the funder's application so teammates can start writing.</EmptyState></Card>
-          ) : project.questions.map(q => <QuestionRow key={q.id} q={q} project={project} users={users} canManage={canManage && !project.isCompleted} isAdmin={isAdmin} me={user} onChanged={load} writerMode={writerMode} reviewNotes={(project.reviewComments2 || []).filter(n => n.questionId === q.id)} onResolveNote={resolveNote} initiallyOpen={params.get('open') === q.id} />)}
+          ) : project.questions.map((q, i) => <React.Fragment key={q.id}>{q.section && (i === 0 || project.questions[i - 1].section !== q.section) && <div className="q-section-head"><span>{q.section}</span></div>}<QuestionRow q={q} project={project} users={users} canManage={canManage && !project.isCompleted} isAdmin={isAdmin} me={user} onChanged={load} writerMode={writerMode} reviewNotes={(project.reviewComments2 || []).filter(n => n.questionId === q.id)} onResolveNote={resolveNote} initiallyOpen={params.get('open') === q.id} /></React.Fragment>)}
         </div>
       )}
 
@@ -422,10 +475,12 @@ export default function ProjectDetail() {
       </Modal>
 
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add a question" footer={<><Button variant="secondary" onClick={() => setAddOpen(false)}>Cancel</Button><Button onClick={addQuestion} loading={busy} disabled={!newQ.text.trim()}>Add question</Button></>}>
-        <Field label="Question"><Textarea rows={3} value={newQ.text} onChange={e => setNewQ({ ...newQ, text: e.target.value })} autoFocus /></Field>
+        <Field label={newQ.type === 'upload' ? 'Document to upload' : 'Question'}><Textarea rows={3} value={newQ.text} onChange={e => setNewQ({ ...newQ, text: e.target.value })} autoFocus placeholder={newQ.type === 'upload' ? 'e.g. IRS determination letter' : ''} /></Field>
         <div className="grid-2">
+          <Field label="Type"><Select value={newQ.type} onChange={e => setNewQ({ ...newQ, type: e.target.value })}><option value="text">Written answer</option><option value="upload">Upload a file</option></Select></Field>
+          <Field label="Section" hint="Optional"><Select value={newQ.section} onChange={e => setNewQ({ ...newQ, section: e.target.value })}><option value="">None</option>{[...new Set(project.questions.map(x => x.section).filter(Boolean))].map(sec => <option key={sec} value={sec}>{sec}</option>)}</Select></Field>
           {!writerMode && <Field label="Assign to"><Select value={newQ.assignedToId} onChange={e => setNewQ({ ...newQ, assignedToId: e.target.value })}><option value="">Unassigned</option>{users.map(u => <option key={u.id} value={u.id}>{displayName(u)}</option>)}</Select></Field>}
-          <Field label="Limit"><div className="row"><Input type="number" min="0" value={newQ.maxLimit} onChange={e => setNewQ({ ...newQ, maxLimit: e.target.value })} placeholder="None" /><Select value={newQ.limitUnit} onChange={e => setNewQ({ ...newQ, limitUnit: e.target.value })}><option value="words">words</option><option value="characters">characters</option></Select></div></Field>
+          {newQ.type !== 'upload' && <Field label="Limit"><div className="row"><Input type="number" min="0" value={newQ.maxLimit} onChange={e => setNewQ({ ...newQ, maxLimit: e.target.value })} placeholder="None" /><Select value={newQ.limitUnit} onChange={e => setNewQ({ ...newQ, limitUnit: e.target.value })}><option value="words">words</option><option value="characters">characters</option></Select></div></Field>}
         </div>
       </Modal>
 

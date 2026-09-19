@@ -2,8 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const multer = require('multer'); // Import multer
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../utils/prisma.cjs');
 
 // Files are stored in Postgres as bytes. Vercel serverless functions reject request bodies over 4.5 MB,
 // so the effective ceiling is 4 MB per file (leaves room for multipart overhead).

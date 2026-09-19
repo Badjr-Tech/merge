@@ -64,7 +64,7 @@ router.get('/', auth, async (req, res) => {
       include: {
         owner: { select: { id: true, username: true, name: true } },
         questions: {
-          orderBy: { createdAt: 'asc' },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
           select: { // Use select for scalar fields
             id: true,
             text: true,
@@ -91,8 +91,15 @@ router.get('/', auth, async (req, res) => {
 
 // Build (or rebuild) the merged narrative from current answers. Used by compile, request-approval, and review links.
 async function mergeNarrative(projectId, userId) {
-  const project = await prisma.project.findUnique({ where: { id: projectId }, include: { questions: { orderBy: { createdAt: 'asc' } } } });
-  const narrativeContent = project.questions.map((q, i) => `${i + 1}. ${q.text}\n\n${q.answer || '[No answer provided]'}`).join('\n\n');
+  const project = await prisma.project.findUnique({ where: { id: projectId }, include: { questions: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], include: { file: { select: { filename: true } } } } } });
+  const blocks = [];
+  let section = null;
+  project.questions.forEach((q, i) => {
+    if ((q.section || null) !== section) { section = q.section || null; if (section) blocks.push(`## ${section}`); }
+    const body = q.type === 'upload' ? (q.file ? `[Attachment: ${q.file.filename}]` : '[Attachment not uploaded yet]') : (q.answer || '[No answer provided]');
+    blocks.push(`${i + 1}. ${q.text}\n\n${body}`);
+  });
+  const narrativeContent = blocks.join('\n\n');
   const existing = await prisma.narrative.findUnique({ where: { projectId }, include: { versions: { orderBy: { versionNumber: 'desc' }, take: 1 } } });
   if (existing && existing.content === narrativeContent) return existing;
   if (existing) {
@@ -148,6 +155,8 @@ router.post('/', auth, async (req, res) => {
         questions: {
           create: qs.map(q => ({
             text: q.text.trim(),
+            section: q.section ? String(q.section).trim().slice(0, 200) || null : null,
+            type: q.type === 'upload' ? 'upload' : 'text',
             assignedToId: q.assignedToId || null,
             maxLimit: q.maxLimit ? parseInt(q.maxLimit, 10) || null : null,
             limitUnit: q.limitUnit || null,
@@ -764,7 +773,7 @@ router.get('/:id/export/:format', auth, async (req, res) => {
   try {
     const project = await prisma.project.findUnique({
       where: { id: req.params.id },
-      include: { questions: { orderBy: { createdAt: 'asc' }, select: { text: true, answer: true } }, company: { select: { name: true, plan: true, kind: true, trialEndsAt: true, compedUntil: true, isStaff: true } }, narrative: true },
+      include: { questions: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { text: true, answer: true, section: true, type: true, file: { select: { filename: true } } } }, company: { select: { name: true, plan: true, kind: true, trialEndsAt: true, compedUntil: true, isStaff: true } }, narrative: true },
     });
     if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
     // Premium workspaces can edit the merged document; exports then use that text instead of raw answers.
@@ -820,6 +829,67 @@ router.get('/dashboard/summary', auth, async (req, res) => {
 // @route   GET api/projects/:id
 // @desc    Get a single project by ID
 // @access  Private
+// @route   GET api/projects/removed/list
+// @desc    Projects removed from the workspace, with their text (Settings → Removed)
+router.get('/removed/list', auth, async (req, res) => {
+  try {
+    const projects = await prisma.project.findMany({
+      where: { companyId: req.user.companyId, removedAt: { not: null } },
+      orderBy: { removedAt: 'desc' },
+      select: {
+        id: true, name: true, description: true, deadlineDate: true, removedAt: true, createdAt: true,
+        owner: { select: { id: true, username: true, name: true } },
+        questions: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { id: true, text: true, answer: true, section: true, type: true, status: true } },
+        narrative: { select: { content: true } },
+      },
+    });
+    res.json(projects);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ msg: 'Server Error' });
+  }
+});
+
+// @route   POST api/projects/:id/restore
+// @desc    Put a removed project back (owner or admin)
+router.post('/:id/restore', auth, async (req, res) => {
+  try {
+    const project = await prisma.project.findUnique({ where: { id: req.params.id }, include: { company: { select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true, isStaff: true } } } });
+    if (!project || project.companyId !== req.user.companyId || !project.removedAt) return res.status(404).json({ msg: 'Project not found' });
+    if (project.ownerId !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ msg: 'Only the project owner or an admin can restore it.' });
+    const plan = planFor(project.company);
+    if (plan.limits.totalProjects !== null) {
+      const total = await prisma.project.count({ where: { companyId: req.user.companyId } });
+      if (total >= plan.limits.totalProjects) return res.status(402).json({ msg: 'The Free plan includes one grant. Remove the current one or upgrade to restore this project.', feature: 'unlimited_projects', upgrade: true });
+    }
+    await prisma.project.update({ where: { id: project.id }, data: { removedAt: null, removedById: null } });
+    res.json({ msg: 'Project restored.' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ msg: 'Server Error' });
+  }
+});
+
+// @route   DELETE api/projects/:id/permanent
+// @desc    Permanently delete a removed project (admin)
+router.delete('/:id/permanent', auth, async (req, res) => {
+  try {
+    const project = await prisma.project.findUnique({ where: { id: req.params.id } });
+    if (!project || project.companyId !== req.user.companyId || !project.removedAt) return res.status(404).json({ msg: 'Project not found' });
+    if (project.ownerId !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ msg: 'Only the project owner or an admin can delete it.' });
+    await prisma.$transaction([
+      prisma.aIReviewLog.deleteMany({ where: { projectId: project.id } }),
+      prisma.approvalRequest.deleteMany({ where: { projectId: project.id } }),
+      prisma.assistantMessage.updateMany({ where: { projectId: project.id }, data: { projectId: null } }),
+      prisma.project.delete({ where: { id: project.id } }),
+    ]);
+    res.json({ msg: 'Project deleted permanently.' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ msg: 'Server Error' });
+  }
+});
+
 router.get('/:id', auth, async (req, res) => {
   try {
     const project = await prisma.project.findUnique({
@@ -827,9 +897,10 @@ router.get('/:id', auth, async (req, res) => {
       include: {
         owner: { select: { id: true, username: true, name: true } },
         questions: {
-          orderBy: { createdAt: 'asc' },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
           include: {
             assignedTo: { select: { id: true, username: true, name: true } },
+            file: { select: { id: true, filename: true } },
             assignmentLogs: {
               include: {
                 assignedBy: { select: { id: true, username: true, name: true } },
@@ -848,7 +919,7 @@ router.get('/:id', auth, async (req, res) => {
       },
     });
 
-    if (!project || project.companyId !== req.user.companyId) {
+    if (!project || project.companyId !== req.user.companyId || project.removedAt) {
       return res.status(404).json({ msg: 'Project not found' });
     }
 
@@ -931,8 +1002,9 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(401).json({ msg: 'User not authorized to delete this project' });
     }
 
-    await prisma.project.delete({ where: { id: req.params.id } });
-    res.json({ msg: 'Project removed' });
+    // Soft delete: hide it everywhere but keep the text under Settings → Removed. Kill any share link.
+    await prisma.project.update({ where: { id: req.params.id }, data: { removedAt: new Date(), removedById: req.user.id, reviewToken: null } });
+    res.json({ msg: 'Project removed. You can find its text under Settings → Removed.' });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ msg: 'Server Error' });
@@ -1489,7 +1561,7 @@ router.delete('/questions/:id', auth, async (req, res) => {
 // @access  Private (Assigned user or Admin)
 router.put('/questions/:questionId', auth, async (req, res) => {
   const { questionId } = req.params;
-  const { answer, status } = req.body;
+  const { answer, status, fileId } = req.body;
 
   try {
     let question = await prisma.question.findUnique({
@@ -1511,6 +1583,18 @@ router.put('/questions/:questionId', auth, async (req, res) => {
     }
     if (status !== undefined) {
       updatedData.status = status;
+    }
+    if (fileId !== undefined) {
+      // Upload-type question: point at a file in the workspace's cabinet; the answer becomes the file name.
+      if (fileId) {
+        const file = await prisma.file.findFirst({ where: { id: fileId, companyId: req.user.companyId }, select: { id: true, filename: true } });
+        if (!file) return res.status(404).json({ msg: 'That file is not in your file cabinet.' });
+        updatedData.fileId = file.id;
+        updatedData.answer = `Uploaded: ${file.filename}`;
+      } else {
+        updatedData.fileId = null;
+        if (answer === undefined) updatedData.answer = null;
+      }
     }
 
     question = await prisma.question.update({
@@ -1684,7 +1768,7 @@ router.post('/manual-project', auth, requireFeature(prisma, 'past_proposals'), a
 // @route   POST api/projects/:projectId/questions
 // @desc    Add a question to an existing project (owner or admin)
 router.post('/:projectId/questions', auth, async (req, res) => {
-  const { text, assignedToId, maxLimit, limitUnit } = req.body;
+  const { text, assignedToId, maxLimit, limitUnit, section, type } = req.body;
   if (!text || !text.trim()) return res.status(400).json({ msg: 'Question text is required.' });
   try {
     const project = await prisma.project.findUnique({ where: { id: req.params.projectId }, include: { _count: { select: { questions: true } }, company: { select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true, isStaff: true } } } });
@@ -1696,6 +1780,8 @@ router.post('/:projectId/questions', auth, async (req, res) => {
       data: {
         projectId: project.id,
         text: text.trim(),
+        section: section ? String(section).trim().slice(0, 200) || null : null,
+        type: type === 'upload' ? 'upload' : 'text',
         assignedToId: assignedToId || null,
         maxLimit: maxLimit ? parseInt(maxLimit, 10) : null,
         limitUnit: limitUnit || null,
@@ -1716,13 +1802,15 @@ router.post('/:projectId/questions', auth, async (req, res) => {
 // @route   PUT api/projects/questions/:id/details
 // @desc    Edit a question's text, limits, or assignee (owner or admin)
 router.put('/questions/:id/details', auth, async (req, res) => {
-  const { text, assignedToId, maxLimit, limitUnit } = req.body;
+  const { text, assignedToId, maxLimit, limitUnit, section, type } = req.body;
   try {
     const question = await prisma.question.findUnique({ where: { id: req.params.id }, include: { project: true } });
     if (!question || question.project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Question not found' });
     if (question.project.ownerId !== req.user.id && req.user.role !== 'admin') return res.status(401).json({ msg: 'Not authorized' });
     const data = {};
     if (text !== undefined) data.text = text;
+    if (section !== undefined) data.section = section ? String(section).trim().slice(0, 200) || null : null;
+    if (type !== undefined) data.type = type === 'upload' ? 'upload' : 'text';
     if (maxLimit !== undefined) data.maxLimit = maxLimit === null || maxLimit === '' ? null : parseInt(maxLimit, 10);
     if (limitUnit !== undefined) data.limitUnit = limitUnit || null;
     if (assignedToId !== undefined) {

@@ -81,6 +81,8 @@ model Project {
   status           String            @default("draft")
   isArchived       Boolean           @default(false)
   notes            String?
+  removedAt        DateTime?         // soft-deleted: hidden everywhere, kept under Settings → Removed
+  removedById      String?
   reviewToken      String?           @unique
   reviewStatus     String?
   reviewerName     String?
@@ -97,6 +99,8 @@ model Project {
   owner            User              @relation(fields: [ownerId], references: [id])
   versions         ProjectVersion[]
   questions        Question[]
+
+  @@index([companyId, removedAt])
 }
 
 model Narrative {
@@ -163,6 +167,7 @@ model File {
   createdAt    DateTime @default(now())
   company      Company  @relation(fields: [companyId], references: [id])
   uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  questions    Question[]
 }
 
 model AIReviewLog {
@@ -196,6 +201,9 @@ model Question {
   id             String                  @id @default(cuid())
   projectId      String
   text           String
+  section        String?
+  type           String                  @default("text") // text | upload
+  fileId         String?
   assignedToId   String?
   status         String                  @default("pending")
   createdAt      DateTime                @default(now())
@@ -205,6 +213,7 @@ model Question {
   maxLimit       Int?
   assignedTo     User?                   @relation("AssignedQuestions", fields: [assignedToId], references: [id])
   project        Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  file           File?                   @relation(fields: [fileId], references: [id], onDelete: SetNull)
   assignmentLogs QuestionAssignmentLog[]
 }
 
