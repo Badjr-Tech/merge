@@ -50,7 +50,7 @@ function planFor(company) {
   // Staff workspace: everything, forever, no billing
   if (company && company.isStaff) {
     const top = kind === 'writer' ? 'professional' : 'company';
-    return { key: top, kind, ...PLANS[top], limits: { seats: null, totalProjects: null, questionsPerProject: null }, trialing: false, trialEndsAt: null, trialDaysLeft: null, trialExpired: false, comped: true, staff: true, compedUntil: null };
+    return { key: top, kind, ...PLANS[top], features: [...new Set([...PLANS[top].features, 'team', 'approvals'])], limits: { seats: null, totalProjects: null, questionsPerProject: null }, trialing: false, trialEndsAt: null, trialDaysLeft: null, trialExpired: false, comped: true, staff: true, compedUntil: null };
   }
   // Complimentary access: the stored plan applies with no trial or billing checks
   if (company && company.compedUntil && new Date(company.compedUntil) > now) {

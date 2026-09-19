@@ -110,9 +110,9 @@ export default function Team() {
       <Modal open={inviteOpen} onClose={() => setInviteOpen(false)} title="Invite a teammate" footer={created ? <Button onClick={() => setInviteOpen(false)}>Done</Button> : <><Button variant="secondary" onClick={() => setInviteOpen(false)}>Cancel</Button><Button onClick={sendInvite} loading={busy} disabled={!invite.email.trim()}>Create invitation</Button></>}>
         {created ? (
           <div>
-            <div className="form-success">{created.emailed ? `We emailed an invitation to ${created.invitation.email}.` : `Invitation created for ${created.invitation.email}.`}</div>
-            {!created.emailed && <p className="small muted">Email sending isn't configured on this server, so share the link yourself. It works for 7 days.</p>}
-            <div className="callout row-between"><code className="truncate" style={{ maxWidth: 360 }}>{created.link}</code><CopyButton text={created.link} /></div>
+            <div className="form-success">{created.emailed ? `Invitation sent to ${created.invitation.email}. They have 7 days to accept.` : `Invitation created for ${created.invitation.email}.`}</div>
+            {created.emailed ? <p className="small muted">Didn't arrive? Ask them to check spam, or copy the link below and send it yourself.</p> : <p className="small muted">The email could not be sent. Share this link yourself; it works for 7 days.</p>}
+            <details><summary className="small" style={{ cursor: 'pointer', color: 'var(--indigo)' }}>Show invite link</summary><div className="callout row-between mt-1"><code className="truncate" style={{ maxWidth: 360 }}>{created.link}</code><CopyButton text={created.link} /></div></details>
           </div>
         ) : (
           <>

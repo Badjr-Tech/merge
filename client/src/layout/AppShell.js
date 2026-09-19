@@ -66,7 +66,7 @@ export default function AppShell() {
           {link('/app/files', 'File cabinet', I.files)}
           {link('/app/calendar', 'Grant calendar', I.calendar)}
           <div className="nav-section">Workspace</div>
-          {isAdmin && !writerMode && link('/app/team', 'Team', I.team)}
+          {isAdmin && (!writerMode || plan?.staff) && link('/app/team', 'Team', I.team)}
           {!plan?.staff && link('/app/referrals', 'Refer a friend', '♥')}
           {link('/app/support', 'Support', '✉')}
           {link('/app/settings', 'Settings', I.settings)}

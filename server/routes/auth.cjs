@@ -214,7 +214,7 @@ router.post('/invitations', auth, async (req, res) => {
     if (!inviter.companyId) return res.status(400).json({ msg: 'You are not attached to a workspace.' });
 
     const plan = planFor(inviter.company);
-    if (!plan.features.includes('team')) return res.status(402).json({ msg: plan.kind === 'writer' ? 'Writer workspaces are for one person. Switch to a team workspace in Settings to invite people.' : `Inviting teammates is included in Small Teams and above. Your workspace is on ${plan.name}.`, feature: 'team', upgrade: true });
+    if (!plan.features.includes('team') && !plan.staff) return res.status(402).json({ msg: plan.kind === 'writer' ? 'Writer workspaces are for one person. Switch to a team workspace in Settings to invite people.' : `Inviting teammates is included in Small Teams and above. Your workspace is on ${plan.name}.`, feature: 'team', upgrade: true });
     if (plan.limits.seats !== null) {
       const [members, pending] = await Promise.all([
         prisma.user.count({ where: { companyId: inviter.companyId } }),
