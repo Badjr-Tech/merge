@@ -114,9 +114,9 @@ async function notifyIfComplete(projectId, byUserId) {
   for (const r of recipients) {
     sendEmail({
       to: r.email,
-      subject: `All answers are in: "${project.name}" is ready to merge`,
-      html: layout('Ready to merge', `<p>Every question on <strong>${project.name}</strong> has a submitted answer.</p><p>Open the project, read the answers, and click <strong>Merge answers</strong> to build the narrative. Then request approval or approve it.</p>${button(appUrl(`/app/projects/${project.id}`), 'Open the project')}`),
-      text: `Every question on "${project.name}" has a submitted answer. Open it to merge: ${appUrl(`/app/projects/${project.id}`)}`,
+      subject: `All answers are in: "${project.name}" is ready for approval`,
+      html: layout('All answers are in', `<p>Every question on <strong>${project.name}</strong> has a submitted answer.</p><p>Read them over and request approval. Once approved, the owner merges the answers into one narrative, edits it, and downloads it.</p>${button(appUrl(`/app/projects/${project.id}`), 'Open the project')}`),
+      text: `Every question on "${project.name}" has a submitted answer. Open it: ${appUrl(`/app/projects/${project.id}`)}`,
     }).catch(() => {});
   }
 }
@@ -727,7 +727,7 @@ router.put('/:id/narrative', auth, requireFeature(prisma, 'narrative_editing'), 
   try {
     const project = await prisma.project.findUnique({ where: { id: req.params.id }, include: { narrative: { include: { versions: { orderBy: { versionNumber: 'desc' }, take: 1 } } } } });
     if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
-    if (project.ownerId !== req.user.id && !['admin', 'editor', 'approver'].includes(req.user.role)) return res.status(403).json({ msg: 'Not authorized to edit the narrative.' });
+    if (project.ownerId !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ msg: 'Only the project owner or an admin can edit the merged narrative.' });
     if (!project.narrative) return res.status(400).json({ msg: 'Merge the answers first, then edit the narrative.' });
     const prev = project.narrative;
     const nextVersion = prev.versions[0] ? prev.versions[0].versionNumber + 1 : 1;
@@ -1163,8 +1163,11 @@ router.post('/:id/request-approval', auth, async (req, res) => {
       return res.status(400).json({ msg: 'Invalid approver selected' });
     }
 
-    const narrative = await prisma.narrative.findUnique({ where: { projectId: project.id } });
-    if (!narrative) return res.status(400).json({ msg: 'Merge the answers first. Merge unlocks once every answer is submitted.' });
+    // Approval covers the answers as submitted; merging is the owner's step afterwards
+    const allIn = await prisma.question.count({ where: { projectId: project.id, status: { not: 'submitted' } } });
+    const total = await prisma.question.count({ where: { projectId: project.id } });
+    if (!total) return res.status(400).json({ msg: 'Add questions and answers before requesting approval.' });
+    if (allIn > 0) return res.status(400).json({ msg: `${allIn} answer${allIn === 1 ? ' is' : 's are'} not submitted yet. Approval unlocks once every answer is in.` });
 
     // Update project status
     await prisma.project.update({
@@ -1259,12 +1262,21 @@ router.put('/:id/respond-approval', auth, async (req, res) => {
     });
 
     // Update project status based on approval response
-    await prisma.project.update({
+    const updatedProject = await prisma.project.update({
       where: { id: req.params.id },
-      data: {
-        status: approvalStatus, // Set status to 'approved' or 'rejected'
-      },
+      data: { status: approvalStatus },
+      include: { owner: { select: { email: true, name: true, username: true } } },
     });
+    const approver = await prisma.user.findUnique({ where: { id: req.user.id }, select: { name: true, username: true } });
+    const who = approver.name || approver.username;
+    sendEmail({
+      to: updatedProject.owner.email,
+      subject: `${who} ${approvalStatus === 'approved' ? 'approved' : 'requested changes on'} "${updatedProject.name}"`,
+      html: layout(approvalStatus === 'approved' ? 'Approved' : 'Changes requested', approvalStatus === 'approved'
+        ? `<p>${who} approved <strong>${updatedProject.name}</strong>.</p><p>Next step: open the project, merge the answers into one narrative, make any final edits, and download it for submission.</p>${button(appUrl(`/app/projects/${updatedProject.id}?tab=narrative`), 'Merge and finalize')}`
+        : `<p>${who} sent <strong>${updatedProject.name}</strong> back.</p>${comments ? `<blockquote style="border-left:3px solid #7fab61;margin:12px 0;padding:6px 12px">${String(comments).replace(/</g, '&lt;')}</blockquote>` : ''}${button(appUrl(`/app/projects/${updatedProject.id}`), 'Open the project')}`),
+      text: `${who} ${approvalStatus} "${updatedProject.name}". ${comments || ''} ${appUrl(`/app/projects/${updatedProject.id}`)}`,
+    }).catch(() => {});
 
     res.json({ msg: `Project ${approvalStatus} successfully` });
   } catch (err) {
@@ -1507,7 +1519,7 @@ router.put('/questions/:questionId', auth, async (req, res) => {
     });
 
     if (status === 'submitted') notifyIfComplete(question.projectId, req.user.id).catch(() => {});
-    if (status && status !== 'submitted') prisma.project.findUnique({ where: { id: question.projectId }, select: { details: true, status: true } }).then(p => { if (p && (p.details || {}).readyNotifiedAt) { const d = { ...(p.details || {}) }; delete d.readyNotifiedAt; return prisma.project.update({ where: { id: question.projectId }, data: { details: d, status: p.status === 'merged' ? 'draft' : p.status } }); } return null; }).catch(() => {});
+    if (status && status !== 'submitted') prisma.project.findUnique({ where: { id: question.projectId }, select: { details: true, status: true } }).then(p => { if (p && (p.details || {}).readyNotifiedAt) { const d = { ...(p.details || {}) }; delete d.readyNotifiedAt; return prisma.project.update({ where: { id: question.projectId }, data: { details: d, status: p.status } }); } return null; }).catch(() => {});
     res.json(question);
   } catch (err) {
     console.error(err.message);
@@ -1522,14 +1534,13 @@ router.post('/:id/compile', auth, async (req, res) => {
   try {
     const project = await prisma.project.findUnique({ where: { id: req.params.id }, include: { questions: true, company: { select: { kind: true } } } });
     if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
-    const canMerge = project.ownerId === req.user.id || ['admin', 'approver'].includes(req.user.role);
-    if (!canMerge) return res.status(403).json({ msg: 'Only the project owner, an admin, or an approver can merge.' });
+    const canMerge = project.ownerId === req.user.id || req.user.role === 'admin';
+    if (!canMerge) return res.status(403).json({ msg: 'Only the project owner or an admin can merge.' });
     const writerMode = project.company.kind === 'writer';
     const pending = project.questions.filter(q => writerMode ? !(q.answer && q.answer.trim()) : q.status !== 'submitted');
     if (project.questions.length === 0) return res.status(400).json({ msg: 'Add at least one question before merging.' });
     if (pending.length) return res.status(400).json({ msg: `${pending.length} answer${pending.length === 1 ? ' is' : 's are'} not submitted yet. Merge unlocks once every answer is in.`, pending: pending.length });
     const narrative = await mergeNarrative(project.id, req.user.id);
-    await prisma.project.update({ where: { id: project.id }, data: { status: project.status === 'draft' || project.status === 'rejected' ? 'merged' : project.status } });
     res.json(narrative);
   } catch (err) {
     console.error(err.message);
@@ -1754,8 +1765,6 @@ router.post('/:id/review-link', auth, requireFeature(prisma, 'external_review'),
     const project = await prisma.project.findUnique({ where: { id: req.params.id }, include: { company: { select: { name: true } } } });
     if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
     if (project.ownerId !== req.user.id && !['admin', 'editor'].includes(req.user.role)) return res.status(403).json({ msg: 'Not authorized.' });
-    const hasNarrative = await prisma.narrative.findUnique({ where: { projectId: project.id }, select: { id: true } });
-    if (!hasNarrative) return res.status(400).json({ msg: 'Merge the answers first. Merge unlocks once every answer is submitted.' });
     const token = crypto.randomBytes(20).toString('hex');
     const updated = await prisma.project.update({
       where: { id: project.id },

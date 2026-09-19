@@ -27,7 +27,6 @@ export function dueLabel(d) {
 
 export const STATUS = {
   draft: { label: 'Draft', tone: 'gray' },
-  merged: { label: 'Merged', tone: 'periwinkle' },
   pending_approval: { label: 'Awaiting approval', tone: 'gold' },
   approved: { label: 'Approved', tone: 'green' },
   rejected: { label: 'Needs changes', tone: 'danger' },

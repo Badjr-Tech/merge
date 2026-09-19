@@ -54,7 +54,7 @@ function InnerApprovals() {
   return (
     <div>
       {confirmDialog}
-      <PageHeader title="Approvals" subtitle="Proposals moving through sign-off before submission. Review opens the merged narrative; approve it or send it back with notes." />
+      <PageHeader title="Approvals" subtitle="Proposals moving through sign-off before submission. Review opens the answers; approve them or send them back with notes. After approval the owner merges and finalizes." />
       {error && <ErrorBlock message={error} retry={load} />}
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
 
@@ -68,7 +68,7 @@ function InnerApprovals() {
                 {a.project.description && <p className="small mt-1 mb-0">{a.project.description}</p>}
               </div>
               <div className="row wrap">
-                <Button variant="secondary" size="sm" to={`/app/projects/${a.projectId}?tab=narrative`}>Review</Button>
+                <Button variant="secondary" size="sm" to={`/app/projects/${a.projectId}`}>Review</Button>
                 <Button variant="danger" size="sm" onClick={() => { setRejectTarget(a); setComments(''); }}>Request changes</Button>
                 <Button size="sm" onClick={() => approve(a.projectId, a.project.name)} loading={busy}>Approve</Button>
               </div>
