@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { usePlan } from '../context/PlanContext';
 import { useAuth } from '../context/AuthContext';
-import { Card } from './ui';
+import { Card, PageHeader } from './ui';
 
 export const FEATURE_COPY = {
   unlimited_projects: { title: 'Unlimited grants', min: { writer: 'Starter', team: 'Solo Writer' }, text: 'Free includes one grant. Paid plans remove the cap.' },
@@ -16,7 +16,7 @@ export const FEATURE_COPY = {
   ai_reviewer: { title: 'AI reviewer', min: { writer: 'Premium', team: 'Solo Writer' }, text: 'Get a funder\'s-eye critique of a proposal before you submit it.' },
 };
 
-export default function UpgradeGate({ feature, children }) {
+export default function UpgradeGate({ feature, children, title, subtitle }) {
   const { has, plan } = usePlan();
   const { isAdmin } = useAuth();
   if (has(feature)) return children;
@@ -25,6 +25,8 @@ export default function UpgradeGate({ feature, children }) {
   const kind = plan?.kind === 'writer' ? 'writer' : 'team';
   const copy = { ...raw, min: typeof raw.min === 'object' ? raw.min[kind] : raw.min };
   return (
+    <div>
+      {title && <PageHeader title={title} subtitle={subtitle} />}
     <Card pad className="upgrade-card">
       <div className="badge badge-gold mb-1">{copy.min ? `${copy.min} and above` : 'Paid plans'}</div>
       <h3>{copy.title}</h3>
@@ -32,5 +34,6 @@ export default function UpgradeGate({ feature, children }) {
       <p className="small muted">Your workspace is on the <strong>{plan?.name || 'Free'}</strong> plan.</p>
       {isAdmin ? <Link to="/app/settings#plan" className="btn btn-primary">See plans</Link> : <span className="small muted">Ask a workspace admin to upgrade.</span>}
     </Card>
+    </div>
   );
 }

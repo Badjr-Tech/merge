@@ -69,5 +69,5 @@ function InnerPastProposals() {
 }
 
 export default function PastProposals() {
-  return <UpgradeGate feature="past_proposals"><InnerPastProposals /></UpgradeGate>;
+  return <UpgradeGate feature="past_proposals" title="Past proposals" subtitle="Finished applications you can search and reuse."><InnerPastProposals /></UpgradeGate>;
 }

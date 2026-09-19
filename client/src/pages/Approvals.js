@@ -106,5 +106,5 @@ function InnerApprovals() {
 }
 
 export default function Approvals() {
-  return <UpgradeGate feature="approvals"><InnerApprovals /></UpgradeGate>;
+  return <UpgradeGate feature="approvals" title="Approvals" subtitle="Proposals moving through sign-off before submission."><InnerApprovals /></UpgradeGate>;
 }

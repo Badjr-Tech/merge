@@ -87,5 +87,5 @@ function InnerPartners() {
 }
 
 export default function Partners() {
-  return <UpgradeGate feature="partners"><InnerPartners /></UpgradeGate>;
+  return <UpgradeGate feature="partners" title="Partners" subtitle="Organizations you collaborate with."><InnerPartners /></UpgradeGate>;
 }

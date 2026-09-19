@@ -62,5 +62,5 @@ function InnerAnswerBank() {
 }
 
 export default function AnswerBank() {
-  return <UpgradeGate feature="answer_bank"><InnerAnswerBank /></UpgradeGate>;
+  return <UpgradeGate feature="answer_bank" title="Answer bank" subtitle="Every answer your team has written, searchable and ready to reuse."><InnerAnswerBank /></UpgradeGate>;
 }
