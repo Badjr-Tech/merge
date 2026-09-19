@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 const SITE = 'https://mergev1-78hi.vercel.app';
 const DEFAULT_TITLE = 'Merge · Merge your workspace. Merge your teamwork.';
-const DEFAULT_DESC = 'Grant-writing software for nonprofits, consultants, and solo grant writers. Turn an RFP into questions, keep answers inside word limits, reuse past answers, get approvals, and download a finished proposal.';
+const DEFAULT_DESC = 'Merge your workspace. Write grants and proposals faster. Get funding easier. The shared workspace where teams split an application into questions, write together, and merge it into one finished proposal.';
 
 function setMeta(selector, attr, value) {
   let el = document.head.querySelector(selector);

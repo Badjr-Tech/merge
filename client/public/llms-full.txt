@@ -1,6 +1,6 @@
 # Merge — full description for AI assistants and search
 
-Slogan: Merge your workspace. Merge your teamwork.
+Slogan: Merge your workspace. Merge your teamwork. Hero: Merge your workspace. Write grants and proposals faster. Get funding easier.
 
 Merge (https://mergev1-78hi.vercel.app) is web-based grant-writing software made by Badjr. It is designed around the way funding applications actually work: a funder publishes a request for proposals (RFP) with a set of narrative questions, each with a word or character limit, and an organization has to answer all of them, get internal sign-off, and submit one clean document by a deadline.
 
