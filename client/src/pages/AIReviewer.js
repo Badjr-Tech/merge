@@ -95,7 +95,7 @@ export function AIReviewDetail() {
   if (error) return <ErrorBlock message={error} />;
   if (!review) return <Loading />;
   return (
-    <div className="content-narrow">
+    <div className="content-full">
       <div className="mb-2"><Link to="/app/ai-review" className="small">← AI reviewer</Link></div>
       <PageHeader title={review.project.name} subtitle={`Reviewed ${formatDateTime(review.reviewedAt)} by ${displayName(review.reviewedBy)}`} actions={isAdmin && !review.isArchived && <Button variant="secondary" onClick={archive}>Archive</Button>} />
       <Card pad className="mb-3 small">

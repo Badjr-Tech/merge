@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { marked } from 'marked';
-import api, { errorMessage } from '../api';
+import api, { errorMessage, API_URL } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { Button, Textarea } from './ui';
 import { usePlan } from '../context/PlanContext';
@@ -23,7 +23,11 @@ export default function Assistant() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [projectName, setProjectName] = useState('');
+  const [draft, setDraft] = useState(null); // assistant reply being typed out
+  const [copied, setCopied] = useState(null);
   const bodyRef = useRef();
+  const abortRef = useRef(null);
+  const typer = useRef({ target: '', shown: 0, timer: null, done: false, finish: null });
 
   const m = location.pathname.match(/^\/app\/projects\/([^/]+)$/);
   const projectId = m && m[1] !== 'new' ? m[1] : null;
@@ -40,7 +44,22 @@ export default function Assistant() {
 
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
-  }, [messages, sending, open]);
+  }, [messages, sending, open, draft]);
+
+  // Reveal the reply a few characters at a time so it reads like someone typing, even if the
+  // network delivers it in big chunks. Speeds up when it falls behind so it never lags far.
+  const tick = () => {
+    const t = typer.current;
+    const behind = t.target.length - t.shown;
+    if (behind > 0) {
+      const step = behind > 400 ? 24 : behind > 120 ? 8 : 3;
+      t.shown = Math.min(t.target.length, t.shown + step);
+      setDraft(t.target.slice(0, t.shown));
+    }
+    if (t.done && t.shown >= t.target.length) { t.timer = null; if (t.finish) t.finish(); return; }
+    t.timer = setTimeout(tick, 16);
+  };
+  const feed = (text) => { typer.current.target += text; if (!typer.current.timer) tick(); };
 
   const send = async (text) => {
     const content = (text || input).trim();
@@ -49,16 +68,68 @@ export default function Assistant() {
     setInput('');
     setSending(true);
     setMessages(ms => [...(ms || []), { id: `tmp-${Date.now()}`, role: 'user', content }]);
+    typer.current = { target: '', shown: 0, timer: null, done: false, finish: null };
+    setDraft('');
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     try {
-      const res = await api.post('/api/ai/chat', { message: content, projectId });
-      setMessages(ms => [...ms.filter(x => !String(x.id).startsWith('tmp-')), res.data.user, res.data.reply]);
+      const res = await fetch(`${API_URL}/api/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': localStorage.getItem('token') || '' },
+        body: JSON.stringify({ message: content, projectId }),
+        signal: ctrl.signal,
+      });
+      if (!res.ok || !res.headers.get('content-type')?.includes('text/event-stream')) {
+        let msg = 'The assistant could not answer.';
+        try { const d = await res.json(); msg = d.msg || msg; } catch (_) {}
+        throw new Error(msg);
+      }
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      let final = null;
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let i;
+        while ((i = buf.indexOf('\n\n')) >= 0) {
+          const frame = buf.slice(0, i); buf = buf.slice(i + 2);
+          const ev = (frame.match(/^event: (.*)$/m) || [])[1];
+          const dataLine = frame.split('\n').find(l => l.startsWith('data: '));
+          if (!dataLine) continue;
+          const data = JSON.parse(dataLine.slice(6));
+          if (ev === 'chunk') feed(data);
+          else if (ev === 'error') throw new Error(data.msg);
+          else if (ev === 'done') final = data;
+        }
+      }
+      if (!final) throw new Error('The assistant stopped before finishing. Try again.');
+      // let the typewriter catch up before swapping in the saved message
+      await new Promise(resolve => { typer.current.done = true; typer.current.finish = resolve; if (!typer.current.timer) tick(); });
+      setMessages(ms => [...ms.filter(x => !String(x.id).startsWith('tmp-')), final.user, final.reply]);
     } catch (err) {
-      setError(errorMessage(err, 'The assistant could not answer.'));
-      setMessages(ms => ms.filter(x => !String(x.id).startsWith('tmp-')));
-      setInput(content);
+      if (err.name === 'AbortError') {
+        const partial = typer.current.target;
+        setMessages(ms => [...ms.filter(x => !String(x.id).startsWith('tmp-')), { id: `local-${Date.now()}`, role: 'user', content }, ...(partial ? [{ id: `local-r-${Date.now()}`, role: 'assistant', content: partial + '\n\n_Stopped._' }] : [])]);
+      } else {
+        setError(err.message === 'Failed to fetch' ? 'The server did not respond. Please try again in a moment.' : (err.message || 'The assistant could not answer.'));
+        setMessages(ms => ms.filter(x => !String(x.id).startsWith('tmp-')));
+        setInput(content);
+      }
     } finally {
+      if (typer.current.timer) clearTimeout(typer.current.timer);
+      typer.current.timer = null;
+      setDraft(null);
       setSending(false);
+      abortRef.current = null;
     }
+  };
+
+  const stop = () => { if (abortRef.current) abortRef.current.abort(); };
+
+  const copy = async (msg) => {
+    try { await navigator.clipboard.writeText(msg.content); setCopied(msg.id); setTimeout(() => setCopied(null), 1500); } catch (_) {}
   };
 
   const clear = async () => {
@@ -106,16 +177,27 @@ export default function Assistant() {
           {has('assistant') && messages && messages.map(msg => (
             <div key={msg.id} className={`assistant-msg ${msg.role}`}>
               {msg.role === 'assistant'
-                ? <div className="prose" dangerouslySetInnerHTML={{ __html: marked.parse(msg.content || '') }} />
+                ? <>
+                    <div className="prose" dangerouslySetInnerHTML={{ __html: marked.parse(msg.content || '') }} />
+                    <button className="assistant-copy" onClick={() => copy(msg)} aria-label="Copy reply">{copied === msg.id ? 'Copied' : 'Copy'}</button>
+                  </>
                 : <div className="pre-wrap">{msg.content}</div>}
             </div>
           ))}
-          {sending && <div className="assistant-msg assistant"><span className="assistant-typing"><span /><span /><span /></span></div>}
+          {sending && (
+            <div className="assistant-msg assistant streaming">
+              {draft
+                ? <div className="prose" dangerouslySetInnerHTML={{ __html: marked.parse(draft) + '<span class="assistant-cursor"></span>' }} />
+                : <span className="assistant-typing"><span /><span /><span /></span>}
+            </div>
+          )}
           {error && <div className="callout callout-danger small mt-1">{error}</div>}
         </div>
         <div className="assistant-foot">
           <Textarea rows={2} value={input} onChange={e => setInput(e.target.value)} onKeyDown={onKey} placeholder={projectName ? `Ask about ${projectName}…` : 'Ask what to write…'} style={{ minHeight: 48 }} />
-          <Button onClick={() => send()} loading={sending} disabled={!input.trim() || !has('assistant')}>Send</Button>
+          {sending
+            ? <Button variant="secondary" onClick={stop}>Stop</Button>
+            : <Button onClick={() => send()} disabled={!input.trim() || !has('assistant')}>Send</Button>}
         </div>
       </div>
     </>

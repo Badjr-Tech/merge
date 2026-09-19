@@ -57,7 +57,7 @@ export default function NewProject() {
   };
 
   return (
-    <div className="content-narrow">
+    <div className="content-full">
       <PageHeader title="New project" subtitle="One project per grant application. Add the questions the funder asks and assign them to your team." />
       <form onSubmit={submit} noValidate>
         {error && <div className="form-error">{error}</div>}

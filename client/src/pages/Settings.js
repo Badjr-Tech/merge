@@ -111,7 +111,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="content-narrow">
+    <div className="content-full">
       {confirmDialog}
       <PageHeader title="Settings" subtitle={plan?.staff ? "Your profile and password." : "Your profile, your workspace, and what the writing assistant knows about your organization."} />
       {!plan?.staff && <Card className="mb-3" id="organization">

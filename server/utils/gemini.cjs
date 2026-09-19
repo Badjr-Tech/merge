@@ -70,4 +70,19 @@ async function chatReply({ systemInstruction, history, message }) {
   });
 }
 
-module.exports = { withModel, getModel, generateText, chatReply, CANDIDATES };
+// Streams the reply: onChunk(text) is called as Gemini produces it. Resolves with the full text.
+async function chatReplyStream({ systemInstruction, history, message, onChunk }) {
+  return withModel(async (name) => {
+    const model = getModel(name, { systemInstruction });
+    const chat = model.startChat({ history });
+    const result = await chat.sendMessageStream(message);
+    let full = '';
+    for await (const chunk of result.stream) {
+      const text = chunk.text();
+      if (text) { full += text; onChunk(text); }
+    }
+    return full;
+  });
+}
+
+module.exports = { withModel, getModel, generateText, chatReply, chatReplyStream, CANDIDATES };

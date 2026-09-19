@@ -4,7 +4,8 @@ const auth = require('../middleware/auth');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const { requireFeature } = require('../utils/plans.cjs');
-const { generateText, chatReply } = require('../utils/gemini.cjs');
+const gemini = require('../utils/gemini.cjs');
+const { generateText } = gemini;
 
 
 // @route   POST api/ai/review
@@ -304,16 +305,33 @@ ${partnerBlock}${projectBlock(project)}`;
     const past = history.reverse().map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
     // Gemini requires the history to start with a user turn
     while (past.length && past[0].role !== 'user') past.shift();
-    const reply = await chatReply({ systemInstruction: system, history: past, message });
+
+    // Server-sent events: the client renders each chunk as it arrives, like a chat.
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+    const emit = (event, data) => { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); if (typeof res.flush === 'function') res.flush(); };
+
+    let reply = '';
+    try {
+      reply = await gemini.chatReplyStream({ systemInstruction: system, history: past, message, onChunk: t => emit('chunk', t) });
+    } catch (err) {
+      console.error('Assistant error:', err);
+      emit('error', { msg: err.status === 429 ? err.message : err.message && err.message.includes('API key') ? 'The AI key on the server is not valid.' : 'The assistant could not answer. Try again.' });
+      return res.end();
+    }
 
     const saved = await prisma.$transaction([
       prisma.assistantMessage.create({ data: { companyId: req.user.companyId, userId: req.user.id, role: 'user', content: message, projectId } }),
       prisma.assistantMessage.create({ data: { companyId: req.user.companyId, userId: req.user.id, role: 'assistant', content: reply, projectId } }),
     ]);
-    res.json({ reply: { id: saved[1].id, role: 'assistant', content: reply, createdAt: saved[1].createdAt }, user: { id: saved[0].id, role: 'user', content: message, createdAt: saved[0].createdAt } });
+    emit('done', { reply: { id: saved[1].id, role: 'assistant', content: reply, createdAt: saved[1].createdAt }, user: { id: saved[0].id, role: 'user', content: message, createdAt: saved[0].createdAt } });
+    res.end();
   } catch (err) {
     console.error('Assistant error:', err);
-    res.status(err.status === 429 ? 429 : 500).json({ msg: err.status === 429 ? err.message : err.message && err.message.includes('API key') ? 'The AI key on the server is not valid.' : 'The assistant could not answer. Try again.' });
+    if (res.headersSent) return res.end();
+    res.status(err.status === 429 ? 429 : 500).json({ msg: err.status === 429 ? err.message : 'The assistant could not answer. Try again.' });
   }
 });
 
