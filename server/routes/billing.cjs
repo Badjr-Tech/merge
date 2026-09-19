@@ -98,7 +98,7 @@ router.post('/cancel', auth, async (req, res) => {
     res.json({ msg: `Cancelled. You keep full access until ${ends ? ends.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'the end of the billing period'}, then move to Free. No further charges.`, endsAt: ends });
   } catch (err) {
     console.error('Cancel error:', err.message);
-    res.status(500).json({ msg: 'Could not cancel right now. Email hello@dakjencreative.com and we will do it for you.' });
+    res.status(500).json({ msg: 'Could not cancel right now. Email merge@badjrtech.com and we will do it for you.' });
   }
 });
 

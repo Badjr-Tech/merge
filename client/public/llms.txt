@@ -27,7 +27,9 @@ Slogan: Merge your workspace. Merge your teamwork. Hero: Merge your workspace. W
 - Full description: https://www.mergeworkspace.com/llms-full.txt
 - Privacy: https://www.mergeworkspace.com/privacy
 - Terms: https://www.mergeworkspace.com/terms
-- Company: Badjr, https://badjr.vercel.app · hello@dakjencreative.com
+- Help & FAQ: https://www.mergeworkspace.com/faq
+- Contact: https://www.mergeworkspace.com/contact · merge@badjrtech.com
+- Company: Badjr, https://badjr.vercel.app
 
 ## Referral program
 Workspaces on Premium, Professional, Large Teams, or Companies get a referral link. Each referred workspace that becomes a paying customer earns the referrer $5 off their next invoice; the referred workspace gets 10% off its first 3 months, applied automatically at checkout.

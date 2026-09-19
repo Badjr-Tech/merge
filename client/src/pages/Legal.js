@@ -4,7 +4,7 @@ import useSeo from '../lib/seo';
 
 const UPDATED = 'September 14, 2026';
 const COMPANY = 'Badjr';
-const CONTACT = 'hello@dakjencreative.com';
+const CONTACT = 'merge@badjrtech.com';
 
 export function Privacy() {
   useSeo({ title: 'Privacy policy', description: 'How Merge collects, uses, and protects your data.', path: '/privacy' });

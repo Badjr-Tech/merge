@@ -189,7 +189,7 @@ export default function Settings() {
               </button>
             ))}
           </div>
-          <p className="tiny faint mt-2">Questions about plans? <a href="mailto:hello@dakjencreative.com">Email us</a>.</p>
+          <p className="tiny faint mt-2">Questions about plans? <a href="mailto:merge@badjrtech.com">Email us</a>.</p>
         </div>
       </Card>
       <Card pad>

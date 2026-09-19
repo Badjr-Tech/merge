@@ -32,6 +32,9 @@ import Staff from './pages/Staff';
 import StaffOverview from './pages/StaffOverview';
 import StaffTickets from './pages/StaffTickets';
 import StaffUsers from './pages/StaffUsers';
+import Contact from './pages/Contact';
+import FAQ from './pages/FAQ';
+import Support from './pages/Support';
 import { Privacy, Terms, NotFoundPublic, Welcome } from './pages/Legal';
 import CookieNotice from './components/CookieNotice';
 import Analytics from './components/Analytics';
@@ -74,6 +77,8 @@ export default function App() {
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/404" element={<NotFoundPublic />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/faq" element={<FAQ />} />
             </Route>
             <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
             <Route path="/signup" element={<PublicOnly><Signup /></PublicOnly>} />
@@ -102,6 +107,7 @@ export default function App() {
               <Route path="team" element={<RequireAdmin><Team /></RequireAdmin>} />
               <Route path="settings" element={<Settings />} />
               <Route path="referrals" element={<Referrals />} />
+              <Route path="support" element={<Support />} />
               <Route path="staff" element={<Staff />} />
               <Route path="staff/overview" element={<StaffOverview />} />
               <Route path="staff/tickets" element={<StaffTickets />} />

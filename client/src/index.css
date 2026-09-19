@@ -512,3 +512,8 @@ body.notes-open .feedback-tab { display: none; }
 .review-note.resolved { background: var(--gray); border-left-color: var(--border-strong); color: var(--text-muted); }
 
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+.faq-item { border-bottom: 1px solid var(--border); }
+.faq-q { width: 100%; text-align: left; background: none; border: none; padding: 16px 4px; font-size: 16px; font-weight: 600; color: var(--navy); cursor: pointer; display: flex; justify-content: space-between; gap: 12px; }
+.faq-q span { color: var(--green-dark); font-size: 20px; line-height: 1; }
+.faq-a { padding: 0 4px 18px; color: var(--text); line-height: 1.7; }

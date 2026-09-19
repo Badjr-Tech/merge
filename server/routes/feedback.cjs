@@ -47,4 +47,31 @@ router.post('/', auth, rateLimit({ max: 10 }), async (req, res) => {
   }
 });
 
+
+// POST /api/feedback/contact — public contact form (no login). Emails merge@ and stores a ticket.
+const { honeypot } = require('../middleware/antispam.cjs');
+router.post('/contact', rateLimit({ max: 5 }), honeypot, async (req, res) => {
+  const name = String(req.body.name || '').trim().slice(0, 120);
+  const email = String(req.body.email || '').trim().toLowerCase().slice(0, 200);
+  const topic = ['sales', 'support', 'billing', 'partnership', 'other'].includes(req.body.topic) ? req.body.topic : 'other';
+  const message = String(req.body.message || '').trim().slice(0, 5000);
+  if (!name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || !message) return res.status(400).json({ msg: 'Please add your name, a valid email, and a message.' });
+  try {
+    await prisma.feedbackTicket.create({ data: { userEmail: email, userName: name, workspace: 'Contact form', plan: null, type: topic === 'support' ? 'question' : 'idea', message: `[${topic}] ${message}`, page: '/contact' } });
+    if (emailConfigured()) {
+      sendEmail({ to: (process.env.CONTACT_NOTIFY || 'merge@badjrtech.com'), replyTo: email, subject: `[Merge contact] ${topic}: ${name}`, html: layout(`Contact form: ${topic}`, `<p><strong>${name.replace(/</g, '&lt;')}</strong> &lt;${email}&gt;</p><p style="white-space:pre-wrap">${message.replace(/</g, '&lt;')}</p><p style="font-size:12px;color:#888">Reply to this email to answer them.</p>`), text: `${name} <${email}>\n[${topic}]\n\n${message}` }).catch(() => {});
+    }
+    res.json({ msg: "Thanks. We'll reply by email, usually within one business day." });
+  } catch (err) { console.error('Contact error:', err); res.status(500).json({ msg: 'Could not send. Email merge@badjrtech.com directly.' }); }
+});
+
+// GET /api/feedback/mine — a signed-in user's own tickets
+router.get('/mine', auth, async (req, res) => {
+  try {
+    const u = await prisma.user.findUnique({ where: { id: req.user.id }, select: { email: true } });
+    const rows = await prisma.feedbackTicket.findMany({ where: { userEmail: u.email }, orderBy: { createdAt: 'desc' }, take: 50, select: { id: true, type: true, message: true, status: true, page: true, createdAt: true, updatedAt: true } });
+    res.json(rows);
+  } catch (err) { res.status(500).json({ msg: 'Server error' }); }
+});
+
 module.exports = router;

@@ -263,8 +263,12 @@ router.delete('/chat', auth, async (req, res) => {
 });
 
 // POST /api/ai/chat — send a message
+const AI_MONTHLY_CAP = Number(process.env.AI_MONTHLY_CAP || 1000);
 router.post('/chat', auth, requireFeature(prisma, 'assistant'), async (req, res) => {
   const message = String(req.body.message || '').trim().slice(0, 4000);
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const used = await prisma.assistantMessage.count({ where: { companyId: req.user.companyId, role: 'user', createdAt: { gte: monthStart } } });
+  if (used >= AI_MONTHLY_CAP) return res.status(429).json({ msg: `Your workspace has used its ${AI_MONTHLY_CAP} assistant messages for this month. It resets on the 1st. Email merge@badjrtech.com if you need more.` });
   const projectId = req.body.projectId || null;
   if (!message) return res.status(400).json({ msg: 'Say something first.' });
   if (!process.env.GEMINI_API_KEY) return res.status(500).json({ msg: 'AI is not configured on the server.' });

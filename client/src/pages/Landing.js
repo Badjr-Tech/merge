@@ -37,7 +37,7 @@ const Plan = ({ name, price, per, blurb, feats, cta, to, featured, badge }) => (
     <div className="price">{price}{per && <small>{per}</small>}</div>
     <p className="small muted">{blurb}</p>
     <ul>{feats.map(f => Array.isArray(f) ? <Feat key={f[1]} k={f[0]} t={f[1]} d={f[2]} /> : <Feat key={f} k={f} />)}</ul>
-    {to ? <Link to={to} className={`btn ${featured ? 'btn-primary' : 'btn-secondary'} btn-block`}>{cta}</Link> : <a href="mailto:hello@dakjencreative.com" className="btn btn-secondary btn-block">{cta}</a>}
+    {to ? <Link to={to} className={`btn ${featured ? 'btn-primary' : 'btn-secondary'} btn-block`}>{cta}</Link> : <a href="mailto:merge@badjrtech.com" className="btn btn-secondary btn-block">{cta}</a>}
   </Card>
 );
 
