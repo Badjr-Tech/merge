@@ -29,6 +29,7 @@ import Partners from './pages/Partners';
 import Review from './pages/Review';
 import Referrals from './pages/Referrals';
 import Staff from './pages/Staff';
+import StaffOverview from './pages/StaffOverview';
 import { Privacy, Terms, NotFoundPublic, Welcome } from './pages/Legal';
 import CookieNotice from './components/CookieNotice';
 import Analytics from './components/Analytics';
@@ -100,6 +101,7 @@ export default function App() {
               <Route path="settings" element={<Settings />} />
               <Route path="referrals" element={<Referrals />} />
               <Route path="staff" element={<Staff />} />
+              <Route path="staff/overview" element={<StaffOverview />} />
               <Route path="*" element={<NotFound />} />
             </Route>
 

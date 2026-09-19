@@ -69,7 +69,9 @@ export default function AppShell() {
           {isAdmin && !writerMode && link('/app/team', 'Team', I.team)}
           {link('/app/referrals', 'Refer a friend', '♥')}
           {link('/app/settings', 'Settings', I.settings)}
-          {staff && link('/app/staff', 'Staff: workspaces', '★')}
+          {staff && <div className="nav-section">Merge staff</div>}
+          {staff && link('/app/staff/overview', 'Overview', '★')}
+          {staff && link('/app/staff', 'Workspaces & comps', '☍')}
         </nav>
         <div className="sidebar-footer">
           <Link to="/app/settings" className="user-chip">
