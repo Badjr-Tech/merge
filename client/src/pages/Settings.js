@@ -171,6 +171,7 @@ export default function Settings() {
           {isAdmin && !billing?.hasSubscription && plan && plan.key !== 'free' && (
             <div className="callout mb-2 row-between"><span className="small">You're on <strong>{plan.name}</strong>{plan.trialing ? ' (trial)' : ''} with no card on file.</span><Button variant="danger" size="sm" onClick={cancelPlan} loading={busy === 'cancel'}>Switch to Free</Button></div>
           )}
+          {plan?.comped && <div className="callout callout-green mb-2"><strong>Complimentary access.</strong> Your workspace is on {plan.name} at no charge until {formatDate(plan.compedUntil)}. No card needed.</div>}
           {plan?.trialing && <div className="callout callout-green mb-2"><strong>Premium trial:</strong> {plan.trialDaysLeft} day{plan.trialDaysLeft === 1 ? '' : 's'} left. Pick a plan below any time. If you don't, the workspace moves to Free when the trial ends and nothing you wrote is lost.</div>}
           {plan?.trialExpired && plan.key === 'free' && <div className="callout callout-gold mb-2"><strong>Your trial has ended.</strong> You're on the Free plan. Choose a plan to bring back teammates, approvals, the answer bank, and Ask Merge.</div>}
           {usage && plan && plan.limits.totalProjects !== null && <p className="small muted">Grants: <strong>{usage.totalProjects} of {plan.limits.totalProjects}</strong>.</p>}

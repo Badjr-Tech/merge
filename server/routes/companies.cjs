@@ -11,7 +11,7 @@ router.get('/mine', auth, async (req, res) => {
     const company = await prisma.company.findUnique({
       where: { id: req.user.companyId },
       select: {
-        id: true, name: true, createdAt: true, profile: true, plan: true, kind: true, trialEndsAt: true,
+        id: true, name: true, createdAt: true, profile: true, plan: true, kind: true, trialEndsAt: true, compedUntil: true, compNote: true,
         _count: { select: { users: true, projects: true, files: true } },
       },
     });

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-const SITE = 'https://mergev1-78hi.vercel.app';
+const SITE = 'https://www.mergeworkspace.com';
 const DEFAULT_TITLE = 'Merge · Merge your workspace. Merge your teamwork.';
 const DEFAULT_DESC = 'Merge your workspace. Write grants and proposals faster. Get funding easier. The shared workspace where teams split an application into questions, write together, and merge it into one finished proposal.';
 

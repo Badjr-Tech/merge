@@ -22,7 +22,7 @@ router.get('/trial-emails', async (req, res) => {
   const soon = new Date(now.getTime() + 3 * 24 * 3600 * 1000);
   let reminders = 0; let ended = 0;
   try {
-    const reminderDue = await prisma.company.findMany({ where: { plan: { in: TRIAL_PLANS }, trialEndsAt: { gt: now, lte: soon }, trialReminderSentAt: null }, select: { id: true, name: true, trialEndsAt: true } });
+    const reminderDue = await prisma.company.findMany({ where: { plan: { in: TRIAL_PLANS }, trialEndsAt: { gt: now, lte: soon }, trialReminderSentAt: null, OR: [{ compedUntil: null }, { compedUntil: { lte: now } }] }, select: { id: true, name: true, trialEndsAt: true } });
     for (const c of reminderDue) {
       const admins = await adminsOf(c.id);
       for (const a of admins) {
@@ -37,7 +37,7 @@ router.get('/trial-emails', async (req, res) => {
       reminders += 1;
     }
 
-    const endedDue = await prisma.company.findMany({ where: { plan: { in: TRIAL_PLANS }, trialEndsAt: { lte: now }, trialEndedSentAt: null }, select: { id: true, name: true } });
+    const endedDue = await prisma.company.findMany({ where: { plan: { in: TRIAL_PLANS }, trialEndsAt: { lte: now }, trialEndedSentAt: null, OR: [{ compedUntil: null }, { compedUntil: { lte: now } }] }, select: { id: true, name: true } });
     for (const c of endedDue) {
       const admins = await adminsOf(c.id);
       for (const a of admins) {

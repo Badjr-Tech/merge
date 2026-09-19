@@ -46,7 +46,7 @@ async function sendEmail({ to, subject, html, text, replyTo, attachments }) {
 }
 
 function appUrl(path = '') {
-  const base = (process.env.APP_URL || 'https://mergev1-78hi.vercel.app').replace(/\/$/, '');
+  const base = (process.env.APP_URL || 'https://www.mergeworkspace.com').replace(/\/$/, '');
   return `${base}${path}`;
 }
 

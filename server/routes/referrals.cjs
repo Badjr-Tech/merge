@@ -24,12 +24,12 @@ function eligible(company) {
 // GET /api/referrals/mine
 router.get('/mine', auth, async (req, res) => {
   try {
-    let c = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { id: true, name: true, plan: true, kind: true, trialEndsAt: true, referralCode: true } });
+    let c = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { id: true, name: true, plan: true, kind: true, trialEndsAt: true, compedUntil: true, referralCode: true } });
     const ok = eligible(c);
     if (ok && !c.referralCode) {
       let code; let tries = 0;
       do { code = makeCode(c.name); tries += 1; } while (tries < 5 && await prisma.company.findUnique({ where: { referralCode: code } }));
-      c = await prisma.company.update({ where: { id: c.id }, data: { referralCode: code }, select: { id: true, name: true, plan: true, kind: true, trialEndsAt: true, referralCode: true } });
+      c = await prisma.company.update({ where: { id: c.id }, data: { referralCode: code }, select: { id: true, name: true, plan: true, kind: true, trialEndsAt: true, compedUntil: true, referralCode: true } });
     }
     const referrals = await prisma.referral.findMany({ where: { referrerId: c.id }, orderBy: { createdAt: 'desc' } });
     const referredNames = referrals.length ? await prisma.company.findMany({ where: { id: { in: referrals.map(r => r.referredId) } }, select: { id: true, name: true } }) : [];
@@ -49,7 +49,7 @@ router.get('/mine', auth, async (req, res) => {
 // GET /api/referrals/check/:code (public) — used by the signup page to confirm a code
 router.get('/check/:code', async (req, res) => {
   try {
-    const c = await prisma.company.findUnique({ where: { referralCode: String(req.params.code).toUpperCase() }, select: { name: true, plan: true, kind: true, trialEndsAt: true } });
+    const c = await prisma.company.findUnique({ where: { referralCode: String(req.params.code).toUpperCase() }, select: { name: true, plan: true, kind: true, trialEndsAt: true, compedUntil: true } });
     if (!c || !eligible(c)) return res.status(404).json({ msg: 'That referral code is not valid.' });
     res.json({ valid: true, from: c.name, discount: '10% off your first 3 months' });
   } catch (err) { res.status(500).json({ msg: 'Server error' }); }
@@ -58,7 +58,7 @@ router.get('/check/:code', async (req, res) => {
 // Called from signup: record the referral (no reward until the referred workspace pays)
 async function recordReferral(referredCompanyId, code) {
   if (!code) return;
-  const referrer = await prisma.company.findUnique({ where: { referralCode: String(code).toUpperCase() }, select: { id: true, plan: true, kind: true, trialEndsAt: true } });
+  const referrer = await prisma.company.findUnique({ where: { referralCode: String(code).toUpperCase() }, select: { id: true, plan: true, kind: true, trialEndsAt: true, compedUntil: true } });
   if (!referrer || !eligible(referrer) || referrer.id === referredCompanyId) return;
   await prisma.company.update({ where: { id: referredCompanyId }, data: { referredByCode: String(code).toUpperCase() } });
   await prisma.referral.create({ data: { referrerId: referrer.id, referredId: referredCompanyId } }).catch(() => {});

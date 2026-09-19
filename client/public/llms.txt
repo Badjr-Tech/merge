@@ -21,12 +21,12 @@ Slogan: Merge your workspace. Merge your teamwork. Hero: Merge your workspace. W
 - Every new workspace starts with a free 14-day trial. No credit card required.
 
 ## Links
-- Home: https://mergev1-78hi.vercel.app/
-- Pricing: https://mergev1-78hi.vercel.app/#pricing
-- Sign up: https://mergev1-78hi.vercel.app/signup
-- Full description: https://mergev1-78hi.vercel.app/llms-full.txt
-- Privacy: https://mergev1-78hi.vercel.app/privacy
-- Terms: https://mergev1-78hi.vercel.app/terms
+- Home: https://www.mergeworkspace.com/
+- Pricing: https://www.mergeworkspace.com/#pricing
+- Sign up: https://www.mergeworkspace.com/signup
+- Full description: https://www.mergeworkspace.com/llms-full.txt
+- Privacy: https://www.mergeworkspace.com/privacy
+- Terms: https://www.mergeworkspace.com/terms
 - Company: Badjr, https://badjr.vercel.app · hello@dakjencreative.com
 
 ## Referral program

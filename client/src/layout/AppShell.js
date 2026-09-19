@@ -21,6 +21,8 @@ export default function AppShell() {
   useSeo({ title: user?.company?.name || 'Workspace', path: '/app', noindex: true });
   const [open, setOpen] = useState(false);
   const [counts, setCounts] = useState({});
+  const [staff, setStaff] = useState(false);
+  useEffect(() => { api.get('/api/staff/access').then(r => setStaff(Boolean(r.data.staff))).catch(() => {}); }, []);
   const location = useLocation();
 
   useEffect(() => { setOpen(false); }, [location.pathname]);
@@ -48,7 +50,7 @@ export default function AppShell() {
         </div>
         <div className="sidebar-workspace">
           <div className="name truncate">{user?.company?.name || 'Workspace'}</div>
-          <div className="role">{user?.role}{plan ? ` · ${plan.name}${plan.trialing ? ' trial' : ''}` : ''}</div>
+          <div className="role">{user?.role}{plan ? ` · ${plan.name}${plan.trialing ? ' trial' : plan.comped ? ' · complimentary' : ''}` : ''}</div>
         </div>
         <nav className="sidebar-nav">
           {link('/app', 'Home', I.home)}
@@ -67,6 +69,7 @@ export default function AppShell() {
           {isAdmin && !writerMode && link('/app/team', 'Team', I.team)}
           {link('/app/referrals', 'Refer a friend', '♥')}
           {link('/app/settings', 'Settings', I.settings)}
+          {staff && link('/app/staff', 'Staff: workspaces', '★')}
         </nav>
         <div className="sidebar-footer">
           <Link to="/app/settings" className="user-chip">

@@ -18,4 +18,4 @@ Disallow: /app/
 User-agent: Google-Extended
 Allow: /
 
-Sitemap: https://mergev1-78hi.vercel.app/sitemap.xml
+Sitemap: https://www.mergeworkspace.com/sitemap.xml
