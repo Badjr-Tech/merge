@@ -228,6 +228,8 @@ export default function ProjectDetail() {
   };
   const restoreVersion = (v) => act(`Restored version ${v.versionNumber}.`, () => api.post(`/api/projects/${id}/narrative/restore/${v.id}`), { title: `Restore version ${v.versionNumber}`, message: 'The current text will be saved as a new version before restoring.', confirmLabel: 'Restore' });
   const canEditNarrative = has('narrative_editing') && (canManage || ['editor', 'approver'].includes(user.role)) && !project?.isCompleted;
+  const canMerge = (isOwner || isAdmin || user.role === 'approver') && !project?.isCompleted;
+  const merged = Boolean(project?.narrative);
   const resolveNote = async (n) => {
     try { await api.put(`/api/projects/${id}/review-comments/${n.id}`, { resolved: !n.resolved }); load(); } catch (err) { toast.error(errorMessage(err)); }
   };
@@ -262,9 +264,9 @@ export default function ProjectDetail() {
         </div>
         <div className="row wrap">
           {canManage && !project.isCompleted && <Button variant="secondary" onClick={openEdit}>Edit details</Button>}
-          {canManage && !project.isCompleted && (writerMode || !has('approvals')) && project.reviewStatus !== 'pending' && <Button variant="accent" onClick={() => { setReviewResult(null); setReviewForm({ reviewerName: project.reviewerName || '', reviewerEmail: project.reviewerEmail || '', message: '' }); setReviewOpen(true); }}>Send for review</Button>}
+          {canManage && !project.isCompleted && (writerMode || !has('approvals')) && project.reviewStatus !== 'pending' && <Button variant="accent" disabled={!merged} title={merged ? '' : 'Merge the answers first'} onClick={() => { setReviewResult(null); setReviewForm({ reviewerName: project.reviewerName || '', reviewerEmail: project.reviewerEmail || '', message: '' }); setReviewOpen(true); }}>Send for review</Button>}
           {canManage && project.reviewStatus === 'pending' && <Button variant="secondary" onClick={() => act('Review request withdrawn.', () => api.delete(`/api/projects/${id}/review-link`))}>Withdraw review</Button>}
-          {canManage && !project.isCompleted && !writerMode && has('approvals') && project.status !== 'pending_approval' && <Button variant="accent" onClick={() => { setApproverId(approvers[0]?.id || ''); setApprovalOpen(true); }}>Request approval</Button>}
+          {canManage && !project.isCompleted && !writerMode && has('approvals') && project.status !== 'pending_approval' && <Button variant="accent" disabled={!merged} title={merged ? '' : 'Merge the answers first'} onClick={() => { setApproverId(approvers[0]?.id || ''); setApprovalOpen(true); }}>Request approval</Button>}
           {isAdmin && !writerMode && project.status === 'pending_approval' && !project.reviewToken && <Button variant="secondary" onClick={() => act('Approval request withdrawn.', () => api.put(`/api/projects/${id}/rescind-approval`))}>Withdraw request</Button>}
           <Button variant="secondary" onClick={() => setNotesOpen(o => !o)}>{notesOpen ? 'Hide notes' : 'Notes'}</Button>
           {canManage && !project.isCompleted && <Button variant="secondary" onClick={() => act('Project marked complete.', () => api.put(`/api/projects/${id}`, { isCompleted: true }), { title: 'Mark as completed', message: 'Completed projects move to Past proposals and become read-only for answers.', confirmLabel: 'Mark complete' })}>Mark complete</Button>}
@@ -275,6 +277,12 @@ export default function ProjectDetail() {
         </div>
       </div>
 
+      {allSubmitted && !merged && !project.isCompleted && (
+        <div className="callout callout-green mb-3 row-between"><span><strong>All answers are in.</strong> {canMerge ? 'Merge them into one narrative, then request approval.' : 'The project owner or an approver can now merge them.'}</span>{canMerge && <Button size="sm" onClick={merge} loading={busy}>Merge answers</Button>}</div>
+      )}
+      {!allSubmitted && prog.total > 0 && !merged && !project.isCompleted && !writerMode && (
+        <div className="callout mb-3 small">{prog.total - prog.done} of {prog.total} answers still open. Merge and approval unlock once every answer is submitted.</div>
+      )}
       {project.reviewStatus === 'pending' && (
         <div className="callout callout-gold mb-3 row-between"><span>Sent for review{project.reviewerName ? ` to ${project.reviewerName}` : ''} {project.reviewSentAt && `on ${formatDateTime(project.reviewSentAt)}`}. Waiting for a response.</span><CopyButton text={`${window.location.origin}/review/${project.reviewToken}`} label="Copy review link" /></div>
       )}
@@ -314,16 +322,16 @@ export default function ProjectDetail() {
       {tab === 'narrative' && (
         <Card>
           <div className="card-header">
-            <div><h3>Merged narrative</h3><div className="tiny muted">{project.narrative ? `Last merged ${formatDateTime(project.narrative.updatedAt || project.narrative.createdAt)}. Requesting approval or a review re-merges automatically.` : 'Merge stitches every answer into one document in question order. It also happens automatically when you request approval or send for review.'}</div></div>
+            <div><h3>Merged narrative</h3><div className="tiny muted">{project.narrative ? `Merged ${formatDateTime(project.narrative.updatedAt || project.narrative.createdAt)}. Reopening an answer means merging again before approval.` : 'Every answer, in question order, as one document.'}</div></div>
             <div className="row wrap">
               {prog.total > 0 && <Button variant="secondary" size="sm" onClick={() => exportDoc('pdf')}>Download PDF</Button>}
               {prog.total > 0 && <Button variant="secondary" size="sm" onClick={() => exportDoc('docx')}>Download Word</Button>}
               {project.narrative && <CopyButton text={project.narrative.content} label="Copy text" />}
-              {canManage && <Button size="sm" onClick={merge} loading={busy} disabled={prog.total === 0}>{project.narrative ? 'Re-merge' : 'Merge answers'}</Button>}
+              {canMerge && <Button size="sm" onClick={merge} loading={busy} disabled={prog.total === 0 || !allSubmitted} title={allSubmitted ? '' : 'Every answer must be submitted first'}>{project.narrative ? 'Re-merge' : 'Merge answers'}</Button>}
             </div>
           </div>
           <div className="card-body">
-            {!allSubmitted && prog.total > 0 && !project.narrative && <div className="callout callout-gold mb-2 small">{prog.total - prog.done} question{prog.total - prog.done === 1 ? ' is' : 's are'} not submitted yet. You can still merge, but unanswered questions will be marked as missing.</div>}
+            {!allSubmitted && prog.total > 0 && !project.narrative && <div className="callout callout-gold mb-2 small">{prog.total - prog.done} answer{prog.total - prog.done === 1 ? ' is' : 's are'} not submitted yet. Merge unlocks when everything is in.</div>}
             {project.narrative && narrativeEdit === null && (
               <div className="row-between mb-2">
                 <span className="small muted">{has('narrative_editing') ? 'Edit this as one document. Every save keeps the previous version.' : <>{FEATURE_COPY.narrative_editing.title} is a Premium feature. {isAdmin ? <Link to="/app/settings#plan">See plans</Link> : 'Ask an admin to upgrade.'}</>}</span>
@@ -344,7 +352,7 @@ export default function ProjectDetail() {
                 <div className="count-hint">{narrativeEdit.trim().split(/\s+/).filter(Boolean).length} words</div>
                 <div className="form-actions"><Button variant="secondary" onClick={() => setNarrativeEdit(null)} disabled={busy}>Cancel</Button><Button onClick={saveNarrative} loading={busy} disabled={narrativeEdit === project.narrative.content}>Save narrative</Button></div>
               </div>
-            ) : project.narrative ? <div className="pre-wrap" style={{ lineHeight: 1.7 }}>{project.narrative.content}</div> : <EmptyState icon="▤" title="Nothing merged yet">Click Merge answers to stitch the current answers into one document. This also happens on its own when you request approval or send for review.</EmptyState>}
+            ) : project.narrative ? <div className="pre-wrap" style={{ lineHeight: 1.7 }}>{project.narrative.content}</div> : <EmptyState icon="▤" title="Nothing merged yet">Once every answer is submitted, the owner or an approver merges them into one narrative here. Approval and review links open after that.</EmptyState>}
           </div>
         </Card>
       )}
