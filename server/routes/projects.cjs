@@ -88,6 +88,20 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+
+// Build (or rebuild) the merged narrative from current answers. Used by compile, request-approval, and review links.
+async function mergeNarrative(projectId, userId) {
+  const project = await prisma.project.findUnique({ where: { id: projectId }, include: { questions: { orderBy: { createdAt: 'asc' } } } });
+  const narrativeContent = project.questions.map((q, i) => `${i + 1}. ${q.text}\n\n${q.answer || '[No answer provided]'}`).join('\n\n');
+  const existing = await prisma.narrative.findUnique({ where: { projectId }, include: { versions: { orderBy: { versionNumber: 'desc' }, take: 1 } } });
+  if (existing && existing.content === narrativeContent) return existing;
+  if (existing) {
+    const nextVersion = existing.versions[0] ? existing.versions[0].versionNumber + 1 : 1;
+    await prisma.narrativeVersion.create({ data: { narrativeId: existing.id, versionNumber: nextVersion, content: existing.content, note: 'Before re-merge', createdById: userId } });
+  }
+  return prisma.narrative.upsert({ where: { projectId }, create: { title: `${project.name} - Narrative`, content: narrativeContent, authorId: userId, projectId }, update: { title: `${project.name} - Narrative`, content: narrativeContent, authorId: userId } });
+}
+
 // @route   POST api/projects
 // @desc    Create a project with optional questions (admin or editor)
 router.post('/', auth, async (req, res) => {
@@ -1130,6 +1144,9 @@ router.post('/:id/request-approval', auth, async (req, res) => {
       return res.status(400).json({ msg: 'Invalid approver selected' });
     }
 
+    // Make sure the approver opens a complete, current narrative
+    await mergeNarrative(project.id, req.user.id);
+
     // Update project status
     await prisma.project.update({
       where: { id: req.params.id },
@@ -1745,6 +1762,7 @@ router.post('/:id/review-link', auth, requireFeature(prisma, 'external_review'),
     const project = await prisma.project.findUnique({ where: { id: req.params.id }, include: { company: { select: { name: true } } } });
     if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
     if (project.ownerId !== req.user.id && !['admin', 'editor'].includes(req.user.role)) return res.status(403).json({ msg: 'Not authorized.' });
+    await mergeNarrative(project.id, req.user.id);
     const token = crypto.randomBytes(20).toString('hex');
     const updated = await prisma.project.update({
       where: { id: project.id },

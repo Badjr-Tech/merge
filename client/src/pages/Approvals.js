@@ -54,7 +54,7 @@ function InnerApprovals() {
   return (
     <div>
       {confirmDialog}
-      <PageHeader title="Approvals" subtitle="Proposals moving through sign-off before submission." />
+      <PageHeader title="Approvals" subtitle="Proposals moving through sign-off before submission. Review opens the merged narrative; approve it or send it back with notes." />
       {error && <ErrorBlock message={error} retry={load} />}
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
 

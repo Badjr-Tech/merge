@@ -244,7 +244,7 @@ export default function ProjectDetail() {
 
   const tabs = [
     { id: 'questions', label: 'Questions', count: prog.total },
-    { id: 'narrative', label: writerMode ? 'Document' : 'Narrative' },
+    { id: 'narrative', label: 'Merged narrative' },
     { id: 'compliance', label: 'Compliance' },
     ...(writerMode ? [] : [{ id: 'approvals', label: 'Approvals', count: project.approvalRequests?.length || 0 }]),
     { id: 'reviews', label: 'AI reviews', count: reviews.length },
@@ -314,7 +314,7 @@ export default function ProjectDetail() {
       {tab === 'narrative' && (
         <Card>
           <div className="card-header">
-            <div><h3>Merged narrative</h3><div className="tiny muted">{project.narrative ? `Last merged ${formatDateTime(project.narrative.updatedAt || project.narrative.createdAt)}. Downloads always use the latest answers.` : 'Combine every submitted answer into one document, then download it as PDF or Word.'}</div></div>
+            <div><h3>Merged narrative</h3><div className="tiny muted">{project.narrative ? `Last merged ${formatDateTime(project.narrative.updatedAt || project.narrative.createdAt)}. Requesting approval or a review re-merges automatically.` : 'Merge stitches every answer into one document in question order. It also happens automatically when you request approval or send for review.'}</div></div>
             <div className="row wrap">
               {prog.total > 0 && <Button variant="secondary" size="sm" onClick={() => exportDoc('pdf')}>Download PDF</Button>}
               {prog.total > 0 && <Button variant="secondary" size="sm" onClick={() => exportDoc('docx')}>Download Word</Button>}
@@ -344,7 +344,7 @@ export default function ProjectDetail() {
                 <div className="count-hint">{narrativeEdit.trim().split(/\s+/).filter(Boolean).length} words</div>
                 <div className="form-actions"><Button variant="secondary" onClick={() => setNarrativeEdit(null)} disabled={busy}>Cancel</Button><Button onClick={saveNarrative} loading={busy} disabled={narrativeEdit === project.narrative.content}>Save narrative</Button></div>
               </div>
-            ) : project.narrative ? <div className="pre-wrap" style={{ lineHeight: 1.7 }}>{project.narrative.content}</div> : <EmptyState icon="▤" title="No narrative yet">Once answers are in, merge them here to get a single document you can edit, download, and paste into the application.</EmptyState>}
+            ) : project.narrative ? <div className="pre-wrap" style={{ lineHeight: 1.7 }}>{project.narrative.content}</div> : <EmptyState icon="▤" title="Nothing merged yet">Click Merge answers to stitch the current answers into one document. This also happens on its own when you request approval or send for review.</EmptyState>}
           </div>
         </Card>
       )}
