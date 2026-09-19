@@ -87,7 +87,8 @@
     <noscript>Merge needs JavaScript to run the app. The overview below describes the product.</noscript>
     <div id="root">
       <!-- Static overview for crawlers and readers without JavaScript. React replaces this on load. -->
-      <main style="font-family:system-ui,sans-serif;max-width:760px;margin:40px auto;padding:0 20px;color:#3b3b3d;line-height:1.6">
+      <!-- Static overview for crawlers that don't run JavaScript. Visually hidden so it never flashes before the app mounts; React replaces it. -->
+      <main style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap" aria-hidden="true">
         <h1>Merge your workspace. Write grants and proposals faster. Get funding easier.</h1>
         <p>Merge is grant-writing software for nonprofits, consultants, and solo grant writers. It turns a funding application into a shared checklist: split the RFP into questions, assign each one, keep every answer inside its word limit, reuse past answers, get sign-off, and merge everything into one narrative you can download as PDF or Word.</p>
         <h2>What Merge does</h2>

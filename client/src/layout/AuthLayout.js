@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import logo from '../logo';
 
-const logo = '/img/merge-logo.png';
 
 export default function AuthLayout({ title, lead, children, footer, side }) {
   return (

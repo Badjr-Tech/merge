@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import logo from '../logo';
 
-const logo = '/img/merge-logo.png';
 
 export default function PublicLayout() {
   const { isAuthenticated } = useAuth();

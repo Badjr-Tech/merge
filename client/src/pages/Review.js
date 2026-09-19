@@ -4,8 +4,8 @@ import api, { errorMessage } from '../api';
 import useSeo from '../lib/seo';
 import { Badge, Button, Card, Field, Input, Loading, Textarea } from '../components/ui';
 import { formatDate, formatDateTime } from '../lib/format';
+import logo from '../logo';
 
-const logo = '/img/merge-logo.png';
 
 function NoteBox({ label, onSave, disabled }) {
   const [text, setText] = useState('');

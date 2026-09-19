@@ -8,8 +8,8 @@ import Assistant from '../components/Assistant';
 import FeedbackWidget from '../components/FeedbackWidget';
 import { usePlan } from '../context/PlanContext';
 import useSeo from '../lib/seo';
+import logo from '../logo';
 
-const logo = '/img/merge-logo.png';
 
 const I = {
   home: '⌂', projects: '▤', bank: '◫', partners: '☍', tasks: '✎', approvals: '✓', past: '◷', files: '▣', ai: '✦', compliance: '☑', calendar: '▦', team: '☺', settings: '⚙', menu: '☰',
