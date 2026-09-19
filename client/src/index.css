@@ -189,6 +189,10 @@ img { max-width: 100%; }
 .tab .count { background: var(--gray); border-radius: 999px; padding: 0 7px; font-size: 11px; }
 
 .stat { padding: 18px 20px; }
+/* Project overview: progress + angle stacked on the left, description gets the room */
+.project-overview { display: grid; grid-template-columns: minmax(260px, 1fr) 2.2fr; gap: 16px; align-items: start; }
+.project-overview-side { display: flex; flex-direction: column; gap: 16px; }
+@media (max-width: 900px) { .project-overview { grid-template-columns: 1fr; } }
 .stat .stat-label { font-size: 13px; color: var(--text-muted); font-weight: 600; }
 .stat .stat-value { font-family: var(--font-display); font-size: 32px; font-weight: 600; color: var(--navy); line-height: 1.1; margin-top: 4px; }
 .stat .stat-sub { font-size: 12px; color: var(--text-faint); margin-top: 4px; }

@@ -356,10 +356,12 @@ export default function ProjectDetail() {
         <div className="callout callout-gold mb-3">Waiting on {displayName(latestApproval.approver)} to approve. Requested {formatDateTime(latestApproval.requestedAt)}.</div>
       )}
 
-      <div className="grid-3 mb-3">
+      <div className="project-overview mb-3">
+        <div className="project-overview-side">
         <Card className="stat"><div className="stat-label">Progress</div><div className="row mt-1"><div className="grow"><Progress value={prog.pct} /></div><span className="small strong">{prog.pct}%</span></div><div className="stat-sub">{prog.done} of {prog.total} answers {writerMode ? 'written' : 'submitted'}</div></Card>
-        <Card className="stat"><div className="stat-label">Description</div><div className="small mt-1 pre-wrap">{project.description || <span className="faint">No description</span>}</div></Card>
         <Card className="stat"><div className="stat-label">Angle &amp; partners</div><div className="small mt-1">{project.details?.themeAngle || <span className="faint">No theme set</span>}</div><div className="small muted">{project.details?.possiblePartnership}</div></Card>
+        </div>
+        <Card className="stat"><div className="stat-label">Description</div><div className="small mt-1 pre-wrap">{project.description || <span className="faint">No description</span>}</div></Card>
       </div>
 
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
