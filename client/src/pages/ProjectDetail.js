@@ -67,6 +67,15 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
     } catch (err) { toast.error(errorMessage(err)); } finally { setSaving(false); }
   };
 
+  const assignTo = async (userId) => {
+    setSaving(true);
+    try {
+      await api.put(`/api/projects/questions/${q.id}/details`, { assignedToId: userId || null });
+      toast.success(userId ? `Assigned to ${displayName(users.find(u => u.id === userId))}.` : 'Unassigned.');
+      onChanged();
+    } catch (err) { toast.error(errorMessage(err)); } finally { setSaving(false); }
+  };
+
   const remove = async () => {
     if (!(await confirm({ title: 'Delete question', message: 'This removes the question and its answer. This cannot be undone.', confirmLabel: 'Delete', danger: true }))) return;
     try { await api.delete(`/api/projects/questions/${q.id}`); toast.success('Question deleted.'); onChanged(); } catch (err) { toast.error(errorMessage(err)); }
@@ -79,7 +88,15 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
         <div className="grow">
           <div className="q-text">{isUpload && <span className="q-type-tag" title="Upload a file">📎</span>}{q.text}</div>
           <div className="q-meta">
-            {!writerMode && <span className="row"><Avatar user={q.assignedTo} size="sm" /> {displayName(q.assignedTo)}</span>}
+            {!writerMode && (canManage ? (
+              <span className="row" onClick={e => e.stopPropagation()}>
+                <Avatar user={q.assignedTo} size="sm" />
+                <Select className="select-xs" value={q.assignedToId || ''} onChange={e => assignTo(e.target.value)} aria-label="Assign to" disabled={saving}>
+                  <option value="">Unassigned</option>
+                  {users.map(u => <option key={u.id} value={u.id}>{displayName(u)}</option>)}
+                </Select>
+              </span>
+            ) : <span className="row"><Avatar user={q.assignedTo} size="sm" /> {displayName(q.assignedTo)}</span>)}
             {isUpload && <span>· {q.file ? <a href={`${api.defaults.baseURL}/api/files/${q.file.id}?token=${encodeURIComponent(localStorage.getItem('token') || '')}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}>{q.file.filename}</a> : 'File needed'}</span>}
             {!isUpload && q.maxLimit ? <span>· {q.maxLimit} {(q.limitUnit || 'words').startsWith('char') ? 'characters' : 'words'} max</span> : null}
             {!isUpload && q.answer && <span className={lc.over ? 'strong' : ''} style={{ color: lc.over ? 'var(--danger)' : undefined }}>· {limitCheck(q.answer, q.maxLimit, q.limitUnit).count} {lc.unit}{lc.over ? ' (over)' : ''}</span>}
@@ -248,6 +265,16 @@ export default function ProjectDetail() {
       toast.success('Project updated.'); setEditOpen(false); load();
     } catch (err) { toast.error(errorMessage(err)); } finally { setBusy(false); }
   };
+  const assignSection = async (section, userId) => {
+    if (!userId) return;
+    const targets = project.questions.filter(x => (x.section || '') === (section || ''));
+    setBusy(true);
+    try {
+      await Promise.all(targets.map(x => api.put(`/api/projects/questions/${x.id}/details`, { assignedToId: userId })));
+      toast.success(`Assigned ${targets.length} question${targets.length === 1 ? '' : 's'} to ${displayName(users.find(u => u.id === userId))}.`);
+      load();
+    } catch (err) { toast.error(errorMessage(err)); } finally { setBusy(false); }
+  };
   const addQuestion = async () => {
     if (!newQ.text.trim()) return;
     setBusy(true);
@@ -374,7 +401,7 @@ export default function ProjectDetail() {
           </div>
           {project.questions.length === 0 ? (
             <Card><EmptyState icon="✎" title="No questions yet" action={canManage && <Button size="sm" onClick={() => setAddOpen(true)}>Add the first question</Button>}>Add the questions from the funder's application so teammates can start writing.</EmptyState></Card>
-          ) : project.questions.map((q, i) => <React.Fragment key={q.id}>{q.section && (i === 0 || project.questions[i - 1].section !== q.section) && <div className="q-section-head"><span>{q.section}</span></div>}<QuestionRow q={q} project={project} users={users} canManage={canManage && !project.isCompleted} isAdmin={isAdmin} me={user} onChanged={load} writerMode={writerMode} reviewNotes={(project.reviewComments2 || []).filter(n => n.questionId === q.id)} onResolveNote={resolveNote} initiallyOpen={params.get('open') === q.id} /></React.Fragment>)}
+          ) : project.questions.map((q, i) => <React.Fragment key={q.id}>{q.section && (i === 0 || project.questions[i - 1].section !== q.section) && <div className="q-section-head"><span>{q.section}</span>{canManage && !writerMode && !project.isCompleted && <Select className="select-xs q-section-assign" value="" onChange={e => assignSection(q.section, e.target.value)} aria-label="Assign every question in this section"><option value="">Assign all in section…</option>{users.map(u => <option key={u.id} value={u.id}>{displayName(u)}</option>)}</Select>}</div>}<QuestionRow q={q} project={project} users={users} canManage={canManage && !project.isCompleted} isAdmin={isAdmin} me={user} onChanged={load} writerMode={writerMode} reviewNotes={(project.reviewComments2 || []).filter(n => n.questionId === q.id)} onResolveNote={resolveNote} initiallyOpen={params.get('open') === q.id} /></React.Fragment>)}
         </div>
       )}
 

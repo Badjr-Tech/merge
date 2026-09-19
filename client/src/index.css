@@ -371,6 +371,11 @@ img[alt="Merge"] { color: transparent; font-size: 0; }
 .q-section-head:first-child { margin-top: 4px; }
 .q-section-input { max-width: 420px; font-weight: 700; color: var(--dark-green, #476c2e); }
 .q-type-tag { margin-right: 6px; font-size: 13px; }
+.select-xs { font-size: 12px; padding: 2px 24px 2px 8px; height: 26px; border-radius: 6px; background-position: right 6px center; }
+.q-section-assign { max-width: 200px; font-weight: 500; color: var(--text-muted); }
+.q-section-head .q-section-assign { margin-left: auto; }
+.q-section-head::after { order: 1; }
+.q-section-head .q-section-assign { order: 2; margin-left: 12px; }
 
 /* ---------- Writing assistant ---------- */
 .assistant-fab { position: fixed; right: 22px; bottom: 22px; z-index: 900; display: inline-flex; align-items: center; gap: 8px; padding: 12px 18px; border-radius: 999px; border: none; background: var(--indigo); color: #fff; font-weight: 700; font-size: 14px; box-shadow: var(--shadow-lg); cursor: pointer; transition: transform .12s, background .15s, opacity .15s; }
