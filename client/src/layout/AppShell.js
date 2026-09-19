@@ -34,7 +34,7 @@ export default function AppShell() {
   }, [location.pathname]);
 
   const link = (to, label, icon, count, feature) => (
-    <NavLink to={to} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} end={to === '/app'}>
+    <NavLink to={to} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} end={to === '/app' || to === '/app/staff' || to === '/app/projects'}>
       <span className="nav-icon">{icon}</span>{label}
       {count > 0 && <span className="nav-count">{count}</span>}
       {feature && !has(feature) && <span className="nav-count" title="Premium feature">★</span>}
