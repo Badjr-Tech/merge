@@ -113,8 +113,8 @@ export default function Settings() {
   return (
     <div className="content-narrow">
       {confirmDialog}
-      <PageHeader title="Settings" subtitle="Your profile, your workspace, and what the writing assistant knows about your organization." />
-      <Card className="mb-3" id="organization">
+      <PageHeader title="Settings" subtitle={plan?.staff ? "Your profile and password." : "Your profile, your workspace, and what the writing assistant knows about your organization."} />
+      {!plan?.staff && <Card className="mb-3" id="organization">
         <div className="card-header">
           <div><h3>Organization profile</h3><div className="tiny muted">The writing assistant uses this to give advice in your voice. Everyone in the workspace shares it.</div></div>
         </div>
@@ -143,7 +143,7 @@ export default function Settings() {
           <Field label="Anything else the assistant should know"><Textarea rows={2} value={profile.notes} onChange={pf('notes')} disabled={!canEditProfile} /></Field>
           {canEditProfile ? <div className="form-actions"><Button onClick={saveProfile2} loading={busy === 'org'}>Save organization profile</Button></div> : <p className="tiny faint">Admins and editors can edit this profile.</p>}
         </div>
-      </Card>
+      </Card>}
       <Card pad className="mb-3">
         <h3>Profile</h3>
         <Field label="Name"><Input value={name} onChange={e => setName(e.target.value)} /></Field>
@@ -192,12 +192,12 @@ export default function Settings() {
           <p className="tiny faint mt-2">Questions about plans? <a href="mailto:merge@badjrtech.com">Email us</a>.</p>
         </div>
       </Card>}
-      <Card pad>
+      {!plan?.staff && <Card pad>
         <h3>Workspace</h3>
         {company && <p className="small muted">Created {formatDate(company.createdAt)} · {company._count.users} people · {company._count.projects} projects · {company._count.files} files</p>}
         <Field label="Workspace name"><Input value={companyName} onChange={e => setCompanyName(e.target.value)} disabled={!isAdmin} /></Field>
         {isAdmin ? <div className="form-actions"><Button onClick={saveCompany} loading={busy === 'company'} disabled={!companyName.trim() || companyName === company?.name}>Rename workspace</Button></div> : <p className="tiny faint">Only admins can rename the workspace.</p>}
-      </Card>
+      </Card>}
     </div>
   );
 }

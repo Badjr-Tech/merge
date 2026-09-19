@@ -97,7 +97,7 @@ export default function Assistant() {
           {has('assistant') && messages && messages.length === 0 && (
             <div className="assistant-intro">
               <p className="mb-1"><strong>Hi {(user?.name || user?.username || '').split(' ')[0]}.</strong> I know your organization's profile{projectName ? ' and the project you have open' : ''}. Ask me what to write, how to say it, or what a funder is looking for.</p>
-              <p className="tiny muted">Tip: fill in your organization profile under <Link to="/app/settings" onClick={() => setOpen(false)}>Settings</Link> so my advice uses your real mission, programs, and impact.</p>
+              {!plan?.staff && <p className="tiny muted">Tip: fill in your organization profile under <Link to="/app/settings" onClick={() => setOpen(false)}>Settings</Link> so my advice uses your real mission, programs, and impact.</p>}
               <div className="assistant-starters">
                 {STARTERS.map(s => <button key={s} className="assistant-starter" onClick={() => send(s)}>{s}</button>)}
               </div>
