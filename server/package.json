@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "vercel-build": "PRISMA_CLIENT_ENGINE_TYPE=binary PRISMA_MIGRATE_TIMEOUT=600000 node -r dotenv/config node_modules/.bin/prisma migrate deploy",
+    "vercel-build": "node scripts/migrate-if-needed.cjs",
     "postinstall": "prisma generate"
   },
   "keywords": [],
