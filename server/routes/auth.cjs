@@ -131,6 +131,11 @@ router.post('/login', rateLimit({ max: 20 }), async (req, res) => {
     if (!user.isApproved) return res.status(403).json({ msg: 'Your account is waiting for an admin to approve it.' });
     if (!user.companyId) return res.status(403).json({ msg: 'Your account is not attached to a workspace yet. Ask your admin for an invite.' });
 
+    const staffList = (process.env.STAFF_EMAILS || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);
+    if (staffList.includes(user.email.toLowerCase()) && user.company && !user.company.isStaff) {
+      await prisma.company.update({ where: { id: user.companyId }, data: { isStaff: true, trialEndsAt: null } });
+    }
+
     res.json({ token: signToken(user), user: publicUser(user) });
   } catch (err) {
     console.error('Login error:', err);

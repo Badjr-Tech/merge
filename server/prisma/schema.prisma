@@ -55,6 +55,7 @@ model Company {
   currentPeriodEnd     DateTime?
   cancelAtPeriodEnd    Boolean  @default(false)
   compedUntil          DateTime?
+  isStaff              Boolean  @default(false)
   compNote             String?
   referralCode         String?  @unique
   referredByCode       String?

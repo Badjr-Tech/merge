@@ -50,7 +50,7 @@ export default function AppShell() {
         </div>
         <div className="sidebar-workspace">
           <div className="name truncate">{user?.company?.name || 'Workspace'}</div>
-          <div className="role">{user?.role}{plan ? ` · ${plan.name}${plan.trialing ? ' trial' : plan.comped ? ' · complimentary' : ''}` : ''}</div>
+          <div className="role">{user?.role}{plan ? (plan.staff ? ' · Merge staff' : ` · ${plan.name}${plan.trialing ? ' trial' : plan.comped ? ' · complimentary' : ''}`) : ''}</div>
         </div>
         <nav className="sidebar-nav">
           {link('/app', 'Home', I.home)}
@@ -94,7 +94,7 @@ export default function AppShell() {
         <header className="topbar">
           <button className="btn btn-secondary btn-icon menu-btn" onClick={() => setOpen(o => !o)} aria-label="Menu">{I.menu}</button>
           <span className="crumbs">{user?.company?.name}</span>
-          {plan?.trialing && (
+          {plan?.trialing && !plan.staff && (
             <Link to="/app/settings#plan" className="trial-pill">{plan.name} trial · {plan.trialDaysLeft} day{plan.trialDaysLeft === 1 ? '' : 's'} left · Choose a plan</Link>
           )}
           {plan?.trialExpired && plan.key === 'free' && (

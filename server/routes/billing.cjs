@@ -14,7 +14,7 @@ async function seatCount(companyId) {
 // GET /api/billing/status
 router.get('/status', auth, async (req, res) => {
   try {
-    const c = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true, stripeCustomerId: true, stripeSubscriptionId: true, subscriptionStatus: true, currentPeriodEnd: true, cancelAtPeriodEnd: true } });
+    const c = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true, isStaff: true, stripeCustomerId: true, stripeSubscriptionId: true, subscriptionStatus: true, currentPeriodEnd: true, cancelAtPeriodEnd: true } });
     res.json({ configured: configured(), hasSubscription: Boolean(c.stripeSubscriptionId), subscriptionStatus: c.subscriptionStatus, currentPeriodEnd: c.currentPeriodEnd, cancelAtPeriodEnd: c.cancelAtPeriodEnd, seats: await seatCount(req.user.companyId), plan: publicPlan(c) });
   } catch (err) { res.status(500).json({ msg: 'Server error' }); }
 });

@@ -159,7 +159,7 @@ export default function Settings() {
         </div>
         <div className="form-actions"><Button onClick={savePassword} loading={busy === 'pw'} disabled={!pw.oldPassword || !pw.newPassword}>Update password</Button></div>
       </Card>
-      <Card className="mb-3" id="plan">
+      {!plan?.staff && <Card className="mb-3" id="plan">
         <div className="card-header"><div><h3>Plan and billing</h3><div className="tiny muted">{billing?.configured ? 'Secure checkout by Stripe. Change or cancel any time.' : 'Billing is not connected yet; admins can switch plans here.'}</div></div>{plan && <span className="badge badge-green">{plan.name}</span>}</div>
         <div className="card-body">
           {billing?.hasSubscription && (
@@ -191,7 +191,7 @@ export default function Settings() {
           </div>
           <p className="tiny faint mt-2">Questions about plans? <a href="mailto:merge@badjrtech.com">Email us</a>.</p>
         </div>
-      </Card>
+      </Card>}
       <Card pad>
         <h3>Workspace</h3>
         {company && <p className="small muted">Created {formatDate(company.createdAt)} · {company._count.users} people · {company._count.projects} projects · {company._count.files} files</p>}

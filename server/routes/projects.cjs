@@ -96,7 +96,7 @@ router.post('/', auth, async (req, res) => {
   if (!req.user.companyId) return res.status(400).json({ msg: 'You are not attached to a workspace.' });
   if (!['admin', 'editor', 'approver'].includes(req.user.role)) return res.status(403).json({ msg: 'Viewers cannot create projects.' });
   try {
-    const company = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true } });
+    const company = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true, isStaff: true } });
     const plan = planFor(company);
     if (plan.limits.totalProjects !== null) {
       const total = await prisma.project.count({ where: { companyId: req.user.companyId } });
@@ -731,7 +731,7 @@ router.get('/:id/export/:format', auth, async (req, res) => {
   try {
     const project = await prisma.project.findUnique({
       where: { id: req.params.id },
-      include: { questions: { orderBy: { createdAt: 'asc' }, select: { text: true, answer: true } }, company: { select: { name: true, plan: true, kind: true, trialEndsAt: true, compedUntil: true } }, narrative: true },
+      include: { questions: { orderBy: { createdAt: 'asc' }, select: { text: true, answer: true } }, company: { select: { name: true, plan: true, kind: true, trialEndsAt: true, compedUntil: true, isStaff: true } }, narrative: true },
     });
     if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
     // Premium workspaces can edit the merged document; exports then use that text instead of raw answers.
@@ -1121,7 +1121,7 @@ router.post('/:id/request-approval', auth, async (req, res) => {
       return res.status(401).json({ msg: 'User not authorized to request approval for this project' });
     }
 
-    const approvalCompany = await prisma.company.findUnique({ where: { id: project.companyId }, select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true } });
+    const approvalCompany = await prisma.company.findUnique({ where: { id: project.companyId }, select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true, isStaff: true } });
     if (!hasFeature(approvalCompany, 'approvals')) return res.status(402).json({ msg: 'Approvals are part of team workspaces.', feature: 'approvals', upgrade: true });
 
     // Ensure the approver exists and is in the same company
@@ -1667,7 +1667,7 @@ router.post('/:projectId/questions', auth, async (req, res) => {
   const { text, assignedToId, maxLimit, limitUnit } = req.body;
   if (!text || !text.trim()) return res.status(400).json({ msg: 'Question text is required.' });
   try {
-    const project = await prisma.project.findUnique({ where: { id: req.params.projectId }, include: { _count: { select: { questions: true } }, company: { select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true } } } });
+    const project = await prisma.project.findUnique({ where: { id: req.params.projectId }, include: { _count: { select: { questions: true } }, company: { select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true, isStaff: true } } } });
     if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
     if (project.ownerId !== req.user.id && req.user.role !== 'admin') return res.status(401).json({ msg: 'Not authorized to add questions' });
     const qPlan = planFor(project.company);

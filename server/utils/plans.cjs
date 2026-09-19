@@ -47,6 +47,11 @@ function planFor(company) {
   const now = new Date();
   const kind = company && company.kind === 'writer' ? 'writer' : 'team';
   let key = company && PLANS[normalizeKey(company.plan)] ? normalizeKey(company.plan) : 'free';
+  // Staff workspace: everything, forever, no billing
+  if (company && company.isStaff) {
+    const top = kind === 'writer' ? 'professional' : 'company';
+    return { key: top, kind, ...PLANS[top], limits: { seats: null, totalProjects: null, questionsPerProject: null }, trialing: false, trialEndsAt: null, trialDaysLeft: null, trialExpired: false, comped: true, staff: true, compedUntil: null };
+  }
   // Complimentary access: the stored plan applies with no trial or billing checks
   if (company && company.compedUntil && new Date(company.compedUntil) > now) {
     return { key, kind, ...PLANS[key], trialing: false, trialEndsAt: null, trialDaysLeft: null, trialExpired: false, comped: true, compedUntil: company.compedUntil };
@@ -80,7 +85,7 @@ function requireFeature(prisma, feature) {
 
 function publicPlan(company) {
   const p = planFor(company);
-  return { key: p.key, kind: p.kind, track: p.track, name: p.name, price: p.price, per: p.per, features: p.features, limits: p.limits, trialing: p.trialing, trialEndsAt: p.trialEndsAt, trialDaysLeft: p.trialDaysLeft, trialExpired: p.trialExpired, comped: Boolean(p.comped), compedUntil: p.compedUntil || null };
+  return { key: p.key, kind: p.kind, track: p.track, name: p.name, price: p.price, per: p.per, features: p.features, limits: p.limits, trialing: p.trialing, trialEndsAt: p.trialEndsAt, trialDaysLeft: p.trialDaysLeft, trialExpired: p.trialExpired, comped: Boolean(p.comped), staff: Boolean(p.staff), compedUntil: p.compedUntil || null };
 }
 
 function catalogue() {
