@@ -87,7 +87,7 @@ export default function AppShell() {
           <button className="nav-link" style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer' }} onClick={signOut}>
             <span className="nav-icon">⇥</span>Sign out
           </button>
-          <div className="powered-side">Powered by <a href="https://badjr.vercel.app" target="_blank" rel="noopener noreferrer">Badjr</a></div>
+          <div className="powered-side">Powered by <a href="https://badjrtech.com" target="_blank" rel="noopener noreferrer">Badjr</a></div>
         </div>
       </aside>
       <div className="main">
