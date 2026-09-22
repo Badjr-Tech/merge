@@ -13,6 +13,7 @@ const { stripe, PRICE_BY_PLAN, perSeat } = require('../utils/stripe.cjs');
 
 const APPLY = process.argv.includes('--apply');
 
+// Fallback copy, only used for a product that has no description at all.
 const BLURB = {
   writer: 'For one grant writer. Unlimited grants, answer bank, file cabinet, grant calendar, and send-for-review links.',
   writer_pro: 'Everything in Starter plus Ask Merge, the AI reviewer, partners, past proposals, and an editable document with version history.',
@@ -46,13 +47,20 @@ async function main() {
     if (wantsSeats && price.recurring && price.recurring.usage_type !== 'licensed') notes.push('per-seat plan needs a licensed (quantity-based) price');
     if (notes.length) problems.push(`${label}: ${notes.join('; ')}`);
 
+    // Only flag what is actually missing — hand-written product copy in Stripe is left alone.
     const product = price.product;
-    const desc = BLURB[key];
-    const name = `Merge ${plan.name}`;
-    const stale = product.name !== name || product.description !== desc || product.metadata.plan !== key;
-    console.log(`${label.padEnd(28)} ${priceId}  ${money(price.unit_amount)}${wantsSeats ? '/person' : ''}/mo  ${price.active ? 'active' : 'ARCHIVED'}  ${stale ? (APPLY ? '→ updating product' : 'product details stale') : 'product ok'}`);
-    if (stale && APPLY) {
-      await stripe().products.update(product.id, { name, description: desc, metadata: { ...product.metadata, plan: key, seats: String(plan.limits.seats ?? 'unlimited'), track: plan.track } });
+    const missing = [];
+    if (!product.name) missing.push('name');
+    if (!product.description) missing.push('description');
+    if (product.metadata.plan !== key) missing.push(`metadata.plan=${key}`);
+    if (!product.active) missing.push('product is archived');
+    console.log(`${label.padEnd(28)} ${priceId}  ${money(price.unit_amount)}${wantsSeats ? '/person' : ''}/mo  ${price.active ? 'active' : 'ARCHIVED'}  ${missing.length ? (APPLY ? `→ filling in ${missing.join(', ')}` : `missing ${missing.join(', ')}`) : 'product ok'}`);
+    if (missing.length && APPLY) {
+      await stripe().products.update(product.id, {
+        name: product.name || `Merge ${plan.name}`,
+        description: product.description || BLURB[key],
+        metadata: { ...product.metadata, plan: key },
+      });
     }
   }
   if (problems.length) {
@@ -62,7 +70,7 @@ async function main() {
   } else {
     console.log('\nEvery plan maps to a live price that matches the app. No products or prices are created at checkout.');
   }
-  if (!APPLY) console.log('Report only. Re-run with --apply to write product names and descriptions.');
+  if (!APPLY) console.log('Report only. Re-run with --apply to fill in anything missing (existing copy is never overwritten).');
 }
 
 main().catch(err => { console.error(err.message); process.exit(1); });
