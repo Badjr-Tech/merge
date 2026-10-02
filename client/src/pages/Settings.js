@@ -68,6 +68,7 @@ export default function Settings() {
     } catch (err) { toast.error(errorMessage(err)); } finally { setBusy(''); }
   };
   const [name, setName] = useState(user?.name || '');
+  const [deadlineEmails, setDeadlineEmails] = useState(user?.deadlineEmails !== false);
   const [company, setCompany] = useState(null);
   const [companyName, setCompanyName] = useState('');
   const [pw, setPw] = useState({ oldPassword: '', newPassword: '', confirmNewPassword: '' });
@@ -96,7 +97,7 @@ export default function Settings() {
 
   const saveProfile = async () => {
     setBusy('profile');
-    try { const res = await api.put('/api/auth/profile', { name }); localStorage.setItem('token', res.data.token); updateUser(res.data.user); toast.success('Profile saved.'); }
+    try { const res = await api.put('/api/auth/profile', { name, deadlineEmails }); localStorage.setItem('token', res.data.token); updateUser(res.data.user); toast.success('Profile saved.'); }
     catch (err) { toast.error(errorMessage(err)); } finally { setBusy(''); }
   };
   const saveCompany = async () => {
@@ -149,6 +150,10 @@ export default function Settings() {
         <h3>Profile</h3>
         <Field label="Name"><Input value={name} onChange={e => setName(e.target.value)} /></Field>
         <Field label="Email" hint="Email is used to sign in and can't be changed here."><Input value={user?.email || ''} disabled /></Field>
+        <label className="row" style={{ gap: 8, alignItems: 'flex-start', marginTop: 4 }}>
+          <input type="checkbox" checked={deadlineEmails} onChange={e => setDeadlineEmails(e.target.checked)} style={{ marginTop: 3 }} />
+          <span className="small">Email me when a grant is coming due<span className="tiny muted" style={{ display: 'block' }}>30, 14, 7, 3, and 1 day before the deadline, and on the day — for grants you own or have open questions on.</span></span>
+        </label>
         <div className="form-actions"><Button onClick={saveProfile} loading={busy === 'profile'} disabled={!name.trim()}>Save profile</Button></div>
       </Card>
       <Card pad className="mb-3">

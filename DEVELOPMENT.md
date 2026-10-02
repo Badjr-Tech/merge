@@ -52,6 +52,16 @@ Create a local Postgres database and apply migrations with `npx prisma migrate d
 ## Stupid-proofing checklist (what a new deploy should always have)
 Custom 404 · sitemap.xml · robots.txt · llms.txt · per-route titles and descriptions · Open Graph image · loading and error states on every fetch · compressed images with alt text · mobile breakpoints and hamburger nav · sticky mobile CTA · privacy and terms pages · cookie notice · contact email in footer · welcome page after signup · Vercel Web Analytics with private URLs masked · feedback widget that emails you · 4 MB upload cap enforced on both sides · plan gating checked on the server, never only in the UI.
 
+## Deadline reminders (added 2026-10-02)
+
+A second daily Vercel cron (`/api/cron/deadline-reminders`, same `CRON_SECRET`) emails the project
+owner and anyone holding an unsubmitted question at 30, 14, 7, 3, and 1 days before a project's due
+date, and on the day itself. Each email says how many answers are still open and lists the
+recipient's own. `Project.deadlineReminderDay` records the tightest milestone already sent so a
+project never repeats one; wording uses the real day count, so a project 2 days out says "2 days".
+Completed, archived, removed, and overdue projects are skipped. Users opt out with
+`User.deadlineEmails` (Settings → Profile).
+
 ## RFP phase (planned)
 
 See [docs/rfp-phase.md](docs/rfp-phase.md) — project kind, references directory, pricing

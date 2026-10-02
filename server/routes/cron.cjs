@@ -58,4 +58,115 @@ router.get('/trial-emails', async (req, res) => {
   }
 });
 
+// --- Deadline reminders -------------------------------------------------
+// One email per person per milestone, counting down to a project's due date. Recipients are the
+// owner and anyone holding an unsubmitted question, so nobody is told about work that is not theirs.
+const MILESTONES = [30, 14, 7, 3, 1, 0];
+
+// Question text and project names are user-written, so escape before they go into an email body.
+function esc(str) {
+  return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function daysUntil(date, now) {
+  const a = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  const b = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Math.round((a - b) / 86400000);
+}
+
+function dueWording(days, when) {
+  if (days === 0) return { subject: 'is due today', heading: 'Due today' };
+  if (days === 1) return { subject: 'is due tomorrow', heading: 'Due tomorrow' };
+  return { subject: `is due in ${days} days`, heading: `Due in ${days} days — ${when}` };
+}
+
+async function runDeadlineReminders(now) {
+  const horizon = new Date(now.getTime() + (MILESTONES[0] + 1) * 86400000);
+  const projects = await prisma.project.findMany({
+    where: {
+      deadlineDate: { not: null, lte: horizon, gte: new Date(now.getTime() - 86400000) },
+      isCompleted: false,
+      isArchived: false,
+      companyId: { not: null },
+    },
+    select: {
+      id: true, name: true, deadlineDate: true, deadlineReminderDay: true,
+      owner: { select: { id: true, email: true, name: true, username: true, deadlineEmails: true } },
+      questions: {
+        select: {
+          text: true, status: true, answer: true,
+          assignedTo: { select: { id: true, email: true, name: true, username: true, deadlineEmails: true } },
+        },
+      },
+      company: { select: { kind: true } },
+    },
+  });
+
+  let sent = 0; let projectsNotified = 0;
+  for (const p of projects) {
+    const days = daysUntil(new Date(p.deadlineDate), now);
+    if (days < 0) continue;
+    // The tightest milestone we have reached and not already sent for this project. MILESTONES runs
+    // high to low, so the last match is the closest one — a project 2 days out jumps straight to the
+    // 3-day notice rather than working through 7 first.
+    const reached = MILESTONES.filter(m => days <= m && (p.deadlineReminderDay === null || m < p.deadlineReminderDay));
+    if (!reached.length) continue;
+    const milestone = reached[reached.length - 1];
+
+    const writerMode = p.company && p.company.kind === 'writer';
+    const isOpen = q => (writerMode ? !(q.answer && q.answer.trim()) : q.status !== 'submitted');
+    const open = p.questions.filter(isOpen);
+    const total = p.questions.length;
+
+    // The owner always hears about it; teammates only when they are holding something.
+    const byUser = new Map();
+    if (p.owner && p.owner.deadlineEmails !== false) byUser.set(p.owner.id, { user: p.owner, mine: [] });
+    for (const q of open) {
+      const u = q.assignedTo;
+      if (!u || u.deadlineEmails === false) continue;
+      if (!byUser.has(u.id)) byUser.set(u.id, { user: u, mine: [] });
+      byUser.get(u.id).mine.push(q.text);
+    }
+    if (p.owner && byUser.has(p.owner.id)) {
+      byUser.get(p.owner.id).mine = open.filter(q => q.assignedTo && q.assignedTo.id === p.owner.id).map(q => q.text);
+    }
+
+    const when = new Date(p.deadlineDate).toDateString();
+    const words = dueWording(days, when); // wording uses the real day count, not the milestone
+    const link = appUrl(`/app/projects/${p.id}`);
+
+    for (const { user, mine } of byUser.values()) {
+      const state = total === 0
+        ? '<p>No questions have been added to it yet.</p>'
+        : open.length === 0
+          ? `<p>Good news: all ${total} answers are in.</p>`
+          : `<p><strong>${open.length}</strong> of ${total} answers ${open.length === 1 ? 'is' : 'are'} still open.</p>`;
+      const yours = mine.length
+        ? `<p>Assigned to you:</p><ul>${mine.slice(0, 8).map(t => `<li>${esc(t.length > 120 ? `${t.slice(0, 117)}…` : t)}</li>`).join('')}</ul>${mine.length > 8 ? `<p>…and ${mine.length - 8} more.</p>` : ''}`
+        : '';
+      await sendEmail({
+        to: user.email,
+        subject: `${p.name} ${words.subject}`,
+        html: layout(words.heading, `<p>Hi ${esc(user.name || user.username)},</p><p><strong>${esc(p.name)}</strong> is due ${when}.</p>${state}${yours}${button(link, 'Open the project')}<p style="font-size:13px;color:#6b6b6e">Turn these off under Settings → Profile.</p>`),
+        text: `${p.name} is due ${when}. ${open.length ? `${open.length} of ${total} answers still open.` : 'All answers are in.'} ${link}`,
+      });
+      sent += 1;
+    }
+
+    await prisma.project.update({ where: { id: p.id }, data: { deadlineReminderDay: milestone } });
+    projectsNotified += 1;
+  }
+  return { projects: projectsNotified, emails: sent };
+}
+
+router.get('/deadline-reminders', async (req, res) => {
+  if (!authorized(req)) return res.status(401).json({ msg: 'Unauthorized' });
+  try {
+    res.json(await runDeadlineReminders(new Date()));
+  } catch (err) {
+    console.error('Deadline reminder cron error:', err);
+    res.status(500).json({ msg: 'Cron failed' });
+  }
+});
+
 module.exports = router;

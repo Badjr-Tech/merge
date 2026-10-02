@@ -18,6 +18,7 @@ model User {
   name               String?
   role               Role                    @default(viewer)
   companyId          String?
+  deadlineEmails     Boolean                 @default(true) // deadline reminder emails for projects they own or have open questions on
   aiReviewLogs       AIReviewLog[]
   assignedApprovals  ApprovalRequest[]       @relation("AssignedApprovals")
   requestedApprovals ApprovalRequest[]       @relation("RequestedApprovals")
@@ -83,6 +84,7 @@ model Project {
   notes            String?
   removedAt        DateTime?         // soft-deleted: hidden everywhere, kept under Settings → Removed
   removedById      String?
+  deadlineReminderDay Int?           // smallest milestone (days before due) already emailed about
   reviewToken      String?           @unique
   reviewStatus     String?
   reviewerName     String?
