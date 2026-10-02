@@ -51,3 +51,8 @@ Create a local Postgres database and apply migrations with `npx prisma migrate d
 
 ## Stupid-proofing checklist (what a new deploy should always have)
 Custom 404 · sitemap.xml · robots.txt · llms.txt · per-route titles and descriptions · Open Graph image · loading and error states on every fetch · compressed images with alt text · mobile breakpoints and hamburger nav · sticky mobile CTA · privacy and terms pages · cookie notice · contact email in footer · welcome page after signup · Vercel Web Analytics with private URLs masked · feedback widget that emails you · 4 MB upload cap enforced on both sides · plan gating checked on the server, never only in the UI.
+
+## RFP phase (planned)
+
+See [docs/rfp-phase.md](docs/rfp-phase.md) — project kind, references directory, pricing
+references and rate card, two new question types, and the branded proposal document. Not built.
