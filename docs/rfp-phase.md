@@ -139,6 +139,67 @@ export. A sibling "cost narrative" text question can pull each line's `descripti
 
 ---
 
+## 3a. Addenda
+
+Issuers amend an RFP after it goes out: a new due date, extra questions, an answer to someone
+else's question that changes what you write. Today Merge has no idea this happened — the project
+keeps the original deadline and the original question list, and whoever saw the email has to
+remember to tell everyone. This is the most common way a bid gets disqualified.
+
+```prisma
+model Addendum {
+  id          String   @id @default(cuid())
+  projectId   String
+  number      String?               // "Addendum 3", as the issuer labels it
+  summary     String                // what changed, in a sentence
+  issuedAt    DateTime?
+  fileId      String?               // the PDF, in the file cabinet
+  newDeadline DateTime?             // set when the addendum moves the due date
+  source      String   @default("upload") // upload | email | manual
+  createdById String?
+  acknowledgedAt DateTime?
+  createdAt   DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  file        File?    @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+}
+```
+
+**On the project page** — an *Addenda* tab next to Questions, numbered, newest first, each with its
+summary, date, and the attached document. A count badge appears when any addendum is unacknowledged.
+
+**Moving the deadline.** When an addendum carries `newDeadline`, Merge updates
+`Project.deadlineDate`, keeps the old one in the addendum record so the history is visible, resets
+`deadlineReminderDay` to null so the reminder milestones recalculate against the new date, and emails
+everyone on the project: *"The deadline for X moved from A to B (Addendum 3)."* The deadline change
+is the single highest-value piece of this.
+
+**Getting them in.** Three ways, cheapest first:
+
+1. **Upload** — drag the PDF into the Addenda tab, type one line about what changed, optionally set
+   a new due date. Works day one, no infrastructure.
+2. **Email in** — every project gets an address like `addenda+<token>@mergeworkspace.com`. Forward
+   the issuer's email and Merge files the attachment, records the body as the summary, and flags it
+   for review. Needs inbound email (Brevo and Postmark both do inbound webhooks; the token in the
+   address is the auth, and anything from an unknown sender is held for confirmation rather than
+   trusted).
+3. **Read it** — once an addendum is in, Gemini extracts the proposed new deadline and any new
+   questions and offers them as suggestions the owner accepts or rejects. Never applied silently:
+   an AI misreading a date and moving a real deadline is worse than not having the feature.
+
+New questions arriving by addendum get added as normal questions, tagged to the addendum so it is
+clear they came late and may need assigning.
+
+**Acknowledgement** — the owner marks an addendum read, which is what RFPs usually require you to
+confirm in the response ("Bidder acknowledges Addenda 1–4"). The merged document can then print
+that list automatically.
+
+Build order: upload first (step 1 above, a day or two including the deadline move and the email),
+email-in second, extraction last.
+
+---
+
 ## 4. Question types
 
 `Question.type` exists today as `text | upload`. Add two:
@@ -190,12 +251,14 @@ Add both to `FEATURE_LABELS`, gate the routes with `requireFeature`, and gate th
 ## 7. Build order
 
 1. `Project.kind`, plus the label swaps. Small, unblocks the rest.
-2. References: model, routes, `/app/references`, `type: "reference"`, merge + export, parser.
-3. Pricing: models, routes, `/app/pricing`, `type: "pricing"`, merge + export, parser.
-4. Plan gating and the upgrade copy for both.
-5. Branded proposal document for `kind: "rfp"` — cover page, numbering, issuer ordering.
+2. Addenda by upload, including the deadline move and the notification email.
+3. References: model, routes, `/app/references`, `type: "reference"`, merge + export, parser.
+4. Pricing: models, routes, `/app/pricing`, `type: "pricing"`, merge + export, parser.
+5. Plan gating and the upgrade copy for references and pricing.
+6. Addenda by email, then AI extraction of dates and new questions.
+7. Branded proposal document for `kind: "rfp"` — cover page, numbering, issuer ordering.
 
-Steps 2 and 3 each stand on their own and are useful on grants too (grants ask for references
+Steps 3 and 4 each stand on their own and are useful on grants too (grants ask for references
 more than people expect, and every grant has a budget narrative).
 
 ---
@@ -205,5 +268,7 @@ more than people expect, and every grant has a budget narrative).
 - Should a reference be shareable across workspaces on multi-workspace plans, or stay per
   workspace? (Partners are per workspace today; same answer probably applies.)
 - Does pricing need per-project overrides of a rate-card line, or is quantity enough?
+- Should addenda apply to grants too? Funders amend guidelines less often, but they do it, and the
+  deadline-move machinery is identical — probably yes, with the tab hidden until one exists.
 - Do we want to track RFP outcome (won/lost/no decision) on the project, so past pricing fills
   itself in from submitted proposals instead of being entered by hand?
