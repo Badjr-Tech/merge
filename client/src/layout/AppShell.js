@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
+import ErrorBoundary from '../components/ErrorBoundary';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import { Avatar } from '../components/ui';
@@ -103,7 +104,7 @@ export default function AppShell() {
           )}
         </header>
         <main className="content">
-          <Outlet />
+          <ErrorBoundary routeKey={location.pathname}><Outlet /></ErrorBoundary>
         </main>
       </div>
       <Assistant />

@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './context/ToastContext';
 import { PlanProvider } from './context/PlanContext';
 import AppShell from './layout/AppShell';
@@ -59,6 +60,12 @@ function PublicOnly({ children }) {
   return isAuthenticated ? <Navigate to="/app" replace /> : children;
 }
 
+// Keyed on the pathname so a crash clears itself when you navigate somewhere else.
+function RoutesWithBoundary({ children }) {
+  const location = useLocation();
+  return <ErrorBoundary routeKey={location.pathname}>{children}</ErrorBoundary>;
+}
+
 function NotFound() {
   return <div className="empty"><h3>Page not found</h3><p>That link doesn't go anywhere. <a href="/app">Back to Merge</a></p></div>;
 }
@@ -71,6 +78,7 @@ export default function App() {
         <ToastProvider>
           <Analytics />
           <CookieNotice />
+          <RoutesWithBoundary>
           <Routes>
             <Route element={<PublicLayout />}>
               <Route path="/" element={<Landing />} />
@@ -125,6 +133,7 @@ export default function App() {
               <Route path="*" element={<NotFoundPublic />} />
             </Route>
           </Routes>
+          </RoutesWithBoundary>
         </ToastProvider>
         </PlanProvider>
       </AuthProvider>

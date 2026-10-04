@@ -360,6 +360,13 @@ img[alt="Merge"] { color: transparent; font-size: 0; }
 .count-hint.over { color: var(--danger); font-weight: 600; }
 .count-hint.ok { color: var(--green-dark); }
 
+/* Crash screen (ErrorBoundary) — shown instead of a blank page */
+.crash { min-height: 60vh; display: flex; align-items: center; justify-content: center; padding: 32px 16px; }
+.crash-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow); padding: 32px; max-width: 540px; width: 100%; }
+.crash-card h2 { font-size: 22px; color: var(--navy); margin: 0 0 8px; }
+.crash-card .row { margin-top: 20px; }
+.crash-detail { background: #fbfaf5; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 12px; white-space: pre-wrap; overflow-x: auto; margin-top: 8px; }
+
 /* Settings → Removed */
 .removed-item { padding: 12px 0; border-top: 1px solid var(--border); }
 .removed-item:first-of-type { border-top: none; }
