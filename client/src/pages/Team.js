@@ -19,6 +19,7 @@ export default function Team() {
   const toast = useToast();
   const { plan, has, usage } = usePlan();
   const [users, setUsers] = useState(null);
+  const [billing, setBilling] = useState(null);
   const [invites, setInvites] = useState([]);
   const [pending, setPending] = useState([]);
   const [error, setError] = useState('');
@@ -36,6 +37,7 @@ export default function Team() {
     api.get('/api/admin/users/pending').then(r => setPending(r.data)).catch(() => {});
   };
   useEffect(load, []);
+  useEffect(() => { api.get('/api/billing/status').then(r => setBilling(r.data)).catch(() => {}); }, []);
 
   const sendInvite = async () => {
     setBusy(true);
@@ -49,7 +51,9 @@ export default function Team() {
     try { await api.put(`/api/admin/users/${u.id}/update`, { role }); toast.success(`${displayName(u)} is now ${role}.`); load(); } catch (err) { toast.error(errorMessage(err)); }
   };
   const remove = async (u) => {
-    if (!(await confirm({ title: 'Remove teammate', message: `Remove ${displayName(u)} from the workspace? Their answers stay, but they lose access.`, confirmLabel: 'Remove', danger: true }))) return;
+    // Seats are paid through the end of the period they were removed in — say so before they click.
+    const paidThrough = billing && billing.billedSeats ? ` Your plan is charged per person, so this seat stays on your bill until ${billing.currentPeriodEnd ? formatDate(billing.currentPeriodEnd) : 'the end of this billing period'}; it drops off at renewal.` : '';
+    if (!(await confirm({ title: 'Remove teammate', message: `Remove ${displayName(u)} from the workspace? Their answers stay, but they lose access.${paidThrough}`, confirmLabel: 'Remove', danger: true }))) return;
     try { await api.delete(`/api/admin/users/${u.id}`); toast.success('Teammate removed.'); load(); } catch (err) { toast.error(errorMessage(err)); }
   };
   const revoke = async (i) => { try { await api.delete(`/api/auth/invitations/${i.id}`); load(); } catch (err) { toast.error(errorMessage(err)); } };
@@ -66,6 +70,9 @@ export default function Team() {
       {!users && !error && <Loading />}
       {plan && !has('team') && <div className="callout callout-gold mb-3"><strong>Teammates are included in Premium and above.</strong> Your workspace is on {plan.name}. <Link to="/app/settings#plan">See plans</Link>.</div>}
       {plan && has('team') && plan.limits.seats !== null && usage && <p className="small muted mb-2">{usage.seats} of {plan.limits.seats} seats used on {plan.name}{plan.trialing ? ' (trial)' : ''}.</p>}
+      {billing && billing.billedSeats > (usage ? usage.seats : 0) && (
+        <div className="callout mb-3 small">You're billed for <strong>{billing.billedSeats} seats</strong> and {usage.seats} {usage.seats === 1 ? 'is' : 'are'} in use. Seats you remove stay on the bill until the period ends{billing.currentPeriodEnd ? ` on ${formatDate(billing.currentPeriodEnd)}` : ''}, then drop off automatically. Adding someone back costs nothing extra until then.</div>
+      )}
 
       {pending.length > 0 && (
         <Card className="mb-3">

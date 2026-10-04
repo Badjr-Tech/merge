@@ -15,7 +15,15 @@ async function seatCount(companyId) {
 router.get('/status', auth, async (req, res) => {
   try {
     const c = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true, isStaff: true, stripeCustomerId: true, stripeSubscriptionId: true, subscriptionStatus: true, currentPeriodEnd: true, cancelAtPeriodEnd: true } });
-    res.json({ configured: configured(), hasSubscription: Boolean(c.stripeSubscriptionId), subscriptionStatus: c.subscriptionStatus, currentPeriodEnd: c.currentPeriodEnd, cancelAtPeriodEnd: c.cancelAtPeriodEnd, seats: await seatCount(req.user.companyId), plan: publicPlan(c) });
+    const seats = await seatCount(req.user.companyId);
+    let billedSeats = null;
+    if (c.stripeSubscriptionId && perSeat(c.plan) && configured()) {
+      try {
+        const sub = await stripe().subscriptions.retrieve(c.stripeSubscriptionId);
+        billedSeats = sub.items.data[0].quantity;
+      } catch (err) { /* status should still render without Stripe */ }
+    }
+    res.json({ configured: configured(), hasSubscription: Boolean(c.stripeSubscriptionId), subscriptionStatus: c.subscriptionStatus, currentPeriodEnd: c.currentPeriodEnd, cancelAtPeriodEnd: c.cancelAtPeriodEnd, seats, billedSeats, plan: publicPlan(c) });
   } catch (err) { res.status(500).json({ msg: 'Server error' }); }
 });
 
@@ -114,7 +122,10 @@ router.post('/resume', auth, async (req, res) => {
   } catch (err) { res.status(500).json({ msg: 'Could not resume. Try again.' }); }
 });
 
-// POST /api/billing/sync-seats — called after invites/removals so per-seat subscriptions stay accurate
+// Seat billing policy: a seat you add is charged right away (prorated for the rest of the month);
+// a seat you remove stays paid through the end of the billing period it was removed in. So the
+// Stripe quantity only ever goes UP mid-period. Removals are applied at renewal by
+// applySeatsAtRenewal(), which the invoice webhook calls once the new period has started.
 async function syncSeats(companyId) {
   try {
     const c = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true, stripeSubscriptionId: true } });
@@ -122,8 +133,26 @@ async function syncSeats(companyId) {
     const sub = await stripe().subscriptions.retrieve(c.stripeSubscriptionId);
     if (!['active', 'trialing', 'past_due'].includes(sub.status)) return;
     const seats = await seatCount(companyId);
-    if (sub.items.data[0].quantity !== seats) await stripe().subscriptions.update(sub.id, { items: [{ id: sub.items.data[0].id, quantity: seats }], proration_behavior: 'create_prorations' });
+    const billed = sub.items.data[0].quantity;
+    if (seats <= billed) return; // removals wait for the renewal
+    await stripe().subscriptions.update(sub.id, { items: [{ id: sub.items.data[0].id, quantity: seats }], proration_behavior: 'create_prorations' });
   } catch (err) { console.error('Seat sync error:', err.message); }
+}
+
+// At renewal the billed quantity drops to the seats actually in use. No proration: the new period
+// simply starts at the real number.
+async function applySeatsAtRenewal(subscriptionId) {
+  try {
+    if (!configured()) return;
+    const sub = await stripe().subscriptions.retrieve(subscriptionId);
+    if (!['active', 'trialing', 'past_due'].includes(sub.status)) return;
+    const company = await prisma.company.findFirst({ where: { stripeSubscriptionId: sub.id }, select: { id: true, plan: true } });
+    if (!company || !perSeat(company.plan)) return;
+    const seats = await seatCount(company.id);
+    const billed = sub.items.data[0].quantity;
+    if (seats >= billed) return;
+    await stripe().subscriptions.update(sub.id, { items: [{ id: sub.items.data[0].id, quantity: seats }], proration_behavior: 'none' });
+  } catch (err) { console.error('Seat renewal error:', err.message); }
 }
 
 // Webhook (raw body required; mounted before express.json in server.cjs)
@@ -173,6 +202,13 @@ async function webhook(req, res) {
       case 'customer.subscription.deleted':
         await applySubscription(event.data.object);
         break;
+      case 'invoice.paid':
+      case 'invoice.payment_succeeded': {
+        const inv = event.data.object;
+        // A renewal invoice means a new period started — drop to the seats actually in use.
+        if (inv.subscription && inv.billing_reason === 'subscription_cycle') await applySeatsAtRenewal(inv.subscription);
+        break;
+      }
       case 'invoice.payment_failed': {
         const inv = event.data.object;
         if (inv.subscription) await applySubscription(await stripe().subscriptions.retrieve(inv.subscription));
@@ -187,4 +223,4 @@ async function webhook(req, res) {
   }
 }
 
-module.exports = { router, webhook, syncSeats };
+module.exports = { router, webhook, syncSeats, applySeatsAtRenewal };

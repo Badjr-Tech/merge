@@ -52,6 +52,20 @@ Create a local Postgres database and apply migrations with `npx prisma migrate d
 ## Stupid-proofing checklist (what a new deploy should always have)
 Custom 404 · sitemap.xml · robots.txt · llms.txt · per-route titles and descriptions · Open Graph image · loading and error states on every fetch · compressed images with alt text · mobile breakpoints and hamburger nav · sticky mobile CTA · privacy and terms pages · cookie notice · contact email in footer · welcome page after signup · Vercel Web Analytics with private URLs masked · feedback widget that emails you · 4 MB upload cap enforced on both sides · plan gating checked on the server, never only in the UI.
 
+## Seat billing on per-person plans (added 2026-10-03)
+
+A seat is charged from the day it is added and paid for through the end of the billing period in
+which it is removed. `syncSeats` therefore only ever raises the Stripe quantity mid-period (with
+prorations); it never lowers it. The drop happens at renewal: the `invoice.paid` webhook with
+`billing_reason: 'subscription_cycle'` calls `applySeatsAtRenewal`, which sets the quantity to the
+seats actually in use with `proration_behavior: 'none'`. `GET /api/billing/status` returns
+`billedSeats` alongside `seats` so the Team page and Settings can explain the gap, the removal
+confirmation says the seat stays on the bill until the period ends, and the terms say the same.
+Re-adding someone into a seat you are still paying for costs nothing extra.
+
+**Stripe dashboard:** the webhook endpoint must have `invoice.paid` (or `invoice.payment_succeeded`)
+enabled, or removed seats will keep billing after renewal.
+
 ## Deadline reminders (added 2026-10-02)
 
 A second daily Vercel cron (`/api/cron/deadline-reminders`, same `CRON_SECRET`) emails the project

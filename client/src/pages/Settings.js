@@ -181,6 +181,9 @@ export default function Settings() {
           {plan?.trialing && <div className="callout callout-green mb-2"><strong>Premium trial:</strong> {plan.trialDaysLeft} day{plan.trialDaysLeft === 1 ? '' : 's'} left. Pick a plan below any time. If you don't, the workspace moves to Free when the trial ends and nothing you wrote is lost.</div>}
           {plan?.trialExpired && plan.key === 'free' && <div className="callout callout-gold mb-2"><strong>Your trial has ended.</strong> You're on the Free plan. Choose a plan to bring back teammates, approvals, the answer bank, and Ask Merge.</div>}
           {usage && plan && plan.limits.totalProjects !== null && <p className="small muted">Grants: <strong>{usage.totalProjects} of {plan.limits.totalProjects}</strong>.</p>}
+          {billing?.billedSeats > 0 && plan?.per === 'person' && (
+            <p className="small muted">Seats: <strong>{billing.billedSeats} billed</strong>{usage && usage.seats !== billing.billedSeats ? `, ${usage.seats} in use` : ''}. Adding someone is charged for the rest of the period; removing someone keeps the seat on your bill until it ends{billing.currentPeriodEnd ? ` on ${formatDate(billing.currentPeriodEnd)}` : ''}.</p>
+          )}
           <div className="callout mb-3 row-between">
             <div><strong>Workspace type:</strong> {plan?.kind === 'writer' ? 'Grant writer' : 'Organization'}<div className="tiny muted">{plan?.kind === 'writer' ? 'Switching to Organization lets you invite people and use approvals. Plans differ by type.' : 'Switching to Grant writer is for a single professional. Remove other members first.'}</div></div>
             {isAdmin && <Button variant="secondary" size="sm" onClick={() => switchKind(plan?.kind === 'writer' ? 'team' : 'writer')} loading={busy === 'kind'}>Switch to {plan?.kind === 'writer' ? 'Organization' : 'Grant writer'}</Button>}
