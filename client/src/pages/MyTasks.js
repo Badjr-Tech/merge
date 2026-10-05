@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext';
 import { Badge, Button, Card, EmptyState, ErrorBlock, Loading, PageHeader, Textarea } from '../components/ui';
 import { dueLabel, limitCheck, questionStatus } from '../lib/format';
 import SimilarAnswers from '../components/SimilarAnswers';
+import DraftAnswer from '../components/DraftAnswer';
 
 function TaskCard({ q, project, onSaved }) {
   const toast = useToast();
@@ -42,6 +43,7 @@ function TaskCard({ q, project, onSaved }) {
       <Textarea className="mt-2" rows={5} value={answer} onChange={e => setAnswer(e.target.value)} placeholder="Write your answer here…" />
       <div className={`count-hint ${lc.over ? 'over' : lc.limit ? 'ok' : ''}`}>{lc.count} {lc.unit}{lc.limit ? ` of ${lc.limit}` : ''}{lc.over ? ' · over the limit' : ''}</div>
       <div className="row mt-1" style={{ justifyContent: 'flex-end' }}>
+        {q.status !== 'submitted' && <DraftAnswer questionId={q.id} currentAnswer={answer} onDraft={setAnswer} disabled={saving} />}
         {q.status === 'submitted' && !dirty ? (
           <Button variant="secondary" size="sm" onClick={() => save('in-progress')} loading={saving}>Reopen</Button>
         ) : (

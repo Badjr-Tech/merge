@@ -237,6 +237,101 @@ function projectBlock(project) {
   return `\nCURRENT PROJECT: ${project.name}\nDescription: ${project.description || '(none)'}\nTheme or angle: ${d.themeAngle || '(none)'}\nPossible partnership: ${d.possiblePartnership || '(none)'}\nDeadline: ${project.deadlineDate ? new Date(project.deadlineDate).toDateString() : '(none)'}\nQuestions:\n${qs || '(no questions yet)'}\n`;
 }
 
+// POST /api/ai/draft — stream a first-draft answer for one question
+// Grounded in the organization profile, the rest of the project, the question's limit, and the
+// workspace's own past answers, so the draft sounds like them rather than like a chatbot.
+router.post('/draft', auth, requireFeature(prisma, 'assistant'), async (req, res) => {
+  const questionId = String(req.body.questionId || '');
+  const instruction = String(req.body.instruction || '').trim().slice(0, 500);
+  if (!questionId) return res.status(400).json({ msg: 'Which question?' });
+  if (!process.env.GEMINI_API_KEY) return res.status(500).json({ msg: 'AI is not configured on the server.' });
+
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const used = await prisma.assistantMessage.count({ where: { companyId: req.user.companyId, role: 'user', createdAt: { gte: monthStart } } });
+  if (used >= AI_MONTHLY_CAP) return res.status(429).json({ msg: `Your workspace has used its ${AI_MONTHLY_CAP} assistant messages for this month. It resets on the 1st. Email merge@badjrtech.com if you need more.` });
+
+  try {
+    const question = await prisma.question.findUnique({
+      where: { id: questionId },
+      include: { project: { select: { id: true, companyId: true, name: true, description: true, details: true, questions: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { text: true, answer: true, section: true, maxLimit: true, limitUnit: true } } } } },
+    });
+    if (!question || question.project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Question not found' });
+    if (question.type === 'upload') return res.status(400).json({ msg: 'This question asks for a file, not a written answer.' });
+
+    const [company, partners] = await Promise.all([
+      prisma.company.findUnique({ where: { id: req.user.companyId }, select: { name: true, profile: true } }),
+      prisma.partner.findMany({ where: { companyId: req.user.companyId }, orderBy: { name: 'asc' }, take: 40 }),
+    ]);
+
+    // Past answers to similar questions, as voice and fact reference.
+    let priorBlock = '';
+    try {
+      const { answeredQuestions, similarity } = require('./projects.cjs');
+      const rows = await answeredQuestions(req.user.companyId, question.id);
+      const close = rows
+        .map(r => ({ ...r, score: similarity(question.text, r.text) }))
+        .filter(r => r.score >= 0.25)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3);
+      if (close.length) {
+        priorBlock = `\nHOW THIS ORGANIZATION HAS ANSWERED SIMILAR QUESTIONS BEFORE (reuse the facts and the voice; do not copy word for word):\n${close.map(r => `Q: ${r.text}\nA: ${String(r.answer).slice(0, 1200)}`).join('\n\n')}\n`;
+      }
+    } catch (err) { /* the draft is still useful without the answer bank */ }
+
+    const unit = (question.limitUnit || 'words').startsWith('char') ? 'characters' : 'words';
+    const limitLine = question.maxLimit
+      ? `Hard limit: ${question.maxLimit} ${unit}. Stay comfortably under it — aim for about ${Math.floor(question.maxLimit * 0.9)} ${unit}.`
+      : 'No stated limit. Two to four tight paragraphs is usually right.';
+    const siblings = (question.project.questions || [])
+      .filter(q => q.text !== question.text)
+      .slice(0, 25)
+      .map(q => `- ${q.section ? `[${q.section}] ` : ''}${q.text}${q.answer ? ' (already answered)' : ''}`)
+      .join('\n');
+
+    const partnerLine = partners.length ? `\nPARTNERS (only name one if the question calls for it):\n${partners.map(p => `- ${p.name}${p.location ? ` (${p.location})` : ''}: ${p.description || ''}`).join('\n')}\n` : '';
+
+    const system = `You are drafting a grant application answer for ${company.name}. Write the answer itself — no preamble, no "Here's a draft", no headings unless the question asks for sections.
+
+Rules:
+- Write in the organization's voice, using the profile below. ${(company.profile || {}).tone ? `Preferred tone: ${(company.profile || {}).tone}.` : ''}
+- ${limitLine}
+- Never invent numbers, dates, names, partners, or outcomes. Where a specific fact is needed and you do not have it, write a placeholder in square brackets like [number of families served in 2025] so the writer can fill it in.
+- Answer only the question asked. Other questions in this application are listed so you do not repeat their content.
+- Plain prose. No markdown bold or bullet lists unless the question asks for a list.
+
+ORGANIZATION PROFILE:
+${profileBlock(company)}
+${partnerLine}
+THIS APPLICATION: ${question.project.name}${question.project.description ? `\n${question.project.description}` : ''}
+${siblings ? `\nOTHER QUESTIONS IN THIS APPLICATION:\n${siblings}\n` : ''}${priorBlock}`;
+
+    const prompt = `Question to answer${question.section ? ` (section: ${question.section})` : ''}:\n${question.text}${question.answer && question.answer.trim() ? `\n\nThe writer already has this draft. Improve on it rather than ignoring it:\n${question.answer.slice(0, 2000)}` : ''}${instruction ? `\n\nExtra instruction from the writer: ${instruction}` : ''}`;
+
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders();
+    const emit = (event, data) => { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); if (typeof res.flush === 'function') res.flush(); };
+
+    let draft = '';
+    try {
+      draft = await gemini.chatReplyStream({ systemInstruction: system, history: [], message: prompt, onChunk: t => emit('chunk', t) });
+    } catch (err) {
+      console.error('Draft error:', err);
+      emit('error', { msg: err.status === 429 ? err.message : 'The assistant could not write a draft. Try again.' });
+      return res.end();
+    }
+    // Counts against the monthly cap like a chat message does.
+    await prisma.assistantMessage.create({ data: { companyId: req.user.companyId, userId: req.user.id, role: 'user', content: `[draft] ${question.text}`.slice(0, 2000), projectId: question.project.id } });
+    emit('done', { length: draft.length });
+    res.end();
+  } catch (err) {
+    console.error('Draft error:', err);
+    if (res.headersSent) return res.end();
+    res.status(500).json({ msg: 'The assistant could not write a draft. Try again.' });
+  }
+});
+
 // GET /api/ai/chat — this user's conversation
 router.get('/chat', auth, async (req, res) => {
   try {

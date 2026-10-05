@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Avatar, Badge, Button, Card, CopyButton, EmptyState, ErrorBlock, Field, Input, Loading, Modal, Progress, Select, Tabs, Textarea, useConfirm } from '../components/ui';
 import SimilarAnswers from '../components/SimilarAnswers';
+import DraftAnswer from '../components/DraftAnswer';
 import NotesDrawer from '../components/NotesDrawer';
 import { usePlan } from '../context/PlanContext';
 import { FEATURE_COPY } from '../components/Upgrade';
@@ -149,6 +150,7 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
             <div className="q-answer">{q.answer || <span className="faint">No answer yet.</span>}</div>
           )}
           <div className="row wrap mt-2" style={{ justifyContent: 'flex-end' }}>
+            {canAnswer && !isUpload && q.status !== 'submitted' && <DraftAnswer questionId={q.id} currentAnswer={answer} onDraft={setAnswer} disabled={saving} />}
             {canManage && <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>Edit question</Button>}
             {isAdmin && <Button variant="danger" size="sm" onClick={remove}>Delete</Button>}
             {canAnswer && !isUpload && writerMode && <Button size="sm" onClick={() => saveAnswer()} loading={saving}>Save</Button>}

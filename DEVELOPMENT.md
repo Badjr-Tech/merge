@@ -52,6 +52,18 @@ Create a local Postgres database and apply migrations with `npx prisma migrate d
 ## Stupid-proofing checklist (what a new deploy should always have)
 Custom 404 · sitemap.xml · robots.txt · llms.txt · per-route titles and descriptions · Open Graph image · loading and error states on every fetch · compressed images with alt text · mobile breakpoints and hamburger nav · sticky mobile CTA · privacy and terms pages · cookie notice · contact email in footer · welcome page after signup · Vercel Web Analytics with private URLs masked · feedback widget that emails you · 4 MB upload cap enforced on both sides · plan gating checked on the server, never only in the UI.
 
+## Help me answer this (added 2026-10-05)
+
+`POST /api/ai/draft` streams a first-draft answer for one question (SSE, same shape as the chat).
+The prompt carries the organization profile, the project name and description, the other questions
+in the application, the partners directory, the question's limit, and the three closest past
+answers from the answer bank, so the draft uses the workspace's own facts and voice. It is told
+never to invent numbers or names and to leave `[bracketed]` placeholders instead. Each draft counts
+against `AI_MONTHLY_CAP` like a chat message. The button (`client/src/components/DraftAnswer.js`)
+appears on My tasks and the project page for anyone who can answer, is hidden without the
+`assistant` feature, says "Help me improve this" when there is already a draft, and can be stopped
+mid-write. Nothing is saved until the writer saves it.
+
 ## Seat billing on per-person plans (added 2026-10-03)
 
 A seat is charged from the day it is added and paid for through the end of the billing period in

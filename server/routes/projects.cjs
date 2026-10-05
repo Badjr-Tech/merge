@@ -1895,4 +1895,6 @@ router.put('/:id/review-comments/:cid', auth, async (req, res) => {
 });
 
 module.exports = router;
+module.exports.answeredQuestions = answeredQuestions;
+module.exports.similarity = similarity;
 
