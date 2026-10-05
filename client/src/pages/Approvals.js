@@ -27,7 +27,7 @@ function InnerApprovals() {
     api.get('/api/projects', { params: { status: 'pending_approval' } }).then(r => setPending(r.data)).catch(err => setError(errorMessage(err)));
     api.get('/api/projects/rejected').then(r => setRejected(r.data)).catch(err => setError(errorMessage(err)));
   };
-  useEffect(load, [isApprover]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [isApprover]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const approve = async (projectId, name) => {
     if (!(await confirm({ title: 'Approve proposal', message: `Approve "${name}"? The team will see it as approved.`, confirmLabel: 'Approve' }))) return;

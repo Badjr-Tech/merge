@@ -19,7 +19,7 @@ function InnerPartners() {
   const [confirm, confirmDialog] = useConfirm();
 
   const load = () => { setError(''); api.get('/api/partners').then(r => setPartners(r.data)).catch(err => setError(errorMessage(err))); };
-  useEffect(load, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const open = (p) => { setForm(p ? { ...blank, ...Object.fromEntries(Object.entries(p).map(([k, v]) => [k, v || ''])) } : blank); setEditing(p || 'new'); };
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));

@@ -13,8 +13,8 @@ export default function Support() {
   const [type, setType] = useState('bug');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
-  const load = () => api.get('/api/feedback/mine').then(r => setRows(r.data)).catch(err => toast.error(errorMessage(err)));
-  useEffect(load, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const load = () => { api.get('/api/feedback/mine').then(r => setRows(r.data)).catch(err => toast.error(errorMessage(err))); };
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const submit = async () => {
     if (!message.trim()) { toast.error('Describe the issue first.'); return; }
     setBusy(true);

@@ -13,7 +13,7 @@ export function PlanProvider({ children }) {
     api.get('/api/companies/mine').then(r => setCompany(r.data)).catch(() => {});
   }, [isAuthenticated]);
 
-  useEffect(refresh, [refresh]);
+  useEffect(() => { refresh(); }, [refresh]);
 
   const value = useMemo(() => ({
     company,

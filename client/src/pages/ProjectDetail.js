@@ -239,7 +239,7 @@ export default function ProjectDetail() {
     api.get(`/api/projects/${id}/narrative/versions`).then(res => setNarrativeVersions(res.data)).catch(() => setNarrativeVersions([]));
   }, [id]);
 
-  useEffect(load, [load]);
+  useEffect(() => { load(); }, [load]);
   useEffect(() => { api.get('/api/users').then(r => setUsers(r.data)).catch(() => {}); }, []);
 
   if (error) return <ErrorBlock message={error} retry={load} />;

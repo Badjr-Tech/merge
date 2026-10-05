@@ -64,7 +64,7 @@ export default function MyTasks() {
     setError('');
     api.get('/api/projects/with-assigned-questions').then(res => setGroups(res.data)).catch(err => setError(errorMessage(err)));
   };
-  useEffect(load, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const visible = (groups || []).map(p => ({ ...p, mine: (p.questions || []).filter(q => q.assignedToId === user.id) })).filter(p => p.mine.length);
   const open = visible.reduce((n, p) => n + p.mine.filter(q => q.status !== 'submitted').length, 0);

@@ -36,7 +36,7 @@ export default function Team() {
     api.get('/api/auth/invitations').then(r => setInvites(r.data)).catch(() => {});
     api.get('/api/admin/users/pending').then(r => setPending(r.data)).catch(() => {});
   };
-  useEffect(load, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { api.get('/api/billing/status').then(r => setBilling(r.data)).catch(() => {}); }, []);
 
   const sendInvite = async () => {

@@ -19,7 +19,7 @@ export default function Dashboard() {
     setError('');
     api.get('/api/projects/dashboard/summary').then(res => setData(res.data)).catch(err => setError(errorMessage(err)));
   };
-  useEffect(load, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const first = (user?.name || user?.username || '').split(' ')[0];
   const hour = new Date().getHours();

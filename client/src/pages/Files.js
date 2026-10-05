@@ -41,7 +41,7 @@ export default function Files() {
   };
 
   const load = () => { setError(''); api.get('/api/files').then(r => setFiles(r.data)).catch(err => setError(errorMessage(err))); };
-  useEffect(load, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const upload = async () => {
     if (!selected) return;

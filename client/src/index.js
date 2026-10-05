@@ -2,6 +2,9 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
+import installAssetRecovery from './lib/assetRecovery';
+
+installAssetRecovery();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

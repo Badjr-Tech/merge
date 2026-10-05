@@ -20,7 +20,7 @@ function InnerPastProposals() {
   const [saving, setSaving] = useState(false);
 
   const load = () => { setError(''); api.get('/api/projects/completed').then(r => setProjects(r.data)).catch(err => setError(errorMessage(err))); };
-  useEffect(load, []);
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async () => {
     if (!form.projectTitle.trim()) { toast.error('Give the proposal a title.'); return; }
