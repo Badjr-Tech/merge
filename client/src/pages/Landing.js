@@ -28,7 +28,9 @@ const F = {
   people20: ['Up to 20 people', 'Everyone who writes gets a seat.'],
   peopleAll: ['Unlimited people', 'No seat cap.'],
   noai: ['No AI features', 'Ask Merge and the AI reviewer start at the next plan up.'],
-  aiactions: ['AI actions included', 'One action is a chat message, a drafted answer, an AI review, or a profile import. Limit checks, similar answers, and the question parser are free and unlimited.'],
+  aiPremium: ['Generous AI limits', '2,000 Ask Merge messages and 150 drafted answers a month, plus one AI review a day on each grant. Typical use is a fraction of that.'],
+  aiPro: ['The highest AI limits', '4,000 Ask Merge messages and 300 drafted answers a month, plus 15 AI reviews a day across every grant.'],
+  profileImport: ['Profile from your website', 'Merge reads your site once and fills in your mission, programs, and impact.'],
 };
 const Feat = ({ k, t, d }) => { const [name, text] = F[k]; return <li className="feat"><span className="feat-name">{t || name}</span><span className="feat-text">{d || text}</span></li>; };
 const Plan = ({ name, price, per, blurb, feats, cta, to, featured, badge }) => (
@@ -133,8 +135,8 @@ export default function Landing() {
           <div className="grid-4 pricing-grid">
             <Plan name="Free" price="$0" blurb="Try Merge on one real grant." feats={['grants1', 'review', 'bank', 'past', 'download', 'noai']} cta="Get started" to="/signup" />
             <Plan name="Starter" price="$6.99" per="/mo" blurb="For a working grant writer." feats={['grants', 'bank', 'review', 'partners', 'files', 'noai']} cta="Start free trial" to="/signup" />
-            <Plan name="Premium" price="$21.99" per="/mo" blurb="Write faster with AI on your side." feats={[['grants', 'Everything in Starter', 'Unlimited grants, answer bank, review links, partners, files.'], 'ask', 'aireview', 'edit']} cta="Start free trial" to="/signup" featured badge="Most popular" />
-            <Plan name="Professional" price="$59.99" per="/mo" blurb="For consultants with many clients." feats={[['ask', 'Everything in Premium', 'Ask Merge, AI reviewer, editable document.'], 'workspaces', 'integrations', 'support']} cta="Start free trial" to="/signup" />
+            <Plan name="Premium" price="$21.99" per="/mo" blurb="Write faster with AI on your side." feats={[['grants', 'Everything in Starter', 'Unlimited grants, answer bank, review links, partners, files.'], 'ask', 'aireview', 'aiPremium', 'edit']} cta="Start free trial" to="/signup" featured badge="Most popular" />
+            <Plan name="Professional" price="$59.99" per="/mo" blurb="For consultants with many clients." feats={[['ask', 'Everything in Premium', 'Ask Merge, AI reviewer, editable document.'], 'aiPro', 'workspaces', 'integrations', 'support']} cta="Start free trial" to="/signup" />
           </div>
         ) : (
           <div className="grid-4 pricing-grid pricing-5">
