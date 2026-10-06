@@ -66,6 +66,7 @@ model Company {
   trialReminderSentAt DateTime?
   trialEndedSentAt    DateTime?
   assistantMessages AssistantMessage[]
+  aiUsage           AiUsage[]
   partners     Partner[]
 }
 
@@ -261,6 +262,20 @@ model PasswordReset {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+
+// One row per metered AI action, so each feature can be limited on its own window.
+model AiUsage {
+  id        String   @id @default(cuid())
+  companyId String
+  userId    String?
+  feature   String   // chat | draft | review | profile
+  projectId String?  // set for review, so "one run a day per grant" can be counted
+  createdAt DateTime @default(now())
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, feature, createdAt])
+  @@index([projectId, feature, createdAt])
+}
 
 model AssistantMessage {
   id        String   @id @default(cuid())

@@ -13,12 +13,12 @@ const PLANS = {
   // Free = the Solo Writer feature set minus AI, capped at one grant. Both tracks land here after a trial.
   free:         { track: 'both',   name: 'Free',         price: 0,     per: 'workspace', features: ORG_SOLO.filter(f => !['assistant', 'ai_reviewer'].includes(f)), limits: { seats: 1, totalProjects: 1, questionsPerProject: null, aiMonthly: 0 } },
   writer:       { track: 'writer', name: 'Starter',      price: 6.99,  per: 'month',     features: W_STARTER, limits: { seats: 1, totalProjects: null, questionsPerProject: null, aiMonthly: 0 } },
-  writer_pro:   { track: 'writer', name: 'Premium',      price: 21.99, per: 'month',     features: W_PREMIUM, limits: { seats: 1, totalProjects: null, questionsPerProject: null, aiMonthly: 1000 } },
+  writer_pro:   { track: 'writer', name: 'Premium',      price: 21.99, per: 'month',     features: W_PREMIUM, limits: { seats: 1, totalProjects: null, questionsPerProject: null, aiMonthly: 2000 } },
   professional: { track: 'writer', name: 'Professional', price: 59.99, per: 'month',     features: W_PRO,     limits: { seats: 1, totalProjects: null, questionsPerProject: null, aiMonthly: 5000 } },
-  org_solo:     { track: 'team',   name: 'Solo Writer',  price: 14.99, per: 'month',     features: ORG_SOLO,  limits: { seats: 1, totalProjects: null, questionsPerProject: null, aiMonthly: 750 } },
-  small_team:   { track: 'team',   name: 'Small Teams',  price: 12.99, per: 'person',    features: ORG_TEAM,  limits: { seats: 5, totalProjects: null, questionsPerProject: null, aiMonthly: null, aiPerSeat: 400 } },
-  large_team:   { track: 'team',   name: 'Large Teams',  price: 21.99, per: 'person',    features: [...ORG_TEAM, 'multi_workspace'], limits: { seats: 20, totalProjects: null, questionsPerProject: null, aiMonthly: null, aiPerSeat: 400 } },
-  company:      { track: 'team',   name: 'Companies',    price: 29.99, per: 'person',    features: [...ORG_TEAM, 'multi_workspace', 'integrations', 'priority_support', 'custom_branding'], limits: { seats: null, totalProjects: null, questionsPerProject: null, aiMonthly: null, aiPerSeat: 500 } },
+  org_solo:     { track: 'team',   name: 'Solo Writer',  price: 14.99, per: 'month',     features: ORG_SOLO,  limits: { seats: 1, totalProjects: null, questionsPerProject: null, aiMonthly: 1500 } },
+  small_team:   { track: 'team',   name: 'Small Teams',  price: 12.99, per: 'person',    features: ORG_TEAM,  limits: { seats: 5, totalProjects: null, questionsPerProject: null, aiMonthly: null, aiPerSeat: 750 } },
+  large_team:   { track: 'team',   name: 'Large Teams',  price: 21.99, per: 'person',    features: [...ORG_TEAM, 'multi_workspace'], limits: { seats: 20, totalProjects: null, questionsPerProject: null, aiMonthly: null, aiPerSeat: 750 } },
+  company:      { track: 'team',   name: 'Companies',    price: 29.99, per: 'person',    features: [...ORG_TEAM, 'multi_workspace', 'integrations', 'priority_support', 'custom_branding'], limits: { seats: null, totalProjects: null, questionsPerProject: null, aiMonthly: null, aiPerSeat: 1000 } },
 };
 // Older plan keys still stored on some workspaces
 const ALIASES = { starter: 'writer', premium: 'small_team', team: 'small_team', enterprise: 'large_team', custom: 'company' };
@@ -33,6 +33,38 @@ const FEATURE_LABELS = {
   partners: 'Partners directory', past_proposals: 'Past proposals library', narrative_editing: 'Editable document with version history',
   ai_reviewer: 'AI reviewer', multi_workspace: 'Multiple workspaces', integrations: 'Integrations', external_review: 'Send for review', notes: 'Grant notes',
 };
+
+
+// Per-feature AI limits. Each feature is counted on its own window so a heavy chatter and a heavy
+// drafter don't eat each other's allowance.
+//   month / monthPerSeat  — rolling calendar month, per workspace or per seat
+//   perDay                — per workspace per calendar day
+//   perDayPerProject      — per grant per calendar day (the AI reviewer on Premium)
+//   everyDays / once      — a cooldown, or once for the lifetime of the workspace
+//   extraPrice            — what one more costs when they're out (not yet charged; see DEVELOPMENT.md)
+// 0 or absent = the feature is not available on that plan.
+const AI_LIMITS = {
+  free:         { chat: 0, draft: 0, review: 0, profile: { once: true } },
+  writer:       { chat: 0, draft: 0, review: 0, profile: { everyDays: 30 } },
+  writer_pro:   { chat: { month: 2000 }, draft: { month: 150 }, review: { perDayPerProject: 1, extraPrice: 1.99 }, profile: { everyDays: 30 } },
+  professional: { chat: { month: 4000 }, draft: { month: 300 }, review: { perDay: 15 }, profile: { everyDays: 7 } },
+  // Organization track: placeholders in step with the old pooled numbers, pending their own decision.
+  org_solo:     { chat: { month: 1500 }, draft: { month: 150 }, review: { perDayPerProject: 1, extraPrice: 1.99 }, profile: { everyDays: 30 } },
+  small_team:   { chat: { monthPerSeat: 1000 }, draft: { monthPerSeat: 150 }, review: { perDay: 5 }, profile: { everyDays: 30 } },
+  large_team:   { chat: { monthPerSeat: 1000 }, draft: { monthPerSeat: 150 }, review: { perDay: 15 }, profile: { everyDays: 7 } },
+  company:      { chat: { monthPerSeat: 1000 }, draft: { monthPerSeat: 200 }, review: { perDay: 15 }, profile: { everyDays: 7 } },
+};
+
+const AI_FEATURE_LABELS = { chat: 'Ask Merge', draft: 'Help me answer this', review: 'AI reviewer', profile: 'Build profile from your website' };
+
+// The rule for one feature on one plan, with per-seat counts already resolved.
+function aiLimit(planKey, feature, seats) {
+  const rule = (AI_LIMITS[planKey] || {})[feature];
+  if (!rule || rule === 0) return { allowed: false };
+  const r = { ...rule, allowed: true };
+  if (r.monthPerSeat) { r.month = r.monthPerSeat * Math.max(1, seats || 1); delete r.monthPerSeat; }
+  return r;
+}
 
 // The AI allowance for a workspace: a flat monthly number, or per seat on per-person plans.
 // null = unlimited (staff and comped workspaces). 0 = no AI on this plan.
@@ -101,4 +133,4 @@ function catalogue() {
   return Object.entries(PLANS).map(([key, p]) => ({ key, track: p.track, name: p.name, price: p.price, per: p.per, features: p.features, limits: p.limits }));
 }
 
-module.exports = { aiAllowance, PLANS, ALIASES, TRIAL_DAYS, TRIAL_PLAN_BY_KIND, FEATURE_LABELS, planFor, hasFeature, requireFeature, publicPlan, upgradeMessage, catalogue, normalizeKey };
+module.exports = { aiAllowance, AI_LIMITS, AI_FEATURE_LABELS, aiLimit, PLANS, ALIASES, TRIAL_DAYS, TRIAL_PLAN_BY_KIND, FEATURE_LABELS, planFor, hasFeature, requireFeature, publicPlan, upgradeMessage, catalogue, normalizeKey };

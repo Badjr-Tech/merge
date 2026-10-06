@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const prisma = require('../utils/prisma.cjs');
-const { requireFeature, planFor, aiAllowance } = require('../utils/plans.cjs');
+const { requireFeature, planFor, aiLimit, AI_FEATURE_LABELS } = require('../utils/plans.cjs');
 const gemini = require('../utils/gemini.cjs');
 const { generateText } = gemini;
 
@@ -14,8 +14,8 @@ router.post('/review', auth, requireFeature(prisma, 'ai_reviewer'), async (req, 
   const { projectId, grantWebsite, grantPurposeStatement } = req.body;
 
   try {
-    const over = overBudget(await aiBudget(req.user.companyId));
-    if (over) return res.status(429).json(over);
+    const gate = await checkAi(req, 'review', { projectId });
+    if (!gate.ok) return res.status(gate.status).json(gate.body);
     // Ensure GEMINI_API_KEY is set
     if (!process.env.GEMINI_API_KEY) {
       return res.status(500).json({ msg: 'Google Gemini API Key not configured on server.' });
@@ -43,6 +43,7 @@ router.post('/review', auth, requireFeature(prisma, 'ai_reviewer'), async (req, 
     const text = await generateText(prompt);
 
     // Save the AI review to the database
+    await recordAi(req.user.companyId, req.user.id, 'review', projectId);
     await prisma.aIReviewLog.create({
       data: {
         projectId: project.id,
@@ -248,8 +249,8 @@ router.post('/draft', auth, requireFeature(prisma, 'assistant'), async (req, res
   if (!questionId) return res.status(400).json({ msg: 'Which question?' });
   if (!process.env.GEMINI_API_KEY) return res.status(500).json({ msg: 'AI is not configured on the server.' });
 
-  const over = overBudget(await aiBudget(req.user.companyId));
-  if (over) return res.status(429).json(over);
+  const gate = await checkAi(req, 'draft');
+  if (!gate.ok) return res.status(gate.status).json(gate.body);
 
   try {
     const question = await prisma.question.findUnique({
@@ -327,7 +328,7 @@ ${siblings ? `\nOTHER QUESTIONS IN THIS APPLICATION:\n${siblings}\n` : ''}${prio
       return res.end();
     }
     // Counts against the monthly cap like a chat message does.
-    await prisma.assistantMessage.create({ data: { companyId: req.user.companyId, userId: req.user.id, role: 'user', content: `[draft] ${question.text}`.slice(0, 2000), projectId: question.project.id } });
+    await recordAi(req.user.companyId, req.user.id, 'draft', question.project.id);
     emit('done', { length: draft.length });
     res.end();
   } catch (err) {
@@ -337,37 +338,96 @@ ${siblings ? `\nOTHER QUESTIONS IN THIS APPLICATION:\n${siblings}\n` : ''}${prio
   }
 });
 
-// --- AI usage allowance ------------------------------------------------
-// One monthly allowance per workspace, set by plan (per seat on per-person plans). Chat messages,
-// drafts, and AI reviews all count against it, so the expensive reviewer can't run unbounded.
+// --- AI metering ---------------------------------------------------------
+// Each feature is limited on its own window (see AI_LIMITS in utils/plans.cjs). Staff and comped
+// workspaces are unmetered. AI_MONTHLY_CAP, if set, overrides every monthly limit.
 const AI_CAP_OVERRIDE = process.env.AI_MONTHLY_CAP ? Number(process.env.AI_MONTHLY_CAP) : null;
 
-async function aiBudget(companyId) {
+function startOfMonth() { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); }
+function startOfDay() { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
+
+// Returns { ok } or { ok: false, status, body } ready to send.
+async function checkAi(req, feature, opts = {}) {
+  const companyId = req.user.companyId;
+  if (!companyId) return { ok: false, status: 400, body: { msg: 'You are not attached to a workspace.' } };
   const company = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true, isStaff: true } });
   const plan = planFor(company);
-  const seats = plan.limits.aiPerSeat ? await prisma.user.count({ where: { companyId, isApproved: true } }) : 1;
-  const cap = AI_CAP_OVERRIDE !== null ? AI_CAP_OVERRIDE : aiAllowance(plan, seats);
-  if (cap === null) return { cap: null, used: 0, left: Infinity, plan }; // staff and comped: unmetered
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-  const [messages, reviews] = await Promise.all([
-    prisma.assistantMessage.count({ where: { companyId, role: 'user', createdAt: { gte: monthStart } } }),
-    prisma.aIReviewLog.count({ where: { reviewedAt: { gte: monthStart }, project: { companyId } } }),
-  ]);
-  const used = messages + reviews;
-  return { cap, used, left: cap - used, plan };
+  if (plan.comped || plan.staff) return { ok: true, plan, unmetered: true };
+
+  const seats = await prisma.user.count({ where: { companyId, isApproved: true } });
+  const rule = aiLimit(plan.key, feature, seats);
+  const label = AI_FEATURE_LABELS[feature] || feature;
+  if (!rule.allowed) {
+    return { ok: false, status: 402, body: { msg: `${label} is not included in ${plan.name}.`, feature, upgrade: true } };
+  }
+
+  const where = { companyId, feature };
+  // Lifetime
+  if (rule.once) {
+    const used = await prisma.aiUsage.count({ where });
+    if (used >= 1) return { ok: false, status: 429, body: { msg: `${label} is available once on ${plan.name}, and this workspace has used it. Upgrade to run it again.`, feature, upgrade: true } };
+  }
+  // Cooldown
+  if (rule.everyDays) {
+    const last = await prisma.aiUsage.findFirst({ where, orderBy: { createdAt: 'desc' } });
+    if (last) {
+      const next = new Date(new Date(last.createdAt).getTime() + rule.everyDays * 86400000);
+      if (next > new Date()) {
+        return { ok: false, status: 429, body: { msg: `${label} can run once every ${rule.everyDays} days on ${plan.name}. You can run it again on ${next.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}.`, feature, retryAt: next } };
+      }
+    }
+  }
+  // Monthly
+  const monthCap = AI_CAP_OVERRIDE !== null && rule.month ? AI_CAP_OVERRIDE : rule.month;
+  if (monthCap) {
+    const used = await prisma.aiUsage.count({ where: { ...where, createdAt: { gte: startOfMonth() } } });
+    if (used >= monthCap) return { ok: false, status: 429, body: { msg: `Your workspace has used its ${monthCap.toLocaleString()} ${label} actions for this month on ${plan.name}. It resets on the 1st.`, feature, used, cap: monthCap, upgrade: true } };
+  }
+  // Per day, whole workspace
+  if (rule.perDay) {
+    const used = await prisma.aiUsage.count({ where: { ...where, createdAt: { gte: startOfDay() } } });
+    if (used >= rule.perDay) return { ok: false, status: 429, body: { msg: `${label} can run ${rule.perDay} times a day on ${plan.name}, and today's runs are used. It resets at midnight.`, feature, used, cap: rule.perDay } };
+  }
+  // Per day, per grant
+  if (rule.perDayPerProject && opts.projectId) {
+    const used = await prisma.aiUsage.count({ where: { ...where, projectId: opts.projectId, createdAt: { gte: startOfDay() } } });
+    if (used >= rule.perDayPerProject) {
+      const body = { msg: `${label} runs ${rule.perDayPerProject === 1 ? 'once' : `${rule.perDayPerProject} times`} a day per grant on ${plan.name}. This grant's run is used — it resets at midnight.`, feature, used, cap: rule.perDayPerProject };
+      if (rule.extraPrice) body.extraPrice = rule.extraPrice;
+      return { ok: false, status: 429, body };
+    }
+  }
+  return { ok: true, plan, rule };
 }
 
-function overBudget(b) {
-  if (b.cap === null || b.left > 0) return null;
-  return { msg: `Your workspace has used its ${b.cap} AI actions for this month on ${b.plan.name}. It resets on the 1st. Upgrade for a larger allowance, or email merge@badjrtech.com.`, used: b.used, cap: b.cap, upgrade: true };
+async function recordAi(companyId, userId, feature, projectId) {
+  try { await prisma.aiUsage.create({ data: { companyId, userId: userId || null, feature, projectId: projectId || null } }); }
+  catch (err) { console.error('AI usage log failed:', err.message); }
 }
 
-// GET /api/ai/usage — what's left this month
+// GET /api/ai/usage — what's left this month, per feature
 router.get('/usage', auth, async (req, res) => {
   try {
-    const b = await aiBudget(req.user.companyId);
-    res.json({ cap: b.cap, used: b.used, left: b.cap === null ? null : Math.max(0, b.left), plan: b.plan.name });
-  } catch (err) { res.status(500).json({ msg: 'Server error' }); }
+    const companyId = req.user.companyId;
+    const company = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true, isStaff: true } });
+    const plan = planFor(company);
+    const seats = await prisma.user.count({ where: { companyId, isApproved: true } });
+    const out = {};
+    for (const feature of Object.keys(AI_FEATURE_LABELS)) {
+      const rule = aiLimit(plan.key, feature, seats);
+      if (!rule.allowed) { out[feature] = { allowed: false }; continue; }
+      const row = { allowed: true, label: AI_FEATURE_LABELS[feature], ...rule };
+      if (rule.month) row.usedThisMonth = await prisma.aiUsage.count({ where: { companyId, feature, createdAt: { gte: startOfMonth() } } });
+      if (rule.perDay) row.usedToday = await prisma.aiUsage.count({ where: { companyId, feature, createdAt: { gte: startOfDay() } } });
+      if (rule.once || rule.everyDays) {
+        const last = await prisma.aiUsage.findFirst({ where: { companyId, feature }, orderBy: { createdAt: 'desc' } });
+        row.lastUsedAt = last ? last.createdAt : null;
+        if (last && rule.everyDays) row.nextAvailableAt = new Date(new Date(last.createdAt).getTime() + rule.everyDays * 86400000);
+      }
+      out[feature] = row;
+    }
+    res.json({ plan: plan.name, unmetered: Boolean(plan.comped || plan.staff), features: out });
+  } catch (err) { console.error(err); res.status(500).json({ msg: 'Server error' }); }
 });
 
 // GET /api/ai/chat — this user's conversation
@@ -398,8 +458,8 @@ router.delete('/chat', auth, async (req, res) => {
 // POST /api/ai/chat — send a message
 router.post('/chat', auth, requireFeature(prisma, 'assistant'), async (req, res) => {
   const message = String(req.body.message || '').trim().slice(0, 4000);
-  const over = overBudget(await aiBudget(req.user.companyId));
-  if (over) return res.status(429).json(over);
+  const gate = await checkAi(req, 'chat');
+  if (!gate.ok) return res.status(gate.status).json(gate.body);
   const projectId = req.body.projectId || null;
   if (!message) return res.status(400).json({ msg: 'Say something first.' });
   if (!process.env.GEMINI_API_KEY) return res.status(500).json({ msg: 'AI is not configured on the server.' });
@@ -461,6 +521,7 @@ ${partnerBlock}${projectBlock(project)}`;
       return res.end();
     }
 
+    await recordAi(req.user.companyId, req.user.id, 'chat', projectId);
     const saved = await prisma.$transaction([
       prisma.assistantMessage.create({ data: { companyId: req.user.companyId, userId: req.user.id, role: 'user', content: message, projectId } }),
       prisma.assistantMessage.create({ data: { companyId: req.user.companyId, userId: req.user.id, role: 'assistant', content: reply, projectId } }),
@@ -475,3 +536,5 @@ ${partnerBlock}${projectBlock(project)}`;
 });
 
 module.exports = router;
+module.exports.checkAi = checkAi;
+module.exports.recordAi = recordAi;

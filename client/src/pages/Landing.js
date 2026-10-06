@@ -28,6 +28,7 @@ const F = {
   people20: ['Up to 20 people', 'Everyone who writes gets a seat.'],
   peopleAll: ['Unlimited people', 'No seat cap.'],
   noai: ['No AI features', 'Ask Merge and the AI reviewer start at the next plan up.'],
+  aiactions: ['AI actions included', 'One action is a chat message, a drafted answer, an AI review, or a profile import. Limit checks, similar answers, and the question parser are free and unlimited.'],
 };
 const Feat = ({ k, t, d }) => { const [name, text] = F[k]; return <li className="feat"><span className="feat-name">{t || name}</span><span className="feat-text">{d || text}</span></li>; };
 const Plan = ({ name, price, per, blurb, feats, cta, to, featured, badge }) => (

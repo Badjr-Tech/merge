@@ -63,6 +63,21 @@ password resets, invitations, approval decisions — must never pass it. The onl
 endpoint answers "Unsubscribed" for an address that does not exist, so it cannot be used to test
 whether someone has an account.
 
+## Per-feature AI limits (added 2026-10-06)
+
+`AI_LIMITS` in `utils/plans.cjs` sets a separate limit per feature per plan; `checkAi(req, feature,
+{projectId})` in `routes/ai.cjs` enforces it and `recordAi` logs one `AiUsage` row per action.
+Windows: `month` / `monthPerSeat`, `perDay`, `perDayPerProject`, `everyDays`, `once`. Staff and
+comped workspaces are unmetered; `AI_MONTHLY_CAP` overrides monthly limits. `GET /api/ai/usage`
+reports each feature with what's used and when it next resets.
+
+Grant writer track is final; the organization track holds placeholders pending a decision.
+`extraPrice: 1.99` on the Premium reviewer is **surfaced in the error but not yet chargeable** —
+buying an extra run needs a Stripe one-off (invoice item on the subscription, or Checkout).
+
+Note: profile import is deliberately NOT behind `requireFeature('assistant')`, because the Free
+plan may run it once.
+
 ## AI allowances and brevity (added 2026-10-06)
 
 One monthly allowance per workspace, set by plan in `plans.cjs` (`limits.aiMonthly`, or `aiPerSeat`
