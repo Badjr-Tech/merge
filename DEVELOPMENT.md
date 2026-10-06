@@ -52,6 +52,17 @@ Create a local Postgres database and apply migrations with `npx prisma migrate d
 ## Stupid-proofing checklist (what a new deploy should always have)
 Custom 404 · sitemap.xml · robots.txt · llms.txt · per-route titles and descriptions · Open Graph image · loading and error states on every fetch · compressed images with alt text · mobile breakpoints and hamburger nav · sticky mobile CTA · privacy and terms pages · cookie notice · contact email in footer · welcome page after signup · Vercel Web Analytics with private URLs masked · feedback widget that emails you · 4 MB upload cap enforced on both sides · plan gating checked on the server, never only in the UI.
 
+## Unsubscribe (added 2026-10-06)
+
+Reminder emails carry a one-click unsubscribe: a signed, single-purpose HMAC of email + list name
+(`unsubscribeUrl` in `utils/email.cjs`), handled by `/api/unsubscribe` with both GET (a page for a
+human) and POST (RFC 8058, what mail clients call). `List-Unsubscribe` and `List-Unsubscribe-Post`
+headers go out whenever `sendEmail` is passed `unsubscribe: { email, list }`. Transactional mail —
+password resets, invitations, approval decisions — must never pass it. The only list today is
+`deadlines`, which flips `User.deadlineEmails`; the cron filters on that flag before sending. The
+endpoint answers "Unsubscribed" for an address that does not exist, so it cannot be used to test
+whether someone has an account.
+
 ## AI allowances and brevity (added 2026-10-06)
 
 One monthly allowance per workspace, set by plan in `plans.cjs` (`limits.aiMonthly`, or `aiPerSeat`

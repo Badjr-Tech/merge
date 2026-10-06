@@ -11,7 +11,24 @@ function parseFrom(raw) {
 
 function emailConfigured() { return Boolean(process.env.BREVO_API_KEY); }
 
-async function sendEmail({ to, subject, html, text, replyTo, attachments }) {
+const crypto = require('crypto');
+
+// Signed, single-purpose token so an unsubscribe link works without logging in and cannot be
+// reused for anything else. Keyed on the user's email and the list name.
+function unsubscribeToken(email, list) {
+  const secret = process.env.JWT_SECRET || 'merge-unsubscribe';
+  return crypto.createHmac('sha256', secret).update(`${String(email).toLowerCase()}|${list}`).digest('hex').slice(0, 32);
+}
+function unsubscribeUrl(email, list) {
+  return appUrl(`/api/unsubscribe?e=${encodeURIComponent(String(email).toLowerCase())}&l=${encodeURIComponent(list)}&t=${unsubscribeToken(email, list)}`);
+}
+function unsubscribeFooter(email, list, what) {
+  return `<p style="font-size:12px;color:#9a9a9e;margin-top:24px;border-top:1px solid #eeeeee;padding-top:12px">You're getting this because ${what}. <a href="${unsubscribeUrl(email, list)}" style="color:#6b6b6e">Unsubscribe from these emails</a>, or change it in Settings.</p>`;
+}
+
+// `unsubscribe` = { email, list }: adds the one-click link headers so mail clients show their own
+// unsubscribe button. Transactional mail (resets, invitations, receipts) must NOT pass it.
+async function sendEmail({ to, subject, html, text, replyTo, attachments, unsubscribe }) {
   if (!emailConfigured()) {
     console.log(`[email disabled] to=${to} subject="${subject}"`);
     return false;
@@ -32,6 +49,10 @@ async function sendEmail({ to, subject, html, text, replyTo, attachments }) {
         htmlContent: html,
         textContent: text,
         attachment: attachments && attachments.length ? attachments : undefined,
+        headers: unsubscribe ? {
+          'List-Unsubscribe': `<${unsubscribeUrl(unsubscribe.email, unsubscribe.list)}>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+        } : undefined,
       }),
     });
     if (!res.ok) {
@@ -62,8 +83,8 @@ function layout(title, bodyHtml) {
 }
 
 function button(href, label) {
-  return `<p style="margin:24px 0"><a href="${href}" style="background:#7fab61;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;display:inline-block">${label}</a></p>
+  return `<p style="margin:24px 0"><a href="${href}" style="background:#476c2e;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600;display:inline-block">${label}</a></p>
   <p style="font-size:13px;color:#666">Or copy this link: <br><a href="${href}" style="color:#3e51b5">${href}</a></p>`;
 }
 
-module.exports = { sendEmail, emailConfigured, appUrl, layout, button };
+module.exports = { sendEmail, emailConfigured, appUrl, layout, button, unsubscribeToken, unsubscribeUrl, unsubscribeFooter };

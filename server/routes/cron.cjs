@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const prisma = require('../utils/prisma.cjs');
-const { sendEmail, appUrl, layout, button } = require('../utils/email.cjs');
+const { sendEmail, appUrl, layout, button, unsubscribeFooter } = require('../utils/email.cjs');
 const { TRIAL_PLAN_BY_KIND } = require('../utils/plans.cjs');
 const TRIAL_PLANS = Object.values(TRIAL_PLAN_BY_KIND);
 
@@ -147,8 +147,9 @@ async function runDeadlineReminders(now) {
       await sendEmail({
         to: user.email,
         subject: `${p.name} ${words.subject}`,
-        html: layout(words.heading, `<p>Hi ${esc(user.name || user.username)},</p><p><strong>${esc(p.name)}</strong> is due ${when}.</p>${state}${yours}${button(link, 'Open the project')}<p style="font-size:13px;color:#6b6b6e">Turn these off under Settings → Profile.</p>`),
+        html: layout(words.heading, `<p>Hi ${esc(user.name || user.username)},</p><p><strong>${esc(p.name)}</strong> is due ${when}.</p>${state}${yours}${button(link, 'Open the project')}${unsubscribeFooter(user.email, 'deadlines', 'you own this grant or have a question assigned to you')}`),
         text: `${p.name} is due ${when}. ${open.length ? `${open.length} of ${total} answers still open.` : 'All answers are in.'} ${link}`,
+        unsubscribe: { email: user.email, list: 'deadlines' },
       });
       sent += 1;
     }
