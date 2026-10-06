@@ -11,14 +11,14 @@ const ORG_TEAM = [...W_PREMIUM, 'team', 'approvals'];
 
 const PLANS = {
   // Free = the Solo Writer feature set minus AI, capped at one grant. Both tracks land here after a trial.
-  free:         { track: 'both',   name: 'Free',         price: 0,     per: 'workspace', features: ORG_SOLO.filter(f => !['assistant', 'ai_reviewer'].includes(f)), limits: { seats: 1, totalProjects: 1, questionsPerProject: null } },
-  writer:       { track: 'writer', name: 'Starter',      price: 6.99,  per: 'month',     features: W_STARTER, limits: { seats: 1, totalProjects: null, questionsPerProject: null } },
-  writer_pro:   { track: 'writer', name: 'Premium',      price: 21.99, per: 'month',     features: W_PREMIUM, limits: { seats: 1, totalProjects: null, questionsPerProject: null } },
-  professional: { track: 'writer', name: 'Professional', price: 59.99, per: 'month',     features: W_PRO,     limits: { seats: 1, totalProjects: null, questionsPerProject: null } },
-  org_solo:     { track: 'team',   name: 'Solo Writer',  price: 14.99, per: 'month',     features: ORG_SOLO,  limits: { seats: 1, totalProjects: null, questionsPerProject: null } },
-  small_team:   { track: 'team',   name: 'Small Teams',  price: 12.99, per: 'person',    features: ORG_TEAM,  limits: { seats: 5, totalProjects: null, questionsPerProject: null } },
-  large_team:   { track: 'team',   name: 'Large Teams',  price: 21.99, per: 'person',    features: [...ORG_TEAM, 'multi_workspace'], limits: { seats: 20, totalProjects: null, questionsPerProject: null } },
-  company:      { track: 'team',   name: 'Companies',    price: 29.99, per: 'person',    features: [...ORG_TEAM, 'multi_workspace', 'integrations', 'priority_support', 'custom_branding'], limits: { seats: null, totalProjects: null, questionsPerProject: null } },
+  free:         { track: 'both',   name: 'Free',         price: 0,     per: 'workspace', features: ORG_SOLO.filter(f => !['assistant', 'ai_reviewer'].includes(f)), limits: { seats: 1, totalProjects: 1, questionsPerProject: null, aiMonthly: 0 } },
+  writer:       { track: 'writer', name: 'Starter',      price: 6.99,  per: 'month',     features: W_STARTER, limits: { seats: 1, totalProjects: null, questionsPerProject: null, aiMonthly: 0 } },
+  writer_pro:   { track: 'writer', name: 'Premium',      price: 21.99, per: 'month',     features: W_PREMIUM, limits: { seats: 1, totalProjects: null, questionsPerProject: null, aiMonthly: 1000 } },
+  professional: { track: 'writer', name: 'Professional', price: 59.99, per: 'month',     features: W_PRO,     limits: { seats: 1, totalProjects: null, questionsPerProject: null, aiMonthly: 5000 } },
+  org_solo:     { track: 'team',   name: 'Solo Writer',  price: 14.99, per: 'month',     features: ORG_SOLO,  limits: { seats: 1, totalProjects: null, questionsPerProject: null, aiMonthly: 750 } },
+  small_team:   { track: 'team',   name: 'Small Teams',  price: 12.99, per: 'person',    features: ORG_TEAM,  limits: { seats: 5, totalProjects: null, questionsPerProject: null, aiMonthly: null, aiPerSeat: 400 } },
+  large_team:   { track: 'team',   name: 'Large Teams',  price: 21.99, per: 'person',    features: [...ORG_TEAM, 'multi_workspace'], limits: { seats: 20, totalProjects: null, questionsPerProject: null, aiMonthly: null, aiPerSeat: 400 } },
+  company:      { track: 'team',   name: 'Companies',    price: 29.99, per: 'person',    features: [...ORG_TEAM, 'multi_workspace', 'integrations', 'priority_support', 'custom_branding'], limits: { seats: null, totalProjects: null, questionsPerProject: null, aiMonthly: null, aiPerSeat: 500 } },
 };
 // Older plan keys still stored on some workspaces
 const ALIASES = { starter: 'writer', premium: 'small_team', team: 'small_team', enterprise: 'large_team', custom: 'company' };
@@ -33,6 +33,15 @@ const FEATURE_LABELS = {
   partners: 'Partners directory', past_proposals: 'Past proposals library', narrative_editing: 'Editable document with version history',
   ai_reviewer: 'AI reviewer', multi_workspace: 'Multiple workspaces', integrations: 'Integrations', external_review: 'Send for review', notes: 'Grant notes',
 };
+
+// The AI allowance for a workspace: a flat monthly number, or per seat on per-person plans.
+// null = unlimited (staff and comped workspaces). 0 = no AI on this plan.
+function aiAllowance(plan, seats) {
+  if (!plan || !plan.limits) return 0;
+  const { aiMonthly, aiPerSeat } = plan.limits;
+  if (aiPerSeat) return aiPerSeat * Math.max(1, seats || 1);
+  return aiMonthly === undefined ? 0 : aiMonthly;
+}
 
 function normalizeKey(key) { return ALIASES[key] || key; }
 
@@ -50,7 +59,7 @@ function planFor(company) {
   // Staff workspace: everything, forever, no billing
   if (company && company.isStaff) {
     const top = kind === 'writer' ? 'professional' : 'company';
-    return { key: top, kind, ...PLANS[top], features: [...new Set([...PLANS[top].features, 'team', 'approvals'])], limits: { seats: null, totalProjects: null, questionsPerProject: null }, trialing: false, trialEndsAt: null, trialDaysLeft: null, trialExpired: false, comped: true, staff: true, compedUntil: null };
+    return { key: top, kind, ...PLANS[top], features: [...new Set([...PLANS[top].features, 'team', 'approvals'])], limits: { seats: null, totalProjects: null, questionsPerProject: null, aiMonthly: null }, trialing: false, trialEndsAt: null, trialDaysLeft: null, trialExpired: false, comped: true, staff: true, compedUntil: null };
   }
   // Complimentary access: the stored plan applies with no trial or billing checks
   if (company && company.compedUntil && new Date(company.compedUntil) > now) {
@@ -92,4 +101,4 @@ function catalogue() {
   return Object.entries(PLANS).map(([key, p]) => ({ key, track: p.track, name: p.name, price: p.price, per: p.per, features: p.features, limits: p.limits }));
 }
 
-module.exports = { PLANS, ALIASES, TRIAL_DAYS, TRIAL_PLAN_BY_KIND, FEATURE_LABELS, planFor, hasFeature, requireFeature, publicPlan, upgradeMessage, catalogue, normalizeKey };
+module.exports = { aiAllowance, PLANS, ALIASES, TRIAL_DAYS, TRIAL_PLAN_BY_KIND, FEATURE_LABELS, planFor, hasFeature, requireFeature, publicPlan, upgradeMessage, catalogue, normalizeKey };

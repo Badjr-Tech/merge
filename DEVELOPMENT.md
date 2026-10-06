@@ -52,6 +52,20 @@ Create a local Postgres database and apply migrations with `npx prisma migrate d
 ## Stupid-proofing checklist (what a new deploy should always have)
 Custom 404 · sitemap.xml · robots.txt · llms.txt · per-route titles and descriptions · Open Graph image · loading and error states on every fetch · compressed images with alt text · mobile breakpoints and hamburger nav · sticky mobile CTA · privacy and terms pages · cookie notice · contact email in footer · welcome page after signup · Vercel Web Analytics with private URLs masked · feedback widget that emails you · 4 MB upload cap enforced on both sides · plan gating checked on the server, never only in the UI.
 
+## AI allowances and brevity (added 2026-10-06)
+
+One monthly allowance per workspace, set by plan in `plans.cjs` (`limits.aiMonthly`, or `aiPerSeat`
+on per-person plans; `aiAllowance(plan, seats)` resolves it). Chat messages, drafts, and AI reviews
+all count against it — the reviewer used to be uncapped and is the most expensive call. Staff and
+comped workspaces are unmetered; `AI_MONTHLY_CAP` still overrides everything if set.
+`GET /api/ai/usage` returns cap, used and left. Allowances: Premium 1,000 · Professional 5,000 ·
+Solo Writer 750 · Small and Large Teams 400/seat · Companies 500/seat. At ~$0.003 a call, worst-case
+cost runs about 4-5% of revenue at every size.
+
+Chat replies are capped at 600 output tokens and the system prompt forbids preamble, "why this
+works" explanations and closing offers; history sent back to Gemini is 10 turns, down from 16.
+Drafts are capped to their question's limit plus slack.
+
 ## Help me answer this (added 2026-10-05)
 
 `POST /api/ai/draft` streams a first-draft answer for one question (SSE, same shape as the chat).

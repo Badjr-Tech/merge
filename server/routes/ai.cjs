@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const prisma = require('../utils/prisma.cjs');
-const { requireFeature } = require('../utils/plans.cjs');
+const { requireFeature, planFor, aiAllowance } = require('../utils/plans.cjs');
 const gemini = require('../utils/gemini.cjs');
 const { generateText } = gemini;
 
@@ -14,6 +14,8 @@ router.post('/review', auth, requireFeature(prisma, 'ai_reviewer'), async (req, 
   const { projectId, grantWebsite, grantPurposeStatement } = req.body;
 
   try {
+    const over = overBudget(await aiBudget(req.user.companyId));
+    if (over) return res.status(429).json(over);
     // Ensure GEMINI_API_KEY is set
     if (!process.env.GEMINI_API_KEY) {
       return res.status(500).json({ msg: 'Google Gemini API Key not configured on server.' });
@@ -216,7 +218,7 @@ router.get('/archived-reviews', auth, async (req, res) => {
 
 // ---------- Writing assistant (workspace chat) ----------
 
-const CHAT_HISTORY = 16;
+const CHAT_HISTORY = 10; // turns of context sent back to Gemini — the older ones rarely change an answer
 
 function profileBlock(company) {
   const p = company.profile || {};
@@ -246,9 +248,8 @@ router.post('/draft', auth, requireFeature(prisma, 'assistant'), async (req, res
   if (!questionId) return res.status(400).json({ msg: 'Which question?' });
   if (!process.env.GEMINI_API_KEY) return res.status(500).json({ msg: 'AI is not configured on the server.' });
 
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-  const used = await prisma.assistantMessage.count({ where: { companyId: req.user.companyId, role: 'user', createdAt: { gte: monthStart } } });
-  if (used >= AI_MONTHLY_CAP) return res.status(429).json({ msg: `Your workspace has used its ${AI_MONTHLY_CAP} assistant messages for this month. It resets on the 1st. Email merge@badjrtech.com if you need more.` });
+  const over = overBudget(await aiBudget(req.user.companyId));
+  if (over) return res.status(429).json(over);
 
   try {
     const question = await prisma.question.findUnique({
@@ -315,7 +316,11 @@ ${siblings ? `\nOTHER QUESTIONS IN THIS APPLICATION:\n${siblings}\n` : ''}${prio
 
     let draft = '';
     try {
-      draft = await gemini.chatReplyStream({ systemInstruction: system, history: [], message: prompt, onChunk: t => emit('chunk', t) });
+      // Allow the question's limit plus room to finish the sentence; ~1.5 tokens a word, 1.4 for slack.
+      const cap = question.maxLimit
+        ? Math.min(4000, Math.ceil((unit === 'characters' ? question.maxLimit / 4 : question.maxLimit * 1.5) * 1.4))
+        : 900;
+      draft = await gemini.chatReplyStream({ systemInstruction: system, history: [], message: prompt, onChunk: t => emit('chunk', t), generationConfig: { maxOutputTokens: cap, temperature: 0.7 } });
     } catch (err) {
       console.error('Draft error:', err);
       emit('error', { msg: err.status === 429 ? err.message : 'The assistant could not write a draft. Try again.' });
@@ -330,6 +335,39 @@ ${siblings ? `\nOTHER QUESTIONS IN THIS APPLICATION:\n${siblings}\n` : ''}${prio
     if (res.headersSent) return res.end();
     res.status(500).json({ msg: 'The assistant could not write a draft. Try again.' });
   }
+});
+
+// --- AI usage allowance ------------------------------------------------
+// One monthly allowance per workspace, set by plan (per seat on per-person plans). Chat messages,
+// drafts, and AI reviews all count against it, so the expensive reviewer can't run unbounded.
+const AI_CAP_OVERRIDE = process.env.AI_MONTHLY_CAP ? Number(process.env.AI_MONTHLY_CAP) : null;
+
+async function aiBudget(companyId) {
+  const company = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true, isStaff: true } });
+  const plan = planFor(company);
+  const seats = plan.limits.aiPerSeat ? await prisma.user.count({ where: { companyId, isApproved: true } }) : 1;
+  const cap = AI_CAP_OVERRIDE !== null ? AI_CAP_OVERRIDE : aiAllowance(plan, seats);
+  if (cap === null) return { cap: null, used: 0, left: Infinity, plan }; // staff and comped: unmetered
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const [messages, reviews] = await Promise.all([
+    prisma.assistantMessage.count({ where: { companyId, role: 'user', createdAt: { gte: monthStart } } }),
+    prisma.aIReviewLog.count({ where: { reviewedAt: { gte: monthStart }, project: { companyId } } }),
+  ]);
+  const used = messages + reviews;
+  return { cap, used, left: cap - used, plan };
+}
+
+function overBudget(b) {
+  if (b.cap === null || b.left > 0) return null;
+  return { msg: `Your workspace has used its ${b.cap} AI actions for this month on ${b.plan.name}. It resets on the 1st. Upgrade for a larger allowance, or email merge@badjrtech.com.`, used: b.used, cap: b.cap, upgrade: true };
+}
+
+// GET /api/ai/usage — what's left this month
+router.get('/usage', auth, async (req, res) => {
+  try {
+    const b = await aiBudget(req.user.companyId);
+    res.json({ cap: b.cap, used: b.used, left: b.cap === null ? null : Math.max(0, b.left), plan: b.plan.name });
+  } catch (err) { res.status(500).json({ msg: 'Server error' }); }
 });
 
 // GET /api/ai/chat — this user's conversation
@@ -358,12 +396,10 @@ router.delete('/chat', auth, async (req, res) => {
 });
 
 // POST /api/ai/chat — send a message
-const AI_MONTHLY_CAP = Number(process.env.AI_MONTHLY_CAP || 1000);
 router.post('/chat', auth, requireFeature(prisma, 'assistant'), async (req, res) => {
   const message = String(req.body.message || '').trim().slice(0, 4000);
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-  const used = await prisma.assistantMessage.count({ where: { companyId: req.user.companyId, role: 'user', createdAt: { gte: monthStart } } });
-  if (used >= AI_MONTHLY_CAP) return res.status(429).json({ msg: `Your workspace has used its ${AI_MONTHLY_CAP} assistant messages for this month. It resets on the 1st. Email merge@badjrtech.com if you need more.` });
+  const over = overBudget(await aiBudget(req.user.companyId));
+  if (over) return res.status(429).json(over);
   const projectId = req.body.projectId || null;
   if (!message) return res.status(400).json({ msg: 'Say something first.' });
   if (!process.env.GEMINI_API_KEY) return res.status(500).json({ msg: 'AI is not configured on the server.' });
@@ -383,14 +419,22 @@ router.post('/chat', auth, requireFeature(prisma, 'assistant'), async (req, res)
 
     const system = `You are Merge's writing assistant, a friendly and sharp grant-writing coach for ${company.name}. You help ${user.name || user.username} figure out what to write and how to write it for funding applications.
 
-How to help:
-- Give concrete, usable guidance: what points to make, how to structure the answer, what funders look for, and example sentences in the organization's voice.
-- Draw on the ORGANIZATION PROFILE below. Remind the user to include the mission, philosophy, programs, and impact where they strengthen an answer.
-- If a CURRENT PROJECT is provided, tailor advice to its questions, limits, and existing drafts. Keep suggested text within the question's limit.
-- Never invent statistics, names, dates, or partners. When a fact is missing, write a placeholder in square brackets like [number of families served] and say what the user should fill in.
-- Be concise. Use short paragraphs and bullet points. Use Markdown headings only for longer answers.
-- If the profile is empty, still help, but suggest filling it in under Settings so advice can be specific.
-- When asked which partners to include, pick from the PARTNERS DIRECTORY, match them to the grant's purpose and questions, and say what role each could play. Never invent partners.
+Answer in as few words as do the job. Most answers are under 120 words.
+
+Length and shape:
+- Open with the answer. No preamble, no restating the question, no "Great question" or "Here's a draft".
+- When asked for text to use, give the text and stop. Do not explain why it works, label the parts, or add a "why this works" section unless asked.
+- No closing offers ("let me know if", "I can also"), no summaries of what you just said, no headings unless the answer runs past about 200 words.
+- Bullets only for genuinely parallel items, four at most. Prose otherwise.
+- Asked something factual about the organization or the project: answer in a sentence or two.
+
+Substance:
+- Be concrete: what points to make, how to structure the answer, what the funder is looking for, sentences in the organization's voice.
+- Draw on the ORGANIZATION PROFILE below.
+- If a CURRENT PROJECT is given, tailor advice to its questions, limits, and drafts, and keep suggested text within the question's limit.
+- Never invent statistics, names, dates, or partners. A missing fact becomes a placeholder like [number of families served].
+- If the profile is empty, still help, and say once that filling it in under Settings makes advice specific.
+- Partners come from the PARTNERS DIRECTORY only.
 
 ORGANIZATION PROFILE:
 ${profileBlock(company)}
@@ -409,7 +453,8 @@ ${partnerBlock}${projectBlock(project)}`;
 
     let reply = '';
     try {
-      reply = await gemini.chatReplyStream({ systemInstruction: system, history: past, message, onChunk: t => emit('chunk', t) });
+      // maxOutputTokens is the hard stop behind the "few words" instruction: 600 tokens is about 450 words.
+      reply = await gemini.chatReplyStream({ systemInstruction: system, history: past, message, onChunk: t => emit('chunk', t), generationConfig: { maxOutputTokens: 600, temperature: 0.7 } });
     } catch (err) {
       console.error('Assistant error:', err);
       emit('error', { msg: err.status === 429 ? err.message : err.message && err.message.includes('API key') ? 'The AI key on the server is not valid.' : 'The assistant could not answer. Try again.' });

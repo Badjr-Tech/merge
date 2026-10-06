@@ -61,9 +61,9 @@ async function generateText(prompt, options) {
   });
 }
 
-async function chatReply({ systemInstruction, history, message }) {
+async function chatReply({ systemInstruction, history, message, generationConfig }) {
   return withModel(async (name) => {
-    const model = getModel(name, { systemInstruction });
+    const model = getModel(name, { systemInstruction, ...(generationConfig ? { generationConfig } : {}) });
     const chat = model.startChat({ history });
     const result = await chat.sendMessage(message);
     return result.response.text();
@@ -71,9 +71,9 @@ async function chatReply({ systemInstruction, history, message }) {
 }
 
 // Streams the reply: onChunk(text) is called as Gemini produces it. Resolves with the full text.
-async function chatReplyStream({ systemInstruction, history, message, onChunk }) {
+async function chatReplyStream({ systemInstruction, history, message, onChunk, generationConfig }) {
   return withModel(async (name) => {
-    const model = getModel(name, { systemInstruction });
+    const model = getModel(name, { systemInstruction, ...(generationConfig ? { generationConfig } : {}) });
     const chat = model.startChat({ history });
     const result = await chat.sendMessageStream(message);
     let full = '';
