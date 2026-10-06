@@ -7,6 +7,8 @@ import { formatDate } from '../lib/format';
 const money = (n) => `$${(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const TONE = { paying: 'green', trial: 'indigo', comped: 'gold', free: 'gray' };
 
+const FEATURE = { chat: 'Ask Merge', draft: 'Help me answer this', review: 'AI reviewer', profile: 'Profile import' };
+
 export default function StaffOverview() {
   const [access, setAccess] = useState(null);
   const [d, setD] = useState(null);
@@ -31,6 +33,31 @@ export default function StaffOverview() {
           </div>
           {Object.keys(d.revenue.byPlan).length > 0 && (
             <Card pad className="mb-3"><div className="stat-label mb-1">MRR by plan</div><div className="row wrap">{Object.entries(d.revenue.byPlan).sort((a, b) => b[1] - a[1]).map(([k, v]) => <Badge key={k} tone="green">{k}: {money(v)}</Badge>)}</div></Card>
+          )}
+
+          {d.aiSpend && (
+            <>
+              <h3 className="mb-1">AI spend</h3>
+              <div className="grid-4 mb-3">
+                <Card className="stat"><div className="stat-label">This month</div><div className="stat-value">{money(d.aiSpend.thisMonth.spend)}</div><div className="stat-sub">{d.aiSpend.thisMonth.actions.toLocaleString()} actions{d.aiSpend.thisMonth.percentOfMrr !== null ? ` · ${d.aiSpend.thisMonth.percentOfMrr}% of MRR` : ''}</div></Card>
+                <Card className="stat"><div className="stat-label">Margin after AI</div><div className="stat-value">{d.revenue.mrr > 0 ? money(Math.round((d.revenue.mrr - d.aiSpend.thisMonth.spend) * 100) / 100) : '—'}</div><div className="stat-sub">{money(d.revenue.mrr)} MRR less AI cost</div></Card>
+                <Card className="stat"><div className="stat-label">Last 30 days</div><div className="stat-value">{money(d.aiSpend.last30.spend)}</div><div className="stat-sub">{d.aiSpend.last30.actions.toLocaleString()} actions</div></Card>
+                <Card className="stat"><div className="stat-label">All time</div><div className="stat-value">{money(d.aiSpend.allTime.spend)}</div><div className="stat-sub">{d.aiSpend.allTime.actions.toLocaleString()} actions</div></Card>
+              </div>
+              {Object.keys(d.aiSpend.thisMonth.byFeature).length > 0 && (
+                <Card pad className="mb-3">
+                  <div className="stat-label mb-1">This month by feature</div>
+                  <div className="row wrap mb-2">{Object.entries(d.aiSpend.thisMonth.byFeature).sort((a, b) => b[1].spend - a[1].spend).map(([k, v]) => <Badge key={k} tone="indigo">{FEATURE[k] || k}: {money(v.spend)} · {v.actions.toLocaleString()}</Badge>)}</div>
+                  {d.aiSpend.topSpenders.length > 0 && (
+                    <>
+                      <div className="stat-label mb-1">Costliest workspaces this month</div>
+                      <div className="row wrap">{d.aiSpend.topSpenders.map(w => <Badge key={w.id} tone="gray">{w.name}: {money(w.spend)}</Badge>)}</div>
+                    </>
+                  )}
+                  <p className="tiny faint mt-2">Priced from measured token use at Gemini 2.5 Flash rates. An estimate, not a Google invoice.</p>
+                </Card>
+              )}
+            </>
           )}
 
           <h3 className="mb-1">Workspaces</h3>

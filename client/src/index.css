@@ -367,6 +367,12 @@ img[alt="Merge"] { color: transparent; font-size: 0; }
 .crash-card .row { margin-top: 20px; }
 .crash-detail { background: #fbfaf5; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 12px; white-space: pre-wrap; overflow-x: auto; margin-top: 8px; }
 
+/* Settings → AI usage */
+.ai-usage-row { padding: 12px 0; border-top: 1px solid var(--border); }
+.ai-usage-row:first-of-type { border-top: none; }
+.ai-bar { height: 6px; border-radius: 999px; background: var(--gray); overflow: hidden; margin: 6px 0 4px; }
+.ai-bar span { display: block; height: 100%; border-radius: 999px; transition: width .2s; }
+
 /* Settings → Removed */
 .removed-item { padding: 12px 0; border-top: 1px solid var(--border); }
 .removed-item:first-of-type { border-top: none; }

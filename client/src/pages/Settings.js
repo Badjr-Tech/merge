@@ -7,6 +7,7 @@ import { formatDate } from '../lib/format';
 import { usePlan } from '../context/PlanContext';
 import { useSearchParams } from 'react-router-dom';
 import RemovedProjects from '../components/RemovedProjects';
+import AiUsageCard from '../components/AiUsageCard';
 
 const PLAN_FEATURES = {
   free: ['1 grant', 'Send for review with notes', 'Answer bank, partners, past proposals', 'Download PDF or Word', 'No AI features'],
@@ -207,6 +208,7 @@ export default function Settings() {
         <Field label="Workspace name"><Input value={companyName} onChange={e => setCompanyName(e.target.value)} disabled={!isAdmin} /></Field>
         {isAdmin ? <div className="form-actions"><Button onClick={saveCompany} loading={busy === 'company'} disabled={!companyName.trim() || companyName === company?.name}>Rename workspace</Button></div> : <p className="tiny faint">Only admins can rename the workspace.</p>}
       </Card>}
+      {!plan?.staff && isAdmin && <AiUsageCard />}
       {!plan?.staff && <RemovedProjects isAdmin={isAdmin} />}
     </div>
   );

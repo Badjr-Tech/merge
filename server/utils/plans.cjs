@@ -37,11 +37,16 @@ const FEATURE_LABELS = {
 
 // Per-feature AI limits. Each feature is counted on its own window so a heavy chatter and a heavy
 // drafter don't eat each other's allowance.
-//   month / monthPerSeat  — rolling calendar month, per workspace or per seat
-//   perDay                — per workspace per calendar day
+//   month                 — calendar month, counted across the whole workspace
+//   monthPerSeat          — the same, sized by seats: a shared pool anyone can draw from, so a few
+//                           people doing the work in a big workspace aren't starved. Set at 75% of
+//                           a notional per-person allowance, since not everyone uses theirs.
+//   monthPerUser          — a hard per-person month cap (single-seat plans only)
+//   perDayPerUser         — burst guard: stops one account draining the pool in an hour
+//   perDay / perWeek       — per workspace per calendar day, or per calendar week (resets Monday)
 //   perDayPerProject      — per grant per calendar day (the AI reviewer on Premium)
 //   everyDays / once      — a cooldown, or once for the lifetime of the workspace
-//   extraPrice            — what one more costs when they're out (not yet charged; see DEVELOPMENT.md)
+//   extraPrice            — AI reviewer only: what one more run costs (not yet charged; see DEVELOPMENT.md)
 // 0 or absent = the feature is not available on that plan.
 const AI_LIMITS = {
   free:         { chat: 0, draft: 0, review: 0, profile: { once: true } },
@@ -49,10 +54,11 @@ const AI_LIMITS = {
   writer_pro:   { chat: { month: 2000 }, draft: { month: 150 }, review: { perDayPerProject: 1, extraPrice: 1.99 }, profile: { everyDays: 30 } },
   professional: { chat: { month: 4000 }, draft: { month: 300 }, review: { perDay: 15 }, profile: { everyDays: 7 } },
   // Organization track: placeholders in step with the old pooled numbers, pending their own decision.
-  org_solo:     { chat: { month: 1500 }, draft: { month: 150 }, review: { perDayPerProject: 1, extraPrice: 1.99 }, profile: { everyDays: 30 } },
-  small_team:   { chat: { monthPerSeat: 1000 }, draft: { monthPerSeat: 150 }, review: { perDay: 5 }, profile: { everyDays: 30 } },
-  large_team:   { chat: { monthPerSeat: 1000 }, draft: { monthPerSeat: 150 }, review: { perDay: 15 }, profile: { everyDays: 7 } },
-  company:      { chat: { monthPerSeat: 1000 }, draft: { monthPerSeat: 200 }, review: { perDay: 15 }, profile: { everyDays: 7 } },
+  org_solo:     { chat: { month: 2000 }, draft: { month: 20 }, review: { perWeek: 5, extraPrice: 1.99 }, profile: { everyDays: 30 } },
+  small_team:   { chat: { monthPerSeat: 750, perDayPerUser: 200 }, draft: { monthPerSeat: 15, perDayPerUser: 20 }, review: { monthPerSeat: 4, perDayPerUser: 5, extraPrice: 1.99 }, profile: { everyDays: 30 } },
+  large_team:   { chat: { monthPerSeat: 750, perDayPerUser: 200 }, draft: { monthPerSeat: 15, perDayPerUser: 20 }, review: { monthPerSeat: 4, perDayPerUser: 5, extraPrice: 1.99 }, profile: { everyDays: 7 } },
+  // Companies: per-seat rates pending a decision; these mirror Large Teams for now.
+  company:      { chat: { monthPerSeat: 750, perDayPerUser: 200 }, draft: { monthPerSeat: 15, perDayPerUser: 20 }, review: { monthPerSeat: 4, perDayPerUser: 5, extraPrice: 1.99 }, profile: { everyDays: 7 } },
 };
 
 const AI_FEATURE_LABELS = { chat: 'Ask Merge', draft: 'Help me answer this', review: 'AI reviewer', profile: 'Build profile from your website' };

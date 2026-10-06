@@ -65,6 +65,20 @@ whether someone has an account.
 
 ## Per-feature AI limits (added 2026-10-06)
 
+Team plans use a **shared pool sized by seats** (`monthPerSeat`), not a hard per-person cap, so a
+few people doing the writing inside a large workspace are not starved. The rate is 75% of a
+notional per-person allowance, since not everyone uses theirs, and a `perDayPerUser` burst guard
+stops one account draining the month in an afternoon. Single-seat plans keep flat monthly numbers.
+
+Extra AI reviewer runs are $1.99 (`extraPrice`); the price appears in every limit message, on the
+pricing cards, and in the Settings usage card. Nothing charges for them yet.
+
+Admins see their allowances and usage in Settings (`AiUsageCard`, from `GET /api/ai/usage`).
+Staff see total AI spend, margin after AI, spend by feature and the costliest workspaces on the
+staff overview, priced from `utils/aicost.cjs` — measured token counts at Gemini 2.5 Flash rates.
+That is an estimate from our own counts, not a Google invoice.
+
+
 `AI_LIMITS` in `utils/plans.cjs` sets a separate limit per feature per plan; `checkAi(req, feature,
 {projectId})` in `routes/ai.cjs` enforces it and `recordAi` logs one `AiUsage` row per action.
 Windows: `month` / `monthPerSeat`, `perDay`, `perDayPerProject`, `everyDays`, `once`. Staff and

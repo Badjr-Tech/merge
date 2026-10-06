@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const prisma = require('../utils/prisma.cjs');
 const { PLANS, publicPlan, planFor } = require('../utils/plans.cjs');
+const { costOf } = require('../utils/aicost.cjs');
 const { stripe, configured } = require('../utils/stripe.cjs');
 
 // Merge staff: emails listed in STAFF_EMAILS (comma-separated). They can comp any workspace.
@@ -102,8 +103,38 @@ router.get('/overview', auth, async (req, res) => {
 
     const recent = companies.sort((a, b) => b.createdAt - a.createdAt).slice(0, 12).map(c => ({ id: c.id, name: c.name, kind: c.kind, plan: publicPlan(c).name, status: publicPlan(c).comped ? 'comped' : publicPlan(c).trialing ? 'trial' : (c.stripeSubscriptionId && paid.includes(c.subscriptionStatus)) ? 'paying' : 'free', createdAt: c.createdAt, users: c._count.users, projects: c._count.projects, referred: Boolean(c.referredByCode) }));
 
+    // AI spend: every metered action, priced at what it costs us (utils/aicost.cjs)
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const [aiAll, aiMonth, ai30] = await Promise.all([
+      prisma.aiUsage.groupBy({ by: ['feature'], _count: { _all: true } }),
+      prisma.aiUsage.groupBy({ by: ['feature'], where: { createdAt: { gte: monthStart } }, _count: { _all: true } }),
+      prisma.aiUsage.groupBy({ by: ['feature'], where: { createdAt: { gte: d30 } }, _count: { _all: true } }),
+    ]);
+    const priced = (rows) => {
+      const byFeature = {}; let total = 0, actions = 0;
+      for (const r of rows) {
+        const spend = costOf(r.feature) * r._count._all;
+        byFeature[r.feature] = { actions: r._count._all, spend: Math.round(spend * 100) / 100 };
+        total += spend; actions += r._count._all;
+      }
+      return { actions, spend: Math.round(total * 100) / 100, byFeature };
+    };
+    const aiSpend = { allTime: priced(aiAll), thisMonth: priced(aiMonth), last30: priced(ai30) };
+    const mrrRounded = Math.round(mrr * 100) / 100;
+    aiSpend.thisMonth.percentOfMrr = mrrRounded > 0 ? Math.round((aiSpend.thisMonth.spend / mrrRounded) * 1000) / 10 : null;
+
+    // The workspaces costing the most this month
+    const topRows = await prisma.aiUsage.groupBy({ by: ['companyId', 'feature'], where: { createdAt: { gte: monthStart } }, _count: { _all: true } });
+    const byCompany = {};
+    for (const r of topRows) byCompany[r.companyId] = (byCompany[r.companyId] || 0) + costOf(r.feature) * r._count._all;
+    const nameById = Object.fromEntries(companies.map(c => [c.id, c.name]));
+    const topSpenders = Object.entries(byCompany)
+      .map(([id, spend]) => ({ id, name: nameById[id] || 'unknown', spend: Math.round(spend * 100) / 100 }))
+      .sort((a, b) => b.spend - a.spend).slice(0, 8);
+
     res.json({
-      revenue: { mrr: Math.round(mrr * 100) / 100, arr: Math.round(mrr * 12 * 100) / 100, byPlan, paying, cancelling, pastDue, stripe: stripeSummary },
+      revenue: { mrr: mrrRounded, arr: Math.round(mrr * 12 * 100) / 100, byPlan, paying, cancelling, pastDue, stripe: stripeSummary },
+      aiSpend: { ...aiSpend, topSpenders },
       workspaces: { total: companies.length, trialing, comped, free, signups7, signups30, trialsEnded30: trialsEnded30.length, converted30, conversionRate30: trialsEnded30.length ? Math.round((converted30 / trialsEnded30.length) * 100) : null },
       usage: { users, projects, projects7, answers, reviewsSent, referrals },
       recent,

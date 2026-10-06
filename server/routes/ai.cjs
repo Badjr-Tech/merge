@@ -345,8 +345,12 @@ const AI_CAP_OVERRIDE = process.env.AI_MONTHLY_CAP ? Number(process.env.AI_MONTH
 
 function startOfMonth() { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); }
 function startOfDay() { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
+function startOfWeek() { const d = startOfDay(); const back = (d.getDay() + 6) % 7; return new Date(d.getTime() - back * 86400000); } // Monday
 
 // Returns { ok } or { ok: false, status, body } ready to send.
+// Extra AI reviewer runs are purchasable; say the price wherever the limit is reported.
+function extra(rule) { return rule.extraPrice ? ` Extra runs are $${rule.extraPrice.toFixed(2)} each.` : ''; }
+
 async function checkAi(req, feature, opts = {}) {
   const companyId = req.user.companyId;
   if (!companyId) return { ok: false, status: 400, body: { msg: 'You are not attached to a workspace.' } };
@@ -381,20 +385,36 @@ async function checkAi(req, feature, opts = {}) {
   const monthCap = AI_CAP_OVERRIDE !== null && rule.month ? AI_CAP_OVERRIDE : rule.month;
   if (monthCap) {
     const used = await prisma.aiUsage.count({ where: { ...where, createdAt: { gte: startOfMonth() } } });
-    if (used >= monthCap) return { ok: false, status: 429, body: { msg: `Your workspace has used its ${monthCap.toLocaleString()} ${label} actions for this month on ${plan.name}. It resets on the 1st.`, feature, used, cap: monthCap, upgrade: true } };
+    if (used >= monthCap) return { ok: false, status: 429, body: { msg: `Your workspace has used its ${monthCap.toLocaleString()} ${label} actions for this month on ${plan.name}. It resets on the 1st.${extra(rule)}`, feature, used, cap: monthCap, upgrade: true, extraPrice: rule.extraPrice } };
+  }
+  // Burst guard — one account cannot drain the shared pool in an afternoon
+  if (rule.perDayPerUser) {
+    const used = await prisma.aiUsage.count({ where: { ...where, userId: req.user.id, createdAt: { gte: startOfDay() } } });
+    if (used >= rule.perDayPerUser) return { ok: false, status: 429, body: { msg: `You have used ${rule.perDayPerUser} ${label} actions today. This resets at midnight — the workspace's monthly pool is untouched.`, feature, used, cap: rule.perDayPerUser, perUser: true } };
+  }
+  // Per person per month — a heavy writer is bounded without penalising them for having teammates
+  if (rule.monthPerUser) {
+    const used = await prisma.aiUsage.count({ where: { ...where, userId: req.user.id, createdAt: { gte: startOfMonth() } } });
+    if (used >= rule.monthPerUser) {
+      return { ok: false, status: 429, body: { msg: `You have used your ${rule.monthPerUser.toLocaleString()} ${label} actions for this month on ${plan.name}. It resets on the 1st.${extra(rule)}`, feature, used, cap: rule.monthPerUser, perUser: true, extraPrice: rule.extraPrice } };
+    }
   }
   // Per day, whole workspace
   if (rule.perDay) {
     const used = await prisma.aiUsage.count({ where: { ...where, createdAt: { gte: startOfDay() } } });
-    if (used >= rule.perDay) return { ok: false, status: 429, body: { msg: `${label} can run ${rule.perDay} times a day on ${plan.name}, and today's runs are used. It resets at midnight.`, feature, used, cap: rule.perDay } };
+    if (used >= rule.perDay) return { ok: false, status: 429, body: { msg: `${label} can run ${rule.perDay} times a day on ${plan.name}, and today's runs are used. It resets at midnight.${extra(rule)}`, feature, used, cap: rule.perDay, extraPrice: rule.extraPrice } };
+  }
+  // Per calendar week
+  if (rule.perWeek) {
+    const used = await prisma.aiUsage.count({ where: { ...where, createdAt: { gte: startOfWeek() } } });
+    if (used >= rule.perWeek) return { ok: false, status: 429, body: { msg: `${label} runs ${rule.perWeek} times a week on ${plan.name}, and this week's runs are used. It resets Monday.${extra(rule)}`, feature, used, cap: rule.perWeek, extraPrice: rule.extraPrice } };
   }
   // Per day, per grant
   if (rule.perDayPerProject && opts.projectId) {
     const used = await prisma.aiUsage.count({ where: { ...where, projectId: opts.projectId, createdAt: { gte: startOfDay() } } });
     if (used >= rule.perDayPerProject) {
-      const body = { msg: `${label} runs ${rule.perDayPerProject === 1 ? 'once' : `${rule.perDayPerProject} times`} a day per grant on ${plan.name}. This grant's run is used — it resets at midnight.`, feature, used, cap: rule.perDayPerProject };
-      if (rule.extraPrice) body.extraPrice = rule.extraPrice;
-      return { ok: false, status: 429, body };
+      const times = rule.perDayPerProject === 1 ? 'once' : `${rule.perDayPerProject} times`;
+      return { ok: false, status: 429, body: { msg: `${label} runs ${times} a day per grant on ${plan.name}. This grant's run is used — it resets at midnight.${extra(rule)}`, feature, used, cap: rule.perDayPerProject, extraPrice: rule.extraPrice } };
     }
   }
   return { ok: true, plan, rule };
@@ -418,7 +438,10 @@ router.get('/usage', auth, async (req, res) => {
       if (!rule.allowed) { out[feature] = { allowed: false }; continue; }
       const row = { allowed: true, label: AI_FEATURE_LABELS[feature], ...rule };
       if (rule.month) row.usedThisMonth = await prisma.aiUsage.count({ where: { companyId, feature, createdAt: { gte: startOfMonth() } } });
+      if (rule.perDayPerUser) row.usedByYouToday = await prisma.aiUsage.count({ where: { companyId, feature, userId: req.user.id, createdAt: { gte: startOfDay() } } });
+      if (rule.monthPerUser) row.usedByYouThisMonth = await prisma.aiUsage.count({ where: { companyId, feature, userId: req.user.id, createdAt: { gte: startOfMonth() } } });
       if (rule.perDay) row.usedToday = await prisma.aiUsage.count({ where: { companyId, feature, createdAt: { gte: startOfDay() } } });
+      if (rule.perWeek) row.usedThisWeek = await prisma.aiUsage.count({ where: { companyId, feature, createdAt: { gte: startOfWeek() } } });
       if (rule.once || rule.everyDays) {
         const last = await prisma.aiUsage.findFirst({ where: { companyId, feature }, orderBy: { createdAt: 'desc' } });
         row.lastUsedAt = last ? last.createdAt : null;
