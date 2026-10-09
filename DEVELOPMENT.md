@@ -63,6 +63,22 @@ password resets, invitations, approval decisions — must never pass it. The onl
 endpoint answers "Unsubscribed" for an address that does not exist, so it cannot be used to test
 whether someone has an account.
 
+## Owner notifications (added 2026-10-09)
+
+Two emails go to you rather than to users, both to `SIGNUP_NOTIFY` (monthly report prefers
+`OWNER_NOTIFY`), defaulting to dakotah@badjrtech.com:
+
+- **Every signup** — workspace name, person, track, trial plan, referral code, and the running
+  workspace count. `replyTo` is the new user, so replying reaches them. Fire-and-forget: a failure
+  never blocks the signup, and the user still gets their welcome email.
+- **Monthly report**, `/api/cron/monthly-report`, Vercel cron `0 14 1 * *`, covering the month that
+  just ended: MRR and paying count, AI spend and actions, margin after AI, new workspaces split by
+  track, trials ended and converted, totals, grants started, answers submitted, support tickets,
+  AI by feature, and the five costliest workspaces. Numbers come from `utils/monthlyReport.cjs`.
+
+There is no MRR history table, so the report states the current MRR rather than month-over-month
+change.
+
 ## Per-feature AI limits (added 2026-10-06)
 
 Team plans use a **shared pool sized by seats** (`monthPerSeat`), not a hard per-person cap, so a

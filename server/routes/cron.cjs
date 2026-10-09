@@ -170,4 +170,57 @@ router.get('/deadline-reminders', async (req, res) => {
   }
 });
 
+// --- Monthly owner report ------------------------------------------------
+// Runs on the 1st and reports the month that just finished.
+const { monthlySummary } = require('../utils/monthlyReport.cjs');
+const FEATURE = { chat: 'Ask Merge', draft: 'Help me answer this', review: 'AI reviewer', profile: 'Profile import' };
+const money = (n) => `$${(Math.round(n * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+function reportHtml(s, label) {
+  const row = (k, v, note) => `<tr><td style="padding:6px 16px 6px 0;color:#6b6b6e;white-space:nowrap">${k}</td><td style="padding:6px 0;font-weight:600;color:#0b2d65">${v}</td><td style="padding:6px 0 6px 12px;color:#9a9a9e;font-size:13px">${note || ''}</td></tr>`;
+  const feats = Object.entries(s.byFeature).sort((a, b) => b[1].spend - a[1].spend)
+    .map(([k, v]) => `<li>${FEATURE[k] || k}: ${v.actions.toLocaleString()} actions, ${money(v.spend)}</li>`).join('') || '<li>No AI used this month.</li>';
+  const spenders = s.topSpenders.length
+    ? `<p style="margin-top:18px"><strong>Costliest workspaces</strong></p><ul>${s.topSpenders.map(w => `<li>${w.name}: ${money(w.spend)}</li>`).join('')}</ul>`
+    : '';
+  return `<p>Here is how ${label} went.</p>
+<table style="font-size:14px;border-collapse:collapse">
+${row('Monthly recurring', money(s.mrr), `${s.paying} paying`)}
+${row('AI spend', money(s.aiSpend), `${s.aiActions.toLocaleString()} actions`)}
+${row('Margin after AI', money(s.marginAfterAi), s.mrr > 0 ? `${Math.round((s.aiSpend / s.mrr) * 1000) / 10}% of MRR went to AI` : '')}
+${row('New workspaces', s.newWorkspaces, `${s.newWriter} writer · ${s.newTeam} organization${s.referred ? ` · ${s.referred} referred` : ''}`)}
+${row('Trials ended', s.endedTrials, s.conversionRate === null ? 'none' : `${s.converted} converted (${s.conversionRate}%)`)}
+${row('Workspaces total', s.totalWorkspaces, `${s.trialing} on trial · ${s.free} free · ${s.comped} comped`)}
+${row('Grants started', s.projects, `${s.answers.toLocaleString()} answers submitted`)}
+${row('Support tickets', s.tickets, '')}
+</table>
+<p style="margin-top:18px"><strong>AI by feature</strong></p><ul>${feats}</ul>${spenders}
+<p style="font-size:12px;color:#9a9a9e">AI spend is priced from measured token counts at Gemini rates — our estimate, not a Google invoice.</p>`;
+}
+
+async function runMonthlyReport(now) {
+  const monthEnd = new Date(now.getFullYear(), now.getMonth(), 1);          // start of the current month
+  const monthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);    // start of the one that just ended
+  const label = monthStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const s = await monthlySummary(monthStart, monthEnd);
+  const to = process.env.OWNER_NOTIFY || process.env.SIGNUP_NOTIFY || 'dakotah@badjrtech.com';
+  await sendEmail({
+    to,
+    subject: `Merge in ${label}: ${money(s.mrr)} MRR, ${s.newWorkspaces} new workspace${s.newWorkspaces === 1 ? '' : 's'}`,
+    html: layout(`Merge · ${label}`, reportHtml(s, label) + button(appUrl('/app/staff/overview'), 'Open the overview')),
+    text: `Merge in ${label}\nMRR ${money(s.mrr)} (${s.paying} paying)\nAI spend ${money(s.aiSpend)} over ${s.aiActions} actions\nMargin after AI ${money(s.marginAfterAi)}\nNew workspaces ${s.newWorkspaces}\nTrials ended ${s.endedTrials}, converted ${s.converted}\nGrants started ${s.projects}, answers ${s.answers}`,
+  });
+  return { month: label, ...s };
+}
+
+router.get('/monthly-report', async (req, res) => {
+  if (!authorized(req)) return res.status(401).json({ msg: 'Unauthorized' });
+  try {
+    res.json(await runMonthlyReport(new Date()));
+  } catch (err) {
+    console.error('Monthly report error:', err);
+    res.status(500).json({ msg: 'Cron failed' });
+  }
+});
+
 module.exports = router;

@@ -107,6 +107,22 @@ router.post('/signup', rateLimit({ max: 5 }), honeypot, async (req, res) => {
       html: layout(`Welcome, ${name.trim().split(' ')[0]}!`, `<p>Your workspace <strong>${companyName.trim()}</strong> is ready, and you have full ${PLANS[TRIAL_PLAN_BY_KIND[kind]].name} access for the next ${TRIAL_DAYS} days.</p><p>Three things to do first:</p><ol><li>Create a project from a grant application.</li><li>Fill in your organization profile under Settings so Ask Merge writes in your voice.</li>${kind === 'team' ? '<li>Invite a teammate from the Team page.</li>' : '<li>Add a past proposal so the answer bank has something to suggest.</li>'}</ol>${button(appUrl('/app'), 'Open Merge')}`),
       text: `Welcome to Merge. Your ${TRIAL_DAYS}-day trial has started. Open Merge: ${appUrl('/app')}`,
     }).catch(() => {});
+    // Tell us about every new workspace. Internal only — never blocks the signup.
+    (async () => {
+      const [workspaces, planName] = await Promise.all([
+        prisma.company.count(),
+        Promise.resolve(PLANS[TRIAL_PLAN_BY_KIND[kind]].name),
+      ]);
+      const esc = (t) => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+      await sendEmail({
+        to: (process.env.SIGNUP_NOTIFY || 'dakotah@badjrtech.com'),
+        replyTo: email,
+        subject: `New Merge signup: ${companyName.trim()}`,
+        html: layout('New signup', `<p><strong>${esc(companyName.trim())}</strong> just signed up.</p><table style="font-size:14px"><tr><td style="padding:2px 12px 2px 0;color:#6b6b6e">Person</td><td>${esc(name.trim())} &lt;${esc(email)}&gt;</td></tr><tr><td style="padding:2px 12px 2px 0;color:#6b6b6e">Track</td><td>${kind === 'team' ? 'Organization' : 'Grant writer'}</td></tr><tr><td style="padding:2px 12px 2px 0;color:#6b6b6e">Trial</td><td>${planName}, ${TRIAL_DAYS} days</td></tr><tr><td style="padding:2px 12px 2px 0;color:#6b6b6e">Referred by</td><td>${req.body.ref ? esc(String(req.body.ref).slice(0, 40)) : 'nobody'}</td></tr><tr><td style="padding:2px 12px 2px 0;color:#6b6b6e">Workspaces now</td><td>${workspaces}</td></tr></table><p style="font-size:13px;color:#6b6b6e">Reply to this email to reach them directly.</p>${button(appUrl('/app/staff'), 'Open the staff console')}`),
+        text: `New Merge signup: ${companyName.trim()}\n${name.trim()} <${email}>\n${kind === 'team' ? 'Organization' : 'Grant writer'} track, ${planName} trial\nWorkspaces now: ${workspaces}`,
+      });
+    })().catch(err => console.error('Signup notice failed:', err.message));
+
     if (req.body.ref) require('./referrals.cjs').recordReferral(user.companyId, String(req.body.ref).slice(0, 40)).catch(() => {});
     res.json({ token: signToken(user), user: publicUser(user) });
   } catch (err) {
