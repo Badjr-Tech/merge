@@ -151,6 +151,63 @@ async function notifyAssigned({ projectId, assignedToId, byUserId, questionIds }
   } catch (err) { console.error('Assignment notice failed:', err.message); }
 }
 
+
+// An answer was sent back for changes. The owner already hears about approvals; the person who
+// actually has to redo the work should hear too.
+async function notifyReopened({ question, byUserId }) {
+  const [user, byUser, project] = await Promise.all([
+    prisma.user.findUnique({ where: { id: question.assignedToId }, select: { id: true, companyId: true, email: true, name: true, username: true, assignmentEmails: true } }),
+    prisma.user.findUnique({ where: { id: byUserId }, select: { name: true, username: true, email: true } }),
+    prisma.project.findUnique({ where: { id: question.projectId }, select: { id: true, name: true, companyId: true, deadlineDate: true } }),
+  ]);
+  if (!user || !project) return;
+  const esc = (t) => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const who = byUser ? (byUser.name || byUser.username) : 'Someone';
+  const q = question.text.length > 160 ? `${question.text.slice(0, 157)}…` : question.text;
+  await notify({
+    user, companyId: project.companyId, type: 'reopened',
+    title: `${who} reopened your answer`,
+    body: `${project.name} · ${q}`,
+    link: `/app/projects/${project.id}?open=${question.id}`,
+    list: 'assignments',
+    replyTo: byUser && byUser.email,
+    email: {
+      subject: `${who} sent your answer back on "${project.name}"`,
+      because: 'an answer you wrote was sent back for changes',
+      html: layout('An answer needs another look', `<p>Hi ${esc(user.name || user.username)},</p><p>${esc(who)} reopened your answer on <strong>${esc(project.name)}</strong>:</p><blockquote style="border-left:3px solid #7fab61;margin:12px 0;padding:6px 12px">${esc(q)}</blockquote>${project.deadlineDate ? `<p>The grant is due <strong>${new Date(project.deadlineDate).toDateString()}</strong>.</p>` : ''}${button(appUrl(`/app/projects/${project.id}?open=${question.id}`), 'Open the question')}`),
+      text: `${who} sent your answer back on "${project.name}": ${q}\n\n${appUrl(`/app/projects/${project.id}?open=${question.id}`)}`,
+    },
+  });
+}
+
+// A grant was marked complete. Everyone who wrote part of it should hear.
+async function notifyCompleted({ projectId, byUserId }) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { id: true, name: true, companyId: true, ownerId: true, questions: { select: { assignedToId: true } } },
+  });
+  if (!project) return;
+  const byUser = await prisma.user.findUnique({ where: { id: byUserId }, select: { name: true, username: true } });
+  const who = byUser ? (byUser.name || byUser.username) : 'Someone';
+  const ids = [...new Set([project.ownerId, ...project.questions.map(q => q.assignedToId)].filter(id => id && id !== byUserId))];
+  if (!ids.length) return;
+  const people = await prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, companyId: true, email: true, name: true, username: true, assignmentEmails: true } });
+  const esc = (t) => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  await Promise.all(people.map(user => notify({
+    user, companyId: project.companyId, type: 'completed',
+    title: `${project.name} is complete`,
+    body: `${who} marked it done. It is in Past proposals now.`,
+    link: '/app/past-proposals',
+    list: 'assignments',
+    email: {
+      subject: `"${project.name}" is finished`,
+      because: 'you worked on this grant',
+      html: layout('That one is done', `<p>Hi ${esc(user.name || user.username)},</p><p>${esc(who)} marked <strong>${esc(project.name)}</strong> complete. Thanks for your part in it.</p><p>It now lives in Past proposals, and every answer in it is searchable in the answer bank for the next application.</p>${button(appUrl('/app/past-proposals'), 'See past proposals')}`),
+      text: `${who} marked "${project.name}" complete. It is in Past proposals now: ${appUrl('/app/past-proposals')}`,
+    },
+  })));
+}
+
 // When the last answer is submitted, tell the owner and approvers the project is ready to merge (once).
 async function notifyIfComplete(projectId, byUserId) {
   const project = await prisma.project.findUnique({ where: { id: projectId }, include: { questions: { select: { status: true } }, owner: { select: { id: true, companyId: true, email: true, name: true, username: true } }, company: { select: { name: true } } } });
@@ -996,6 +1053,8 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(401).json({ msg: 'User not authorized to update this project' });
     }
 
+    const wasCompleted = project.isCompleted;
+
     // Create a snapshot before updating
     const latestVersion = await prisma.projectVersion.findMany({
       where: { projectId: project.id },
@@ -1024,6 +1083,7 @@ router.put('/:id', auth, async (req, res) => {
         isCompleted: typeof isCompleted === 'boolean' ? isCompleted : project.isCompleted, // Update isCompleted
       },
     });
+    if (isCompleted === true && !wasCompleted) notifyCompleted({ projectId: project.id, byUserId: req.user.id }).catch(() => {});
     res.json(project);
   } catch (err) {
     console.error(err.message);
@@ -1653,6 +1713,7 @@ router.put('/questions/:questionId', auth, async (req, res) => {
       return res.status(401).json({ msg: 'Not authorized to update this question' });
     }
 
+    const wasSubmitted = question.status === 'submitted';
     const updatedData = {};
     if (answer !== undefined) {
       updatedData.answer = answer;
@@ -1678,6 +1739,10 @@ router.put('/questions/:questionId', auth, async (req, res) => {
       data: updatedData,
     });
 
+    // Sent back for changes: the writer needs to know, not just the owner.
+    if (wasSubmitted && status && status !== 'submitted' && question.assignedToId && question.assignedToId !== req.user.id) {
+      notifyReopened({ question, byUserId: req.user.id }).catch(() => {});
+    }
     if (status === 'submitted') notifyIfComplete(question.projectId, req.user.id).catch(() => {});
     if (status && status !== 'submitted') prisma.project.findUnique({ where: { id: question.projectId }, select: { details: true, status: true } }).then(p => { if (p && (p.details || {}).readyNotifiedAt) { const d = { ...(p.details || {}) }; delete d.readyNotifiedAt; return prisma.project.update({ where: { id: question.projectId }, data: { details: d, status: p.status } }); } return null; }).catch(() => {});
     res.json(question);
