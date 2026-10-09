@@ -63,6 +63,23 @@ password resets, invitations, approval decisions — must never pass it. The onl
 endpoint answers "Unsubscribed" for an address that does not exist, so it cannot be used to test
 whether someone has an account.
 
+## User notifications (added 2026-10-09)
+
+**Assignment** — `notifyAssigned()` in `routes/projects.cjs` emails whoever a question is now
+assigned to, from all four paths: creating a project with assignees, adding a question, changing
+the assignee, and `PUT /api/projects/:id/assign-section`. That last one exists so assigning a whole
+section is a single call and therefore a single email listing the questions, instead of one per
+question. It never emails the person doing the assigning, never fires when the assignee has not
+changed, and respects `User.assignmentEmails` (Settings → Profile, plus the `assignments`
+unsubscribe list).
+
+**Approval requested** — the approver is now emailed when someone asks for their approval. Before
+this the request sat unseen until they happened to log in.
+
+Already in place: welcome, invitation, password reset, "all answers are in" to the owner and
+approvers, approval decision to the owner, review-link requests and responses, trial reminders,
+and deadline reminders at 30/14/7/3/1 days and on the day.
+
 ## Owner notifications (added 2026-10-09)
 
 Two emails go to you rather than to users, both to `SIGNUP_NOTIFY` (monthly report prefers

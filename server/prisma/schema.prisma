@@ -19,6 +19,7 @@ model User {
   role               Role                    @default(viewer)
   companyId          String?
   deadlineEmails     Boolean                 @default(true) // deadline reminder emails for projects they own or have open questions on
+  assignmentEmails   Boolean                 @default(true) // told by email when a question is assigned to them
   aiReviewLogs       AIReviewLog[]
   assignedApprovals  ApprovalRequest[]       @relation("AssignedApprovals")
   requestedApprovals ApprovalRequest[]       @relation("RequestedApprovals")

@@ -5,7 +5,7 @@ const prisma = require('../utils/prisma.cjs');
 const { requireFeature, planFor, hasFeature } = require('../utils/plans.cjs');
 const { sanitizeHtml } = require('../utils/sanitize.cjs');
 const crypto = require('crypto');
-const { sendEmail, appUrl, layout, button } = require('../utils/email.cjs');
+const { sendEmail, appUrl, layout, button, unsubscribeFooter } = require('../utils/email.cjs');
 
 router.get('/test-route', (req, res) => {
   res.send('Projects test route is working!');
@@ -110,6 +110,39 @@ async function mergeNarrative(projectId, userId) {
 }
 
 
+
+// Tell someone a question (or a batch of them) is now theirs. Batched on purpose: assigning a whole
+// section should be one email listing the questions, not one per question.
+async function notifyAssigned({ projectId, assignedToId, byUserId, questionIds }) {
+  try {
+    if (!assignedToId || assignedToId === byUserId) return;              // nobody emails themselves
+    const [user, byUser, project, questions] = await Promise.all([
+      prisma.user.findUnique({ where: { id: assignedToId }, select: { email: true, name: true, username: true, assignmentEmails: true } }),
+      byUserId ? prisma.user.findUnique({ where: { id: byUserId }, select: { name: true, username: true } }) : null,
+      prisma.project.findUnique({ where: { id: projectId }, select: { id: true, name: true, deadlineDate: true } }),
+      prisma.question.findMany({ where: { id: { in: questionIds } }, select: { id: true, text: true, maxLimit: true, limitUnit: true, type: true, section: true } }),
+    ]);
+    if (!user || user.assignmentEmails === false || !project || !questions.length) return;
+    const esc = (t) => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    const who = byUser ? (byUser.name || byUser.username) : 'Someone';
+    const n = questions.length;
+    const due = project.deadlineDate
+      ? `<p>The grant is due <strong>${new Date(project.deadlineDate).toDateString()}</strong>.</p>` : '';
+    const list = `<ul>${questions.slice(0, 12).map(q => {
+      const lim = q.maxLimit ? ` <span style="color:#9a9a9e">(${q.maxLimit} ${(q.limitUnit || 'words').startsWith('char') ? 'characters' : 'words'})</span>` : '';
+      const kind = q.type === 'upload' ? ' <span style="color:#9a9a9e">— upload a file</span>' : '';
+      return `<li>${q.section ? `<span style="color:#9a9a9e">${esc(q.section)} · </span>` : ''}${esc(q.text.length > 140 ? `${q.text.slice(0, 137)}…` : q.text)}${lim}${kind}</li>`;
+    }).join('')}</ul>${n > 12 ? `<p>…and ${n - 12} more.</p>` : ''}`;
+    await sendEmail({
+      to: user.email,
+      subject: n === 1 ? `${who} assigned you a question on "${project.name}"` : `${who} assigned you ${n} questions on "${project.name}"`,
+      html: layout(n === 1 ? 'A question is yours' : `${n} questions are yours`, `<p>Hi ${esc(user.name || user.username)},</p><p>${esc(who)} assigned you ${n === 1 ? 'a question' : `${n} questions`} on <strong>${esc(project.name)}</strong>.</p>${due}${list}${button(appUrl('/app/tasks'), 'Open my tasks')}${unsubscribeFooter(user.email, 'assignments', 'a question on a grant was assigned to you')}`),
+      text: `${who} assigned you ${n === 1 ? 'a question' : `${n} questions`} on "${project.name}".${project.deadlineDate ? ` Due ${new Date(project.deadlineDate).toDateString()}.` : ''}\n\n${questions.slice(0, 12).map(q => `- ${q.text}`).join('\n')}\n\n${appUrl('/app/tasks')}`,
+      unsubscribe: { email: user.email, list: 'assignments' },
+    });
+  } catch (err) { console.error('Assignment notice failed:', err.message); }
+}
+
 // When the last answer is submitted, tell the owner and approvers the project is ready to merge (once).
 async function notifyIfComplete(projectId, byUserId) {
   const project = await prisma.project.findUnique({ where: { id: projectId }, include: { questions: { select: { status: true } }, owner: { select: { id: true, email: true, name: true, username: true } }, company: { select: { name: true } } } });
@@ -168,6 +201,9 @@ router.post('/', auth, async (req, res) => {
     });
     const logs = project.questions.filter(q => q.assignedToId).map(q => ({ questionId: q.id, assignedById: req.user.id, assignedToId: q.assignedToId }));
     if (logs.length) await prisma.questionAssignmentLog.createMany({ data: logs });
+    for (const assignee of [...new Set(logs.map(l => l.assignedToId))]) {
+      notifyAssigned({ projectId: project.id, assignedToId: assignee, byUserId: req.user.id, questionIds: logs.filter(l => l.assignedToId === assignee).map(l => l.questionId) });
+    }
     res.json(project);
   } catch (err) {
     console.error('Create project error:', err);
@@ -1257,6 +1293,21 @@ router.post('/:id/request-approval', auth, async (req, res) => {
       },
     });
 
+    // Tell the approver — without this the request sits unseen until they happen to log in.
+    (async () => {
+      const requester = await prisma.user.findUnique({ where: { id: req.user.id }, select: { name: true, username: true, email: true } });
+      const who = requester ? (requester.name || requester.username) : 'Someone';
+      const esc = (t) => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+      const due = project.deadlineDate ? `<p>The grant is due <strong>${new Date(project.deadlineDate).toDateString()}</strong>.</p>` : '';
+      await sendEmail({
+        to: approver.email,
+        replyTo: requester && requester.email,
+        subject: `${who} asked you to approve "${project.name}"`,
+        html: layout('A proposal needs your approval', `<p>Hi ${esc(approver.name || approver.username)},</p><p>${esc(who)} finished <strong>${esc(project.name)}</strong> and asked for your approval. All ${total} answer${total === 1 ? ' is' : 's are'} submitted.</p>${due}<p>Read it through, then approve it or send it back with notes on the questions that need work.</p>${button(appUrl(`/app/projects/${project.id}`), 'Review the proposal')}`),
+        text: `${who} asked you to approve "${project.name}". All ${total} answers are submitted.${project.deadlineDate ? ` Due ${new Date(project.deadlineDate).toDateString()}.` : ''}\n\n${appUrl(`/app/projects/${project.id}`)}`,
+      });
+    })().catch(err => console.error('Approval notice failed:', err.message));
+
     res.json({ msg: 'Approval request sent', approvalRequest });
   } catch (err) {
     console.error(err.message);
@@ -1791,6 +1842,7 @@ router.post('/:projectId/questions', auth, async (req, res) => {
     });
     if (assignedToId) {
       await prisma.questionAssignmentLog.create({ data: { questionId: question.id, assignedById: req.user.id, assignedToId } });
+      notifyAssigned({ projectId: project.id, assignedToId, byUserId: req.user.id, questionIds: [question.id] });
     }
     res.json(question);
   } catch (err) {
@@ -1808,6 +1860,7 @@ router.put('/questions/:id/details', auth, async (req, res) => {
     if (!question || question.project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Question not found' });
     if (question.project.ownerId !== req.user.id && req.user.role !== 'admin') return res.status(401).json({ msg: 'Not authorized' });
     const data = {};
+    let newAssignee = null;
     if (text !== undefined) data.text = text;
     if (section !== undefined) data.section = section ? String(section).trim().slice(0, 200) || null : null;
     if (type !== undefined) data.type = type === 'upload' ? 'upload' : 'text';
@@ -1818,13 +1871,43 @@ router.put('/questions/:id/details', auth, async (req, res) => {
       if (assignedToId && assignedToId !== question.assignedToId) {
         await prisma.questionAssignmentLog.create({ data: { questionId: question.id, assignedById: req.user.id, assignedToId } });
         if (question.status === 'submitted') data.status = 'pending';
+        newAssignee = assignedToId;
       }
     }
     const updated = await prisma.question.update({ where: { id: question.id }, data, include: { assignedTo: { select: { id: true, username: true, name: true } } } });
+    if (newAssignee) notifyAssigned({ projectId: question.projectId, assignedToId: newAssignee, byUserId: req.user.id, questionIds: [question.id] });
     res.json(updated);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
+  }
+});
+
+// @route   PUT api/projects/:id/assign-section
+// @desc    Assign every question in one section to a person (owner or admin). One call, one email.
+router.put('/:id/assign-section', auth, async (req, res) => {
+  const { section, assignedToId } = req.body;
+  try {
+    const project = await prisma.project.findUnique({ where: { id: req.params.id }, select: { id: true, companyId: true, ownerId: true } });
+    if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
+    if (project.ownerId !== req.user.id && req.user.role !== 'admin') return res.status(401).json({ msg: 'Not authorized' });
+    if (assignedToId) {
+      const target = await prisma.user.findUnique({ where: { id: assignedToId }, select: { companyId: true } });
+      if (!target || target.companyId !== req.user.companyId) return res.status(400).json({ msg: 'That person is not in this workspace.' });
+    }
+    const where = { projectId: project.id, section: section ? String(section) : null };
+    const questions = await prisma.question.findMany({ where, select: { id: true, assignedToId: true } });
+    if (!questions.length) return res.json({ assigned: 0 });
+    const changed = questions.filter(q => q.assignedToId !== (assignedToId || null));
+    await prisma.question.updateMany({ where: { id: { in: changed.map(q => q.id) } }, data: { assignedToId: assignedToId || null } });
+    if (assignedToId && changed.length) {
+      await prisma.questionAssignmentLog.createMany({ data: changed.map(q => ({ questionId: q.id, assignedById: req.user.id, assignedToId })) });
+      notifyAssigned({ projectId: project.id, assignedToId, byUserId: req.user.id, questionIds: changed.map(q => q.id) });
+    }
+    res.json({ assigned: changed.length });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ msg: 'Server error' });
   }
 });
 

@@ -269,11 +269,11 @@ export default function ProjectDetail() {
   };
   const assignSection = async (section, userId) => {
     if (!userId) return;
-    const targets = project.questions.filter(x => (x.section || '') === (section || ''));
     setBusy(true);
     try {
-      await Promise.all(targets.map(x => api.put(`/api/projects/questions/${x.id}/details`, { assignedToId: userId })));
-      toast.success(`Assigned ${targets.length} question${targets.length === 1 ? '' : 's'} to ${displayName(users.find(u => u.id === userId))}.`);
+      // One call so the assignee gets a single email listing the section, not one per question.
+      const r = await api.put(`/api/projects/${id}/assign-section`, { section: section || null, assignedToId: userId });
+      toast.success(`Assigned ${r.data.assigned} question${r.data.assigned === 1 ? '' : 's'} to ${displayName(users.find(u => u.id === userId))}.`);
       load();
     } catch (err) { toast.error(errorMessage(err)); } finally { setBusy(false); }
   };

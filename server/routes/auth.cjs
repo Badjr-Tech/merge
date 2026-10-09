@@ -41,6 +41,7 @@ function publicUser(user) {
     role: user.role,
     companyId: user.companyId,
     deadlineEmails: user.deadlineEmails,
+    assignmentEmails: user.assignmentEmails,
     company: user.company ? { id: user.company.id, name: user.company.name } : null,
     createdAt: user.createdAt,
   };
@@ -184,11 +185,12 @@ router.get('/', auth, async (req, res) => {
 
 // PUT /api/auth/profile
 router.put('/profile', auth, async (req, res) => {
-  const { name, deadlineEmails } = req.body;
+  const { name, deadlineEmails, assignmentEmails } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ msg: 'Name is required.' });
   try {
     const data = { name: name.trim() };
     if (deadlineEmails !== undefined) data.deadlineEmails = Boolean(deadlineEmails);
+    if (assignmentEmails !== undefined) data.assignmentEmails = Boolean(assignmentEmails);
     const user = await prisma.user.update({ where: { id: req.user.id }, data, include: { company: true } });
     res.json({ user: publicUser(user), token: signToken(user) });
   } catch (err) {

@@ -8,6 +8,7 @@ const { unsubscribeToken } = require('../utils/email.cjs');
 // for the native "Unsubscribe" button (RFC 8058 List-Unsubscribe-Post).
 const LISTS = {
   deadlines: { field: 'deadlineEmails', label: 'deadline reminders' },
+  assignments: { field: 'assignmentEmails', label: 'emails about questions assigned to you' },
 };
 
 function page(title, body) {

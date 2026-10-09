@@ -70,6 +70,7 @@ export default function Settings() {
   };
   const [name, setName] = useState(user?.name || '');
   const [deadlineEmails, setDeadlineEmails] = useState(user?.deadlineEmails !== false);
+  const [assignmentEmails, setAssignmentEmails] = useState(user?.assignmentEmails !== false);
   const [company, setCompany] = useState(null);
   const [companyName, setCompanyName] = useState('');
   const [pw, setPw] = useState({ oldPassword: '', newPassword: '', confirmNewPassword: '' });
@@ -98,7 +99,7 @@ export default function Settings() {
 
   const saveProfile = async () => {
     setBusy('profile');
-    try { const res = await api.put('/api/auth/profile', { name, deadlineEmails }); localStorage.setItem('token', res.data.token); updateUser(res.data.user); toast.success('Profile saved.'); }
+    try { const res = await api.put('/api/auth/profile', { name, deadlineEmails, assignmentEmails }); localStorage.setItem('token', res.data.token); updateUser(res.data.user); toast.success('Profile saved.'); }
     catch (err) { toast.error(errorMessage(err)); } finally { setBusy(''); }
   };
   const saveCompany = async () => {
@@ -154,6 +155,10 @@ export default function Settings() {
         <label className="row" style={{ gap: 8, alignItems: 'flex-start', marginTop: 4 }}>
           <input type="checkbox" checked={deadlineEmails} onChange={e => setDeadlineEmails(e.target.checked)} style={{ marginTop: 3 }} />
           <span className="small">Email me when a grant is coming due<span className="tiny muted" style={{ display: 'block' }}>30, 14, 7, 3, and 1 day before the deadline, and on the day — for grants you own or have open questions on.</span></span>
+        </label>
+        <label className="row" style={{ gap: 8, alignItems: 'flex-start', marginTop: 8 }}>
+          <input type="checkbox" checked={assignmentEmails} onChange={e => setAssignmentEmails(e.target.checked)} style={{ marginTop: 3 }} />
+          <span className="small">Email me when a question is assigned to me<span className="tiny muted" style={{ display: 'block' }}>One email per assignment, or one listing the lot when a whole section comes your way.</span></span>
         </label>
         <div className="form-actions"><Button onClick={saveProfile} loading={busy === 'profile'} disabled={!name.trim()}>Save profile</Button></div>
       </Card>
