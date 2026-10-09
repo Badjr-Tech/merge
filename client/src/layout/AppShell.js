@@ -101,6 +101,9 @@ export default function AppShell() {
           {plan?.trialing && !plan.staff && (
             <Link to="/app/settings#plan" className="trial-pill">{plan.name} trial · {plan.trialDaysLeft} day{plan.trialDaysLeft === 1 ? '' : 's'} left · Choose a plan</Link>
           )}
+          {plan?.pilot && (
+            <Link to="/app/settings#plan" className="trial-pill">{plan.name} pilot · {plan.pilotDaysLeft} day{plan.pilotDaysLeft === 1 ? '' : 's'} left · then {plan.pilotRevertsToName}</Link>
+          )}
           {plan?.trialExpired && plan.key === 'free' && (
             <Link to="/app/settings#plan" className="trial-pill ended">Trial ended · you're on Free · See plans</Link>
           )}

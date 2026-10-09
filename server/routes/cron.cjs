@@ -3,7 +3,7 @@ const router = express.Router();
 const prisma = require('../utils/prisma.cjs');
 const { sendEmail, appUrl, layout, button, unsubscribeFooter } = require('../utils/email.cjs');
 const { notify } = require('../utils/notify.cjs');
-const { TRIAL_PLAN_BY_KIND } = require('../utils/plans.cjs');
+const { TRIAL_PLAN_BY_KIND, PLANS } = require('../utils/plans.cjs');
 const TRIAL_PLANS = Object.values(TRIAL_PLAN_BY_KIND);
 
 // Vercel Cron calls this daily (see server/vercel.json). Protected by CRON_SECRET.
@@ -175,6 +175,62 @@ router.get('/deadline-reminders', async (req, res) => {
     console.error('Deadline reminder cron error:', err);
     res.status(500).json({ msg: 'Cron failed' });
   }
+});
+
+// --- Pilots ---------------------------------------------------------------
+// Warn a week out, then land the workspace on the plan the pilot was set to revert to. A workspace
+// with a live subscription keeps that plan; one without is moved to Free and asked to pick, since
+// we cannot charge a card we do not have.
+async function runPilots(now) {
+  const soon = new Date(now.getTime() + 7 * 864e5);
+  let warned = 0, ended = 0;
+
+  const warnDue = await prisma.company.findMany({
+    where: { pilotEndsAt: { gt: now, lte: soon }, pilotWarnedAt: null },
+    select: { id: true, name: true, pilotEndsAt: true, pilotPlan: true, pilotRevertsTo: true },
+  });
+  for (const c of warnDue) {
+    const next = PLANS[c.pilotRevertsTo || 'free'] || PLANS.free;
+    for (const a of await adminsOf(c.id)) {
+      await sendEmail({
+        to: a.email,
+        subject: `Your Merge pilot ends ${new Date(c.pilotEndsAt).toDateString()}`,
+        html: layout('Your pilot is nearly up', `<p>Hi ${a.name || a.username}, the free pilot for <strong>${c.name}</strong> ends on ${new Date(c.pilotEndsAt).toDateString()}.</p><p>After that the workspace moves to <strong>${next.name}</strong>${next.price ? ` at $${next.price}${next.per === 'person' ? ' per person' : ''} a month` : ''}. Everything you have written stays exactly where it is.</p><p>Add a card before then and nothing changes for your team.</p>${button(appUrl('/app/settings#plan'), 'Set up billing')}`),
+        text: `The free pilot for ${c.name} ends ${new Date(c.pilotEndsAt).toDateString()}. It then moves to ${next.name}. Set up billing: ${appUrl('/app/settings#plan')}`,
+      });
+    }
+    await prisma.company.update({ where: { id: c.id }, data: { pilotWarnedAt: now } });
+    warned += 1;
+  }
+
+  const endDue = await prisma.company.findMany({
+    where: { pilotEndsAt: { lte: now }, pilotEndedAt: null },
+    select: { id: true, name: true, pilotRevertsTo: true, stripeSubscriptionId: true, subscriptionStatus: true },
+  });
+  for (const c of endDue) {
+    const hasSub = c.stripeSubscriptionId && ['active', 'trialing', 'past_due'].includes(c.subscriptionStatus);
+    const target = hasSub && PLANS[c.pilotRevertsTo] ? c.pilotRevertsTo : 'free';
+    const next = PLANS[target];
+    await prisma.company.update({ where: { id: c.id }, data: { plan: target, pilotEndsAt: null, pilotPlan: null, pilotRevertsTo: null, pilotEndedAt: now, compedUntil: null } });
+    for (const a of await adminsOf(c.id)) {
+      await sendEmail({
+        to: a.email,
+        subject: hasSub ? `Your Merge pilot has ended — you're on ${next.name}` : 'Your Merge pilot has ended',
+        html: layout('Your pilot has ended', hasSub
+          ? `<p>Hi ${a.name || a.username}, the pilot for <strong>${c.name}</strong> is over and the workspace is now on <strong>${next.name}</strong>. Billing picks up from here.</p><p>Nothing you wrote has changed.</p>${button(appUrl('/app/settings#plan'), 'See your plan')}`
+          : `<p>Hi ${a.name || a.username}, the pilot for <strong>${c.name}</strong> is over. There is no card on the account, so the workspace is on the Free plan for now.</p><p>Everything you wrote is still there. Pick a plan whenever you are ready and your team picks up exactly where it left off.</p>${button(appUrl('/app/settings#plan'), 'Choose a plan')}`),
+        text: hasSub ? `The pilot for ${c.name} has ended. The workspace is now on ${next.name}.` : `The pilot for ${c.name} has ended and the workspace is on the Free plan. Choose a plan: ${appUrl('/app/settings#plan')}`,
+      });
+    }
+    ended += 1;
+  }
+  return { warned, ended };
+}
+
+router.get('/pilots', async (req, res) => {
+  if (!authorized(req)) return res.status(401).json({ msg: 'Unauthorized' });
+  try { res.json(await runPilots(new Date())); }
+  catch (err) { console.error('Pilot cron error:', err); res.status(500).json({ msg: 'Cron failed' }); }
 });
 
 // --- Monthly owner report ------------------------------------------------

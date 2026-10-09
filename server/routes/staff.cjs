@@ -22,41 +22,45 @@ router.get('/workspaces', auth, async (req, res) => {
     const rows = await prisma.company.findMany({
       where: q ? { OR: [{ name: { contains: q, mode: 'insensitive' } }, { users: { some: { email: { contains: q, mode: 'insensitive' } } } }] } : {},
       orderBy: { createdAt: 'desc' }, take: 30,
-      select: { id: true, name: true, kind: true, plan: true, trialEndsAt: true, compedUntil: true, isStaff: true, compNote: true, createdAt: true, stripeSubscriptionId: true, users: { where: { role: 'admin' }, select: { email: true, name: true }, take: 3 }, _count: { select: { users: true, projects: true } } },
+      select: { id: true, name: true, kind: true, plan: true, trialEndsAt: true, compedUntil: true, pilotEndsAt: true, pilotPlan: true, pilotRevertsTo: true, isStaff: true, compNote: true, createdAt: true, stripeSubscriptionId: true, users: { where: { role: 'admin' }, select: { email: true, name: true }, take: 3 }, _count: { select: { users: true, projects: true } } },
     });
     res.json(rows.map(r => ({ ...r, planInfo: publicPlan(r) })));
   } catch (err) { res.status(500).json({ msg: 'Server error' }); }
 });
 
-// POST /api/staff/workspaces/:id/comp  { plan, months, note }  — months 0 = remove comp
-router.post('/workspaces/:id/comp', auth, async (req, res) => {
+// POST /api/staff/workspaces/:id/pilot  { plan, months, revertsTo, note }  — months 0 ends the pilot
+// A pilot is free full access for a set period that then lands the workspace on a named plan.
+router.post('/workspaces/:id/pilot', auth, async (req, res) => {
   if (!isStaff(req)) return res.status(403).json({ msg: 'Staff only.' });
-  const plan = String(req.body.plan || '');
+  const { plan, note } = req.body;
   const months = Number(req.body.months);
-  const note = req.body.note ? String(req.body.note).slice(0, 300) : null;
+  const revertsTo = req.body.revertsTo || 'free';
   try {
-    const c = await prisma.company.findUnique({ where: { id: req.params.id }, select: { id: true, kind: true } });
+    const c = await prisma.company.findUnique({ where: { id: req.params.id }, select: { id: true, kind: true, name: true } });
     if (!c) return res.status(404).json({ msg: 'Workspace not found.' });
-    if (months === 0) {
-      const u = await prisma.company.update({ where: { id: c.id }, data: { compedUntil: null, compNote: null }, select: { id: true, name: true, plan: true, kind: true, trialEndsAt: true, compedUntil: true, isStaff: true } });
-      return res.json({ msg: 'Comp removed.', planInfo: publicPlan(u) });
+
+    if (!months) {
+      const u = await prisma.company.update({ where: { id: c.id }, data: { pilotEndsAt: null, pilotPlan: null, pilotRevertsTo: null, pilotWarnedAt: null, compedUntil: null, compNote: null }, select: { id: true, name: true, plan: true, kind: true, trialEndsAt: true, compedUntil: true, pilotEndsAt: true, pilotPlan: true, pilotRevertsTo: true, isStaff: true } });
+      return res.json({ msg: 'Pilot ended.', planInfo: publicPlan(u) });
     }
-    if (!PLANS[plan] || plan === 'free') return res.status(400).json({ msg: 'Pick a paid plan to comp.' });
-    if (PLANS[plan].track !== c.kind) return res.status(400).json({ msg: `${PLANS[plan].name} is a ${PLANS[plan].track} plan; this is a ${c.kind} workspace.` });
-    const until = new Date(); until.setMonth(until.getMonth() + (Number.isFinite(months) && months > 0 ? months : 120));
-    const u = await prisma.company.update({ where: { id: c.id }, data: { plan, compedUntil: until, compNote: note, trialEndsAt: null }, select: { id: true, name: true, plan: true, kind: true, trialEndsAt: true, compedUntil: true, isStaff: true, compNote: true } });
-    res.json({ msg: `${u.name} is on ${PLANS[plan].name}, complimentary until ${until.toDateString()}.`, planInfo: publicPlan(u) });
+    if (!PLANS[plan] || plan === 'free') return res.status(400).json({ msg: 'Pick a paid plan for the pilot.' });
+    if (!PLANS[revertsTo]) return res.status(400).json({ msg: 'Pick a plan for it to revert to.' });
+    const until = new Date(Date.now() + months * 30 * 864e5);
+    const u = await prisma.company.update({
+      where: { id: c.id },
+      data: { pilotPlan: plan, pilotEndsAt: until, pilotRevertsTo: revertsTo, pilotWarnedAt: null, pilotEndedAt: null, compNote: note || null, trialEndsAt: null },
+      select: { id: true, name: true, plan: true, kind: true, trialEndsAt: true, compedUntil: true, pilotEndsAt: true, pilotPlan: true, pilotRevertsTo: true, isStaff: true, compNote: true },
+    });
+    res.json({ msg: `${u.name} is on a free ${PLANS[plan].name} pilot until ${until.toDateString()}, then ${PLANS[revertsTo].name}.`, planInfo: publicPlan(u) });
   } catch (err) { console.error(err); res.status(500).json({ msg: 'Server error' }); }
 });
 
-
-// GET /api/staff/overview — the numbers a founder checks every morning
 router.get('/overview', auth, async (req, res) => {
   if (!isStaff(req)) return res.status(403).json({ msg: 'Staff only.' });
   try {
     const now = new Date();
     const d7 = new Date(now - 7 * 864e5); const d30 = new Date(now - 30 * 864e5);
-    const companies = await prisma.company.findMany({ select: { id: true, name: true, kind: true, plan: true, trialEndsAt: true, compedUntil: true, isStaff: true, stripeSubscriptionId: true, subscriptionStatus: true, cancelAtPeriodEnd: true, currentPeriodEnd: true, createdAt: true, referredByCode: true, _count: { select: { users: true, projects: true } } } });
+    const companies = await prisma.company.findMany({ select: { id: true, name: true, kind: true, plan: true, trialEndsAt: true, compedUntil: true, pilotEndsAt: true, pilotPlan: true, pilotRevertsTo: true, isStaff: true, stripeSubscriptionId: true, subscriptionStatus: true, cancelAtPeriodEnd: true, currentPeriodEnd: true, createdAt: true, referredByCode: true, _count: { select: { users: true, projects: true } } } });
     const seatsByCompany = Object.fromEntries((await prisma.user.groupBy({ by: ['companyId'], where: { isApproved: true, companyId: { not: null } }, _count: { _all: true } })).map(g => [g.companyId, g._count._all]));
 
     let mrr = 0; const byPlan = {}; let paying = 0, trialing = 0, comped = 0, free = 0, cancelling = 0, pastDue = 0;

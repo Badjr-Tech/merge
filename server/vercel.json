@@ -30,6 +30,10 @@
       "schedule": "0 13 * * *"
     },
     {
+      "path": "/api/cron/pilots",
+      "schedule": "0 13 * * *"
+    },
+    {
       "path": "/api/cron/monthly-report",
       "schedule": "0 14 1 * *"
     }

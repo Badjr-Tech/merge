@@ -63,6 +63,22 @@ password resets, invitations, approval decisions — must never pass it. The onl
 endpoint answers "Unsubscribed" for an address that does not exist, so it cannot be used to test
 whether someone has an account.
 
+## Pilots (added 2026-10-09, replaces comping)
+
+A pilot is free full access to a chosen plan for a set period that then lands the workspace on a
+named plan, rather than dropping it to nothing. Fields on Company: `pilotPlan`, `pilotEndsAt`,
+`pilotRevertsTo`, `pilotWarnedAt`, `pilotEndedAt` (the note reuses `compNote`). `planFor` returns
+the pilot plan with `pilot: true` and the days left while it runs.
+
+`/api/cron/pilots` (daily) warns the admins a week out, then on expiry sets `plan` to
+`pilotRevertsTo` **if a live Stripe subscription exists**, otherwise to Free with an email asking
+them to choose — we cannot charge a card we do not have. Running it twice does nothing the second
+time.
+
+Staff start one from Staff → Workspaces (plan, length, what it reverts to, internal note). The app
+shows a pill in the top bar: "Large Teams pilot · 40 days left · then Small Teams". Existing comps
+were migrated to pilots reverting to Free; `compedUntil` still works for anything missed.
+
 ## Notifications: two channels (added 2026-10-09)
 
 `utils/notify.cjs` is the one call that writes an in-app `Notification` row **and** sends the

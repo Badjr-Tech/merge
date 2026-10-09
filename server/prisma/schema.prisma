@@ -57,9 +57,14 @@ model Company {
   subscriptionStatus   String?
   currentPeriodEnd     DateTime?
   cancelAtPeriodEnd    Boolean  @default(false)
-  compedUntil          DateTime?
+  compedUntil          DateTime?         // legacy comp; pilots replaced it
+  pilotEndsAt          DateTime?         // free pilot: full access to pilotPlan until this date
+  pilotPlan            String?           // what they get during the pilot
+  pilotRevertsTo       String?           // the plan they land on when it ends
+  pilotWarnedAt        DateTime?
+  pilotEndedAt         DateTime?
   isStaff              Boolean  @default(false)
-  compNote             String?
+  compNote             String?           // also used as the pilot note
   referralCode         String?  @unique
   referredByCode       String?
   referralRewardedAt   DateTime?

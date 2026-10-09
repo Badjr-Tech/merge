@@ -99,7 +99,21 @@ function planFor(company) {
     const top = kind === 'writer' ? 'professional' : 'company';
     return { key: top, kind, ...PLANS[top], features: [...new Set([...PLANS[top].features, 'team', 'approvals'])], limits: { seats: null, totalProjects: null, questionsPerProject: null, aiMonthly: null }, trialing: false, trialEndsAt: null, trialDaysLeft: null, trialExpired: false, comped: true, staff: true, compedUntil: null };
   }
-  // Complimentary access: the stored plan applies with no trial or billing checks
+  // Pilot: free, full access to the pilot plan until it ends, then the workspace lands on
+  // pilotRevertsTo. Nothing is billed during a pilot.
+  if (company && company.pilotEndsAt && new Date(company.pilotEndsAt) > now) {
+    const pk = PLANS[normalizeKey(company.pilotPlan)] ? normalizeKey(company.pilotPlan) : key;
+    const daysLeft = Math.max(0, Math.ceil((new Date(company.pilotEndsAt) - now) / 86400000));
+    return {
+      key: pk, kind, ...PLANS[pk],
+      trialing: false, trialEndsAt: null, trialDaysLeft: null, trialExpired: false,
+      comped: true, pilot: true, pilotEndsAt: company.pilotEndsAt, pilotDaysLeft: daysLeft,
+      pilotRevertsTo: company.pilotRevertsTo && PLANS[normalizeKey(company.pilotRevertsTo)] ? normalizeKey(company.pilotRevertsTo) : 'free',
+      pilotRevertsToName: PLANS[normalizeKey(company.pilotRevertsTo || 'free')] ? PLANS[normalizeKey(company.pilotRevertsTo || 'free')].name : 'Free',
+      compedUntil: company.pilotEndsAt,
+    };
+  }
+  // Legacy complimentary access, kept so old comps still work
   if (company && company.compedUntil && new Date(company.compedUntil) > now) {
     return { key, kind, ...PLANS[key], trialing: false, trialEndsAt: null, trialDaysLeft: null, trialExpired: false, comped: true, compedUntil: company.compedUntil };
   }
@@ -132,7 +146,7 @@ function requireFeature(prisma, feature) {
 
 function publicPlan(company) {
   const p = planFor(company);
-  return { key: p.key, kind: p.kind, track: p.track, name: p.name, price: p.price, per: p.per, features: p.features, limits: p.limits, trialing: p.trialing, trialEndsAt: p.trialEndsAt, trialDaysLeft: p.trialDaysLeft, trialExpired: p.trialExpired, comped: Boolean(p.comped), staff: Boolean(p.staff), compedUntil: p.compedUntil || null };
+  return { key: p.key, kind: p.kind, track: p.track, name: p.name, price: p.price, per: p.per, features: p.features, limits: p.limits, trialing: p.trialing, trialEndsAt: p.trialEndsAt, trialDaysLeft: p.trialDaysLeft, trialExpired: p.trialExpired, comped: Boolean(p.comped), staff: Boolean(p.staff), compedUntil: p.compedUntil || null, pilot: Boolean(p.pilot), pilotEndsAt: p.pilotEndsAt || null, pilotDaysLeft: p.pilotDaysLeft ?? null, pilotRevertsToName: p.pilotRevertsToName || null };
 }
 
 function catalogue() {
