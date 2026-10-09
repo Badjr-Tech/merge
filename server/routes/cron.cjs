@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../utils/prisma.cjs');
 const { sendEmail, appUrl, layout, button, unsubscribeFooter } = require('../utils/email.cjs');
+const { notify } = require('../utils/notify.cjs');
 const { TRIAL_PLAN_BY_KIND } = require('../utils/plans.cjs');
 const TRIAL_PLANS = Object.values(TRIAL_PLAN_BY_KIND);
 
@@ -90,12 +91,12 @@ async function runDeadlineReminders(now) {
       companyId: { not: null },
     },
     select: {
-      id: true, name: true, deadlineDate: true, deadlineReminderDay: true,
-      owner: { select: { id: true, email: true, name: true, username: true, deadlineEmails: true } },
+      id: true, name: true, deadlineDate: true, deadlineReminderDay: true, companyId: true,
+      owner: { select: { id: true, companyId: true, email: true, name: true, username: true, deadlineEmails: true } },
       questions: {
         select: {
           text: true, status: true, answer: true,
-          assignedTo: { select: { id: true, email: true, name: true, username: true, deadlineEmails: true } },
+          assignedTo: { select: { id: true, companyId: true, email: true, name: true, username: true, deadlineEmails: true } },
         },
       },
       company: { select: { kind: true } },
@@ -144,12 +145,18 @@ async function runDeadlineReminders(now) {
       const yours = mine.length
         ? `<p>Assigned to you:</p><ul>${mine.slice(0, 8).map(t => `<li>${esc(t.length > 120 ? `${t.slice(0, 117)}…` : t)}</li>`).join('')}</ul>${mine.length > 8 ? `<p>…and ${mine.length - 8} more.</p>` : ''}`
         : '';
-      await sendEmail({
-        to: user.email,
+      await notify({
+        user, companyId: p.companyId, type: 'deadline',
+        title: `${p.name} ${words.subject}`,
+        body: open.length ? `${open.length} of ${total} answers still open${mine.length ? ` · ${mine.length} assigned to you` : ''}.` : 'All answers are in.',
+        link: `/app/projects/${p.id}`,
+        list: 'deadlines',
+        email: {
+        because: 'you own this grant or have a question assigned to you',
         subject: `${p.name} ${words.subject}`,
-        html: layout(words.heading, `<p>Hi ${esc(user.name || user.username)},</p><p><strong>${esc(p.name)}</strong> is due ${when}.</p>${state}${yours}${button(link, 'Open the project')}${unsubscribeFooter(user.email, 'deadlines', 'you own this grant or have a question assigned to you')}`),
+        html: layout(words.heading, `<p>Hi ${esc(user.name || user.username)},</p><p><strong>${esc(p.name)}</strong> is due ${when}.</p>${state}${yours}${button(link, 'Open the project')}`),
         text: `${p.name} is due ${when}. ${open.length ? `${open.length} of ${total} answers still open.` : 'All answers are in.'} ${link}`,
-        unsubscribe: { email: user.email, list: 'deadlines' },
+        },
       });
       sent += 1;
     }

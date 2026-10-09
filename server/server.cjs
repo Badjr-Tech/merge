@@ -40,6 +40,7 @@ app.use('/api/admin', require('./routes/admin.cjs'));
 app.use('/api/companies', require('./routes/companies.cjs'));
 app.use('/api/projects', require('./routes/projects.cjs'));
 app.use('/api/files', require('./routes/files.cjs')); // New route for file operations
+app.use('/api/notifications', require('./routes/notifications.cjs'));
 app.use('/api/unsubscribe', require('./routes/unsubscribe.cjs'));
 app.use('/api/ai', require('./routes/ai.cjs')); // New route for AI operations
 app.use('/api/users', require('./routes/users.cjs'));

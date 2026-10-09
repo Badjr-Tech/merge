@@ -367,6 +367,23 @@ img[alt="Merge"] { color: transparent; font-size: 0; }
 .crash-card .row { margin-top: 20px; }
 .crash-detail { background: #fbfaf5; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 12px; white-space: pre-wrap; overflow-x: auto; margin-top: 8px; }
 
+/* Notification bell */
+.bell-wrap { position: relative; margin-left: auto; }
+.bell { position: relative; background: none; border: none; cursor: pointer; font-size: 17px; line-height: 1; padding: 6px 8px; border-radius: var(--radius-sm); }
+.bell:hover { background: var(--gray); }
+.bell-dot { position: absolute; top: 0; right: 0; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--danger); color: #fff; font-size: 10px; font-weight: 700; line-height: 16px; }
+.bell-panel { position: absolute; right: 0; top: calc(100% + 8px); width: 360px; max-width: calc(100vw - 24px); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); z-index: 960; overflow: hidden; }
+.bell-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.bell-list { max-height: 420px; overflow-y: auto; }
+.bell-item { display: flex; gap: 10px; width: 100%; text-align: left; background: none; border: none; border-bottom: 1px solid var(--border); padding: 11px 14px; cursor: pointer; align-items: flex-start; }
+.bell-item:hover { background: #fbfaf5; }
+.bell-item.unread { background: var(--periwinkle-soft); }
+.bell-item.unread:hover { background: #dfe5ff; }
+.bell-icon { color: var(--green-dark); font-size: 13px; margin-top: 2px; }
+.bell-title { display: block; font-size: 13px; font-weight: 600; color: var(--navy); line-height: 1.4; }
+.bell-body { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.bell-time { display: block; font-size: 11px; color: var(--text-faint); margin-top: 3px; }
+
 /* Settings → AI usage */
 .ai-usage-row { padding: 12px 0; border-top: 1px solid var(--border); }
 .ai-usage-row:first-of-type { border-top: none; }

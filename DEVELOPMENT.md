@@ -63,6 +63,17 @@ password resets, invitations, approval decisions — must never pass it. The onl
 endpoint answers "Unsubscribed" for an address that does not exist, so it cannot be used to test
 whether someone has an account.
 
+## Notifications: two channels (added 2026-10-09)
+
+`utils/notify.cjs` is the one call that writes an in-app `Notification` row **and** sends the
+email, so nothing can reach a person by only one route. Pass `list` ('assignments' or 'deadlines')
+for mail that can be turned off; leave it out for mail nobody should be able to miss. The in-app
+notification is always written — opting out of email never hides work inside Merge.
+
+The bell lives in the top bar (`NotificationBell`), polls every 60s, shows an unread count, marks
+one read on click and navigates to the item, and has a mark-all-read. API: `GET /api/notifications`
+and `POST /api/notifications/read`.
+
 ## User notifications (added 2026-10-09)
 
 **Assignment** — `notifyAssigned()` in `routes/projects.cjs` emails whoever a question is now

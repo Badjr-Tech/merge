@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
 import ErrorBoundary from '../components/ErrorBoundary';
+import NotificationBell from '../components/NotificationBell';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import { Avatar } from '../components/ui';
@@ -96,6 +97,7 @@ export default function AppShell() {
         <header className="topbar">
           <button className="btn btn-secondary btn-icon menu-btn" onClick={() => setOpen(o => !o)} aria-label="Menu">{I.menu}</button>
           <span className="crumbs">{user?.company?.name}</span>
+          <NotificationBell />
           {plan?.trialing && !plan.staff && (
             <Link to="/app/settings#plan" className="trial-pill">{plan.name} trial · {plan.trialDaysLeft} day{plan.trialDaysLeft === 1 ? '' : 's'} left · Choose a plan</Link>
           )}

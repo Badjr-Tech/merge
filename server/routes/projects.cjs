@@ -6,6 +6,7 @@ const { requireFeature, planFor, hasFeature } = require('../utils/plans.cjs');
 const { sanitizeHtml } = require('../utils/sanitize.cjs');
 const crypto = require('crypto');
 const { sendEmail, appUrl, layout, button, unsubscribeFooter } = require('../utils/email.cjs');
+const { notify } = require('../utils/notify.cjs');
 
 router.get('/test-route', (req, res) => {
   res.send('Projects test route is working!');
@@ -115,48 +116,60 @@ async function mergeNarrative(projectId, userId) {
 // section should be one email listing the questions, not one per question.
 async function notifyAssigned({ projectId, assignedToId, byUserId, questionIds }) {
   try {
-    if (!assignedToId || assignedToId === byUserId) return;              // nobody emails themselves
+    if (!assignedToId || assignedToId === byUserId) return;              // nobody notifies themselves
     const [user, byUser, project, questions] = await Promise.all([
-      prisma.user.findUnique({ where: { id: assignedToId }, select: { email: true, name: true, username: true, assignmentEmails: true } }),
-      byUserId ? prisma.user.findUnique({ where: { id: byUserId }, select: { name: true, username: true } }) : null,
+      prisma.user.findUnique({ where: { id: assignedToId }, select: { id: true, companyId: true, email: true, name: true, username: true, assignmentEmails: true } }),
+      byUserId ? prisma.user.findUnique({ where: { id: byUserId }, select: { name: true, username: true, email: true } }) : null,
       prisma.project.findUnique({ where: { id: projectId }, select: { id: true, name: true, deadlineDate: true } }),
       prisma.question.findMany({ where: { id: { in: questionIds } }, select: { id: true, text: true, maxLimit: true, limitUnit: true, type: true, section: true } }),
     ]);
-    if (!user || user.assignmentEmails === false || !project || !questions.length) return;
+    if (!user || !project || !questions.length) return;
     const esc = (t) => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     const who = byUser ? (byUser.name || byUser.username) : 'Someone';
     const n = questions.length;
-    const due = project.deadlineDate
-      ? `<p>The grant is due <strong>${new Date(project.deadlineDate).toDateString()}</strong>.</p>` : '';
+    const due = project.deadlineDate ? `<p>The grant is due <strong>${new Date(project.deadlineDate).toDateString()}</strong>.</p>` : '';
     const list = `<ul>${questions.slice(0, 12).map(q => {
       const lim = q.maxLimit ? ` <span style="color:#9a9a9e">(${q.maxLimit} ${(q.limitUnit || 'words').startsWith('char') ? 'characters' : 'words'})</span>` : '';
       const kind = q.type === 'upload' ? ' <span style="color:#9a9a9e">— upload a file</span>' : '';
       return `<li>${q.section ? `<span style="color:#9a9a9e">${esc(q.section)} · </span>` : ''}${esc(q.text.length > 140 ? `${q.text.slice(0, 137)}…` : q.text)}${lim}${kind}</li>`;
     }).join('')}</ul>${n > 12 ? `<p>…and ${n - 12} more.</p>` : ''}`;
-    await sendEmail({
-      to: user.email,
-      subject: n === 1 ? `${who} assigned you a question on "${project.name}"` : `${who} assigned you ${n} questions on "${project.name}"`,
-      html: layout(n === 1 ? 'A question is yours' : `${n} questions are yours`, `<p>Hi ${esc(user.name || user.username)},</p><p>${esc(who)} assigned you ${n === 1 ? 'a question' : `${n} questions`} on <strong>${esc(project.name)}</strong>.</p>${due}${list}${button(appUrl('/app/tasks'), 'Open my tasks')}${unsubscribeFooter(user.email, 'assignments', 'a question on a grant was assigned to you')}`),
-      text: `${who} assigned you ${n === 1 ? 'a question' : `${n} questions`} on "${project.name}".${project.deadlineDate ? ` Due ${new Date(project.deadlineDate).toDateString()}.` : ''}\n\n${questions.slice(0, 12).map(q => `- ${q.text}`).join('\n')}\n\n${appUrl('/app/tasks')}`,
-      unsubscribe: { email: user.email, list: 'assignments' },
+    const what = n === 1 ? 'a question' : `${n} questions`;
+    await notify({
+      user, companyId: project.companyId, type: 'assigned',
+      title: `${who} assigned you ${what}`,
+      body: `${project.name}${project.deadlineDate ? ` · due ${new Date(project.deadlineDate).toDateString()}` : ''}`,
+      link: '/app/tasks',
+      list: 'assignments',
+      replyTo: byUser && byUser.email,
+      email: {
+        subject: `${who} assigned you ${what} on "${project.name}"`,
+        because: 'a question on a grant was assigned to you',
+        html: layout(n === 1 ? 'A question is yours' : `${n} questions are yours`, `<p>Hi ${esc(user.name || user.username)},</p><p>${esc(who)} assigned you ${what} on <strong>${esc(project.name)}</strong>.</p>${due}${list}${button(appUrl('/app/tasks'), 'Open my tasks')}`),
+        text: `${who} assigned you ${what} on "${project.name}".${project.deadlineDate ? ` Due ${new Date(project.deadlineDate).toDateString()}.` : ''}\n\n${questions.slice(0, 12).map(q => `- ${q.text}`).join('\n')}\n\n${appUrl('/app/tasks')}`,
+      },
     });
   } catch (err) { console.error('Assignment notice failed:', err.message); }
 }
 
 // When the last answer is submitted, tell the owner and approvers the project is ready to merge (once).
 async function notifyIfComplete(projectId, byUserId) {
-  const project = await prisma.project.findUnique({ where: { id: projectId }, include: { questions: { select: { status: true } }, owner: { select: { id: true, email: true, name: true, username: true } }, company: { select: { name: true } } } });
+  const project = await prisma.project.findUnique({ where: { id: projectId }, include: { questions: { select: { status: true } }, owner: { select: { id: true, companyId: true, email: true, name: true, username: true } }, company: { select: { name: true } } } });
   if (!project || !project.questions.length || project.questions.some(q => q.status !== 'submitted')) return;
   if (project.details && project.details.readyNotifiedAt) return;
   await prisma.project.update({ where: { id: projectId }, data: { details: { ...(project.details || {}), readyNotifiedAt: new Date().toISOString() } } });
-  const approvers = await prisma.user.findMany({ where: { companyId: project.companyId, role: { in: ['approver', 'admin'] }, isApproved: true }, select: { id: true, email: true, name: true, username: true } });
+  const approvers = await prisma.user.findMany({ where: { companyId: project.companyId, role: { in: ['approver', 'admin'] }, isApproved: true }, select: { id: true, companyId: true, email: true, name: true, username: true } });
   const recipients = [project.owner, ...approvers].filter((u, i, a) => u && a.findIndex(x => x.id === u.id) === i);
   for (const r of recipients) {
-    sendEmail({
-      to: r.email,
-      subject: `All answers are in: "${project.name}" is ready for approval`,
-      html: layout('All answers are in', `<p>Every question on <strong>${project.name}</strong> has a submitted answer.</p><p>Read them over and request approval. Once approved, the owner merges the answers into one narrative, edits it, and downloads it.</p>${button(appUrl(`/app/projects/${project.id}`), 'Open the project')}`),
-      text: `Every question on "${project.name}" has a submitted answer. Open it: ${appUrl(`/app/projects/${project.id}`)}`,
+    notify({
+      user: r, companyId: project.companyId, type: 'ready_to_merge',
+      title: `All answers are in on ${project.name}`,
+      body: 'Ready to request approval.',
+      link: `/app/projects/${project.id}`,
+      email: {
+        subject: `All answers are in: "${project.name}" is ready for approval`,
+        html: layout('All answers are in', `<p>Every question on <strong>${project.name}</strong> has a submitted answer.</p><p>Read them over and request approval. Once approved, the owner merges the answers into one narrative, edits it, and downloads it.</p>${button(appUrl(`/app/projects/${project.id}`), 'Open the project')}`),
+        text: `Every question on "${project.name}" has a submitted answer. Open it: ${appUrl(`/app/projects/${project.id}`)}`,
+      },
     }).catch(() => {});
   }
 }
@@ -1299,12 +1312,17 @@ router.post('/:id/request-approval', auth, async (req, res) => {
       const who = requester ? (requester.name || requester.username) : 'Someone';
       const esc = (t) => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
       const due = project.deadlineDate ? `<p>The grant is due <strong>${new Date(project.deadlineDate).toDateString()}</strong>.</p>` : '';
-      await sendEmail({
-        to: approver.email,
+      await notify({
+        user: approver, companyId: project.companyId, type: 'approval_requested',
+        title: `${who} asked you to approve ${project.name}`,
+        body: `All ${total} answer${total === 1 ? '' : 's'} submitted.${project.deadlineDate ? ` Due ${new Date(project.deadlineDate).toDateString()}.` : ''}`,
+        link: `/app/projects/${project.id}`,
         replyTo: requester && requester.email,
+        email: {
         subject: `${who} asked you to approve "${project.name}"`,
         html: layout('A proposal needs your approval', `<p>Hi ${esc(approver.name || approver.username)},</p><p>${esc(who)} finished <strong>${esc(project.name)}</strong> and asked for your approval. All ${total} answer${total === 1 ? ' is' : 's are'} submitted.</p>${due}<p>Read it through, then approve it or send it back with notes on the questions that need work.</p>${button(appUrl(`/app/projects/${project.id}`), 'Review the proposal')}`),
         text: `${who} asked you to approve "${project.name}". All ${total} answers are submitted.${project.deadlineDate ? ` Due ${new Date(project.deadlineDate).toDateString()}.` : ''}\n\n${appUrl(`/app/projects/${project.id}`)}`,
+        },
       });
     })().catch(err => console.error('Approval notice failed:', err.message));
 
@@ -1388,17 +1406,24 @@ router.put('/:id/respond-approval', auth, async (req, res) => {
     const updatedProject = await prisma.project.update({
       where: { id: req.params.id },
       data: { status: approvalStatus },
-      include: { owner: { select: { email: true, name: true, username: true } } },
+      include: { owner: { select: { id: true, companyId: true, email: true, name: true, username: true } } },
     });
     const approver = await prisma.user.findUnique({ where: { id: req.user.id }, select: { name: true, username: true } });
     const who = approver.name || approver.username;
-    sendEmail({
-      to: updatedProject.owner.email,
+    notify({
+      user: updatedProject.owner,
+      companyId: updatedProject.companyId,
+      type: 'approval_decided',
+      title: `${who} ${approvalStatus === 'approved' ? 'approved' : 'requested changes on'} ${updatedProject.name}`,
+      body: approvalStatus === 'approved' ? 'Merge the answers and download it.' : (comments ? String(comments).slice(0, 200) : 'Sent back for changes.'),
+      link: `/app/projects/${updatedProject.id}${approvalStatus === 'approved' ? '?tab=narrative' : ''}`,
+      email: {
       subject: `${who} ${approvalStatus === 'approved' ? 'approved' : 'requested changes on'} "${updatedProject.name}"`,
       html: layout(approvalStatus === 'approved' ? 'Approved' : 'Changes requested', approvalStatus === 'approved'
         ? `<p>${who} approved <strong>${updatedProject.name}</strong>.</p><p>Next step: open the project, merge the answers into one narrative, make any final edits, and download it for submission.</p>${button(appUrl(`/app/projects/${updatedProject.id}?tab=narrative`), 'Merge and finalize')}`
         : `<p>${who} sent <strong>${updatedProject.name}</strong> back.</p>${comments ? `<blockquote style="border-left:3px solid #7fab61;margin:12px 0;padding:6px 12px">${String(comments).replace(/</g, '&lt;')}</blockquote>` : ''}${button(appUrl(`/app/projects/${updatedProject.id}`), 'Open the project')}`),
       text: `${who} ${approvalStatus} "${updatedProject.name}". ${comments || ''} ${appUrl(`/app/projects/${updatedProject.id}`)}`,
+      },
     }).catch(() => {});
 
     res.json({ msg: `Project ${approvalStatus} successfully` });

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../utils/prisma.cjs');
 const { sendEmail, appUrl, layout, button } = require('../utils/email.cjs');
+const { notify } = require('../utils/notify.cjs');
 const { rateLimit } = require('../middleware/antispam.cjs');
 
 async function load(token) {
@@ -34,15 +35,20 @@ router.post('/:token/respond', rateLimit({ max: 20 }), async (req, res) => {
   if (!decision) return res.status(400).json({ msg: 'Choose approve or request changes.' });
   if (decision === 'changes' && !comments) return res.status(400).json({ msg: 'Add a note so the writer knows what to change.' });
   try {
-    const p = await prisma.project.findUnique({ where: { reviewToken: req.params.token }, include: { owner: { select: { email: true, name: true, username: true } }, reviewComments2: { select: { id: true } } } });
+    const p = await prisma.project.findUnique({ where: { reviewToken: req.params.token }, include: { owner: { select: { id: true, companyId: true, email: true, name: true, username: true } }, reviewComments2: { select: { id: true } } } });
     if (!p) return res.status(404).json({ msg: 'This review link is not valid or was withdrawn.' });
     const who = name || p.reviewerName || 'Your reviewer';
     const n = p.reviewComments2.length;
-    sendEmail({
-      to: p.owner.email,
+    notify({
+      user: p.owner, companyId: p.companyId, type: 'review_responded',
+      title: `${who} ${decision === 'approved' ? 'approved' : 'requested changes on'} ${p.name}`,
+      body: comments ? String(comments).slice(0, 200) : (n ? `${n} note${n === 1 ? '' : 's'} on specific questions.` : ''),
+      link: `/app/projects/${p.id}`,
+      email: {
       subject: `${who} ${decision === 'approved' ? 'approved' : 'requested changes on'} "${p.name}"`,
       html: layout(decision === 'approved' ? 'Approved' : 'Changes requested', `<p>${who} ${decision === 'approved' ? 'approved' : 'sent back'} <strong>${p.name}</strong>.</p>${comments ? `<blockquote style="border-left:3px solid #7fab61;margin:12px 0;padding:6px 12px">${comments.replace(/</g, '&lt;')}</blockquote>` : ''}${n ? `<p>${n} note${n === 1 ? '' : 's'} on specific questions are waiting in the project.</p>` : ''}${button(appUrl(`/app/projects/${p.id}`), 'Open the project')}`),
       text: `${who} ${decision === 'approved' ? 'approved' : 'requested changes on'} "${p.name}". ${comments || ''} ${appUrl(`/app/projects/${p.id}`)}`,
+      },
     }).catch(() => {});
     await prisma.project.update({
       where: { id: p.id },

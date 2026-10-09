@@ -35,6 +35,7 @@ model User {
   sentInvitations    Invitation[]            @relation("SentInvitations")
   passwordResets     PasswordReset[]
   assistantMessages  AssistantMessage[]
+  notifications      Notification[]
   company            Company?                @relation(fields: [companyId], references: [id])
 }
 
@@ -265,6 +266,22 @@ model PasswordReset {
 
 
 // One row per metered AI action, so each feature can be limited on its own window.
+// In-app notifications. Written alongside the emails, so the bell and the inbox agree.
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  companyId String?
+  type      String    // assigned | approval_requested | approval_decided | ready_to_merge | review_responded | deadline
+  title     String
+  body      String?
+  link      String?   // in-app path, e.g. /app/projects/abc
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+}
+
 model AiUsage {
   id        String   @id @default(cuid())
   companyId String
