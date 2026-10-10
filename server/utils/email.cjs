@@ -78,6 +78,14 @@ const BRAND = {
   cream: '#fffcf0', white: '#ffffff', border: '#e4e1d6',
   navy: '#0b2d65', green: '#7fab61', greenDark: '#476c2e',
   indigo: '#3e51b5', text: '#3b3b3d', muted: '#6b6b6e', faint: '#9a9a9e',
+  danger: '#b5443b', dangerSoft: '#f9e6e4', gold: '#8a6200', goldSoft: '#fff4d6',
+};
+
+// How loud the email is. A reminder 30 days out and one due today should not look the same.
+const TONES = {
+  normal: { rule: BRAND.green, bg: null, ink: null, button: BRAND.greenDark },
+  soon:   { rule: '#d79a1f', bg: BRAND.goldSoft, ink: BRAND.gold, button: BRAND.greenDark },
+  urgent: { rule: BRAND.danger, bg: BRAND.dangerSoft, ink: BRAND.danger, button: BRAND.danger },
 };
 const DISPLAY = "Georgia, 'Times New Roman', serif";
 const SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif";
@@ -85,6 +93,14 @@ const SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, s
 function layout(title, bodyHtml, options = {}) {
   const site = (process.env.APP_URL || 'https://www.mergeworkspace.com').replace(/\/$/, '');
   const preheader = options.preview ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0">${options.preview}</div>` : '';
+  const tone = TONES[options.tone] || TONES.normal;
+  // A banner the eye lands on before the heading — only when there is something to be urgent about.
+  const banner = options.banner && tone.bg
+    ? `<tr><td style="background:${tone.bg};padding:14px 32px;border-bottom:1px solid ${tone.rule};">
+        <div style="font-family:${SANS};font-size:15px;font-weight:700;color:${tone.ink};letter-spacing:0.2px;">${options.banner}</div>
+        ${options.bannerSub ? `<div style="font-family:${SANS};font-size:13px;color:${tone.ink};opacity:0.85;margin-top:3px;">${options.bannerSub}</div>` : ''}
+      </td></tr>`
+    : '';
   return `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${title}</title></head>
 <body style="margin:0;padding:0;background:${BRAND.cream};">
@@ -93,12 +109,14 @@ ${preheader}
   <tr><td align="center" style="padding:32px 16px;">
     <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:560px;max-width:100%;background:${BRAND.white};border:1px solid ${BRAND.border};border-radius:14px;overflow:hidden;">
 
-      <tr><td style="background:${BRAND.cream};padding:20px 32px;border-bottom:3px solid ${BRAND.green};">
+      <tr><td style="background:${BRAND.cream};padding:20px 32px;border-bottom:3px solid ${tone.rule};">
         <a href="${site}" style="text-decoration:none;"><img src="${site}/img/merge-logo.png" width="104" height="41" alt="Merge" style="display:block;border:0;outline:none;width:104px;height:41px;"></a>
       </td></tr>
 
+      ${banner}
+
       <tr><td style="padding:30px 32px 8px 32px;">
-        <h1 style="margin:0 0 14px 0;font-family:${DISPLAY};font-size:22px;line-height:1.3;font-weight:normal;color:${BRAND.navy};">${title}</h1>
+        <h1 style="margin:0 0 14px 0;font-family:${DISPLAY};font-size:22px;line-height:1.3;font-weight:normal;color:${options.tone === 'urgent' ? BRAND.danger : BRAND.navy};">${title}</h1>
         <div style="font-family:${SANS};font-size:15px;line-height:1.6;color:${BRAND.text};">
           ${bodyHtml}
         </div>
@@ -123,8 +141,9 @@ ${preheader}
 // noise everywhere else.
 function button(href, label, options = {}) {
   const link = options.showLink ?? /invite|reset-password|review\//.test(String(href));
+  const bg = (TONES[options.tone] || TONES.normal).button;
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0;"><tr>
-  <td align="center" bgcolor="${BRAND.greenDark}" style="border-radius:8px;">
+  <td align="center" bgcolor="${bg}" style="border-radius:8px;">
     <a href="${href}" style="display:inline-block;padding:13px 26px;font-family:${SANS};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">${label}</a>
   </td></tr></table>${link ? `<p style="margin:0 0 4px 0;font-family:${SANS};font-size:12px;color:${BRAND.muted};">Or paste this into your browser:<br><a href="${href}" style="color:${BRAND.indigo};word-break:break-all;">${href}</a></p>` : ''}`;
 }

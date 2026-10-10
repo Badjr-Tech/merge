@@ -75,10 +75,13 @@ function daysUntil(date, now) {
   return Math.round((a - b) / 86400000);
 }
 
+// The closer it gets the louder the email: colour, banner and subject line all shift.
 function dueWording(days, when) {
-  if (days === 0) return { subject: 'is due today', heading: 'Due today' };
-  if (days === 1) return { subject: 'is due tomorrow', heading: 'Due tomorrow' };
-  return { subject: `is due in ${days} days`, heading: `Due in ${days} days — ${when}` };
+  if (days === 0) return { subject: 'is due TODAY', heading: 'Due today', tone: 'urgent', banner: 'Due today', bannerSub: when };
+  if (days === 1) return { subject: 'is due tomorrow', heading: 'Due tomorrow', tone: 'urgent', banner: 'Due tomorrow', bannerSub: when };
+  if (days <= 3) return { subject: `is due in ${days} days`, heading: `Due in ${days} days`, tone: 'urgent', banner: `${days} days left`, bannerSub: `Due ${when}` };
+  if (days <= 7) return { subject: `is due in ${days} days`, heading: `Due in ${days} days`, tone: 'soon', banner: `${days} days left`, bannerSub: `Due ${when}` };
+  return { subject: `is due in ${days} days`, heading: `Due in ${days} days — ${when}`, tone: 'normal' };
 }
 
 async function runDeadlineReminders(now) {
@@ -154,7 +157,12 @@ async function runDeadlineReminders(now) {
         email: {
         because: 'you own this grant or have a question assigned to you',
         subject: `${p.name} ${words.subject}`,
-        html: layout(words.heading, `<p>Hi ${esc(user.name || user.username)},</p><p><strong>${esc(p.name)}</strong> is due ${when}.</p>${state}${yours}${button(link, 'Open the project')}`),
+        html: layout(words.heading, `<p>Hi ${esc(user.name || user.username)},</p><p><strong>${esc(p.name)}</strong> is due ${when}.</p>${state}${yours}${button(link, words.tone === 'urgent' ? 'Finish it now' : 'Open the project', { tone: words.tone })}`, {
+          tone: words.tone,
+          banner: words.banner,
+          bannerSub: words.bannerSub,
+          preview: `${open.length ? `${open.length} of ${total} answers still open` : 'All answers are in'} · due ${when}`,
+        }),
         text: `${p.name} is due ${when}. ${open.length ? `${open.length} of ${total} answers still open.` : 'All answers are in.'} ${link}`,
         },
       });
