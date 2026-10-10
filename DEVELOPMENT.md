@@ -121,6 +121,21 @@ reset within hours.
 Worst case runs 7-8% of revenue on the team plans and 18-23% on the single-seat ones; at measured
 reply lengths roughly half that, and typical use is under 1%.
 
+## Stripe audits
+
+Two read-only scripts, run from `server/`:
+
+- `node scripts/stripe-catalog.cjs` — every plan maps to a live price at the advertised amount,
+  with a product that has a name, description and `plan` metadata. `--apply` fills in anything
+  missing and never overwrites existing copy.
+- `node scripts/stripe-audit-subs.cjs` — every live subscription is on one of our prices, the
+  workspace's stored plan agrees, the seat quantity matches the people in the workspace, and the
+  amount equals the site. Exits non-zero on any mismatch.
+
+Nothing in the app creates a product or price. Both purchase paths reference `PRICE_EXTRA_REVIEW`:
+Checkout for a manual buy, and an invoice item for an auto-reload, so the customer's invoice reads
+"Merge — Extra AI reviewer run ×5" rather than a bare charge.
+
 ## Telling people they are overpaying (added 2026-10-10)
 
 `/api/cron/plan-fit`, Mondays at 15:00 UTC. A paying workspace on a per-seat plan that has shrunk

@@ -180,8 +180,6 @@ async function grantReviewCredits(companyId, quantity, sessionId) {
 // Auto-reload: charge the card on file for another batch of AI reviewer runs. Only ever called for
 // a workspace that opted in, never on a manual plan. Capped per month so a runaway loop cannot
 // empty someone's account, and every charge is emailed.
-const EXTRA_REVIEW_CENTS = 199;
-
 async function autoReloadReviews(companyId) {
   if (!configured() || !PRICE_EXTRA_REVIEW) return { ok: false, reason: 'not_configured' };
   const company = await prisma.company.findUnique({ where: { id: companyId }, select: { id: true, name: true, stripeCustomerId: true, reviewAutoReload: true, reviewReloadQty: true, reviewReloadCap: true } });
@@ -202,23 +200,30 @@ async function autoReloadReviews(companyId) {
     }
     if (!method) return { ok: false, reason: 'no_card' };
 
-    const intent = await stripe().paymentIntents.create({
-      amount: EXTRA_REVIEW_CENTS * qty,
-      currency: 'usd',
+    // Bill the catalogue item, not a bare amount: the customer's invoice then reads
+    // "Merge — Extra AI reviewer run x5" instead of an unexplained charge.
+    await stripe().invoiceItems.create({
       customer: company.stripeCustomerId,
-      payment_method: method,
-      off_session: true,
-      confirm: true,
-      description: `Merge — ${qty} extra AI reviewer run${qty === 1 ? '' : 's'}`,
+      price: PRICE_EXTRA_REVIEW,
+      quantity: qty,
+      metadata: { companyId, kind: 'extra_review_autoreload' },
+    });
+    const draft = await stripe().invoices.create({
+      customer: company.stripeCustomerId,
+      collection_method: 'charge_automatically',
+      default_payment_method: method,
+      auto_advance: false,
+      description: 'Extra AI reviewer runs',
       metadata: { companyId, kind: 'extra_review_autoreload', quantity: String(qty) },
     });
-    if (intent.status !== 'succeeded') return { ok: false, reason: 'declined' };
+    const invoice = await stripe().invoices.pay(draft.id, { off_session: true });
+    if (invoice.status !== 'paid') return { ok: false, reason: 'declined' };
 
-    await prisma.aiUsage.createMany({ data: Array.from({ length: qty }, () => ({ companyId, feature: 'credit:review', projectId: intent.id })) });
-    await prisma.aiUsage.create({ data: { companyId, feature: 'reload:review', projectId: intent.id } });
+    await prisma.aiUsage.createMany({ data: Array.from({ length: qty }, () => ({ companyId, feature: 'credit:review', projectId: invoice.id })) });
+    await prisma.aiUsage.create({ data: { companyId, feature: 'reload:review', projectId: invoice.id } });
 
     const admins = await prisma.user.findMany({ where: { companyId, role: 'admin', isApproved: true }, select: { email: true, name: true, username: true } });
-    const total = ((EXTRA_REVIEW_CENTS * qty) / 100).toFixed(2);
+    const total = (invoice.amount_paid / 100).toFixed(2);
     for (const a of admins) {
       await sendEmail({
         to: a.email,
