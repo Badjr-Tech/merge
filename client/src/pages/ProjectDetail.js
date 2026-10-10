@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { Paperclip } from 'lucide-react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import api, { errorMessage } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -87,7 +88,7 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
       {confirmDialog}
       <div className="row-between" style={{ cursor: 'pointer' }} onClick={() => setOpen(o => !o)}>
         <div className="grow">
-          <div className="q-text">{isUpload && <span className="q-type-tag" title="Upload a file">▣</span>}{q.text}</div>
+          <div className="q-text">{isUpload && <span className="q-type-tag" title="Upload a file"><Paperclip size={13} strokeWidth={1.8} aria-hidden="true" /></span>}{q.text}</div>
           <div className="q-meta">
             {!writerMode && (canManage ? (
               <span className="row" onClick={e => e.stopPropagation()}>
@@ -121,7 +122,7 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
             <div className="callout">
               {q.file ? (
                 <div className="row-between wrap">
-                  <span className="small"><span className="q-type-tag">▣</span> <strong>{q.file.filename}</strong> is in the <Link to="/app/files">file cabinet</Link>.</span>
+                  <span className="small"><span className="q-type-tag"><Paperclip size={13} strokeWidth={1.8} aria-hidden="true" /></span> <strong>{q.file.filename}</strong> is in the <Link to="/app/files">file cabinet</Link>.</span>
                   {canAnswer && q.status !== 'submitted' && <Button size="sm" onClick={() => markUploaded('submitted')} loading={saving}>Mark as uploaded</Button>}
                   {canAnswer && q.status === 'submitted' && <Button variant="secondary" size="sm" onClick={clearUpload} loading={saving}>Change file</Button>}
                 </div>

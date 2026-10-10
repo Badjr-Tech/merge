@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Menu, X } from 'lucide-react';
 import { Link, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import logo from '../logo';
@@ -11,7 +12,7 @@ export default function PublicLayout() {
     <div>
       <nav className="site-nav">
         <Link to="/" className="site-logo"><img src={logo} alt="Merge" /></Link>
-        <button className="site-menu-btn" onClick={() => setOpen(o => !o)} aria-label="Menu" aria-expanded={open}>{open ? '×' : '☰'}</button>
+        <button className="site-menu-btn" onClick={() => setOpen(o => !o)} aria-label="Menu" aria-expanded={open}>{open ? <X size={20} strokeWidth={1.9} aria-hidden="true" /> : <Menu size={20} strokeWidth={1.9} aria-hidden="true" />}</button>
         <div className={`links ${open ? 'open' : ''}`} onClick={() => setOpen(false)}>
           <a href="/#features">Features</a>
           <a href="/#how">How it works</a>

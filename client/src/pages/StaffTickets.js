@@ -30,7 +30,7 @@ export default function StaffTickets() {
         <Card><div className="table-wrap"><table className="table"><thead><tr><th>From</th><th>Message</th><th>Type</th><th>Status</th><th /></tr></thead><tbody>{data.items.map(t => (
           <tr key={t.id} className="clickable" onClick={() => { setOpen(t); setNotes(t.notes || ''); }}>
             <td><div className="strong">{t.userName || t.userEmail}</div><div className="tiny muted">{t.workspace} · {t.plan}</div><div className="tiny faint">{formatDateTime(t.createdAt)}</div></td>
-            <td style={{ maxWidth: 480 }}><div className="small" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.message}</div><div className="tiny faint">{t.page}{t.rating ? ` · ${'★'.repeat(t.rating)}` : ''}</div></td>
+            <td style={{ maxWidth: 480 }}><div className="small" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{t.message}</div><div className="tiny faint">{t.page}{t.rating ? ` · ${'\u2605'.repeat(t.rating)}` : ''}</div></td>
             <td><Badge tone={T[t.type]}>{t.type}</Badge></td><td><Badge tone={S[t.status]}>{t.status.replace('_', ' ')}</Badge></td>
             <td style={{ textAlign: 'right' }}><Button variant="ghost" size="sm">Open</Button></td>
           </tr>

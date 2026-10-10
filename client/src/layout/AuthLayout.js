@@ -1,4 +1,5 @@
 import React from 'react';
+import { Check } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import logo from '../logo';
 
@@ -12,9 +13,9 @@ export default function AuthLayout({ title, lead, children, footer, side }) {
           <h2>{side?.title || "Merge your workspace. Merge your teamwork."}</h2>
           <p>{side?.text || 'Break an RFP into questions, assign them to your team, track word limits, get approvals, and merge everything into one narrative.'}</p>
           <ul>
-            <li><span className="tick">✓</span> Assign questions to teammates and watch progress</li>
-            <li><span className="tick">✓</span> Word and character limit checks as you write</li>
-            <li><span className="tick">✓</span> Built-in approvals and AI review before you submit</li>
+            <li><span className="tick"><Check size={15} strokeWidth={2.5} aria-hidden="true" /></span> Assign questions to teammates and watch progress</li>
+            <li><span className="tick"><Check size={15} strokeWidth={2.5} aria-hidden="true" /></span> Word and character limit checks as you write</li>
+            <li><span className="tick"><Check size={15} strokeWidth={2.5} aria-hidden="true" /></span> Built-in approvals and AI review before you submit</li>
           </ul>
         </div>
         <div className="small" style={{ opacity: .6 }}>© {new Date().getFullYear()} Merge · Powered by Badjr</div>

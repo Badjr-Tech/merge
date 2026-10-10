@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  Sparkles, Library, CheckCheck, History, PenLine, CalendarDays, ListChecks, FolderKanban,
+  FolderOpen, Handshake, Mail, Users,
+} from 'lucide-react';
 import { initials, displayName } from '../../lib/format';
 
 export function Button({ variant = 'primary', size, block, as, to, href, children, className = '', loading, ...rest }) {
@@ -49,10 +53,19 @@ export function Progress({ value, tone }) {
   return <div className={`progress ${tone || ''}`}><div style={{ width: `${Math.max(0, Math.min(100, value))}%` }} /></div>;
 }
 
+// Call sites pass a short glyph; this maps them onto Lucide so every empty state matches the
+// sidebar without touching two dozen files. An element passed directly is used as-is.
+const EMPTY_ICONS = {
+  '✦': Sparkles, '◫': Library, '✓': CheckCheck, '◷': History, '✎': PenLine, '▦': CalendarDays,
+  '☑': ListChecks, '▤': FolderKanban, '▣': FolderOpen, '☍': Handshake, '✉': Mail, '☺': Users,
+};
+
 export function EmptyState({ icon, title, children, action }) {
+  const Glyph = typeof icon === 'string' ? EMPTY_ICONS[icon] : null;
   return (
     <div className="empty">
-      {icon && <div className="empty-icon">{icon}</div>}
+      {Glyph ? <div className="empty-icon"><Glyph size={28} strokeWidth={1.5} aria-hidden="true" /></div>
+        : icon && <div className="empty-icon">{icon}</div>}
       <h3>{title}</h3>
       {children && <p>{children}</p>}
       {action}

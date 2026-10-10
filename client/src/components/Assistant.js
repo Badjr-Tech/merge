@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Sparkles } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { marked } from 'marked';
 import api, { errorMessage, API_URL } from '../api';
@@ -143,12 +144,12 @@ export default function Assistant() {
   return (
     <>
       <button className={`assistant-fab ${open ? 'hidden' : ''}`} onClick={() => setOpen(true)} aria-label="Open writing assistant">
-        <span className="assistant-fab-icon">✦</span> Ask Merge
+        <span className="assistant-fab-icon"><Sparkles size={16} strokeWidth={1.9} aria-hidden="true" /></span> Ask Merge
       </button>
       <div className={`assistant-panel ${open ? 'open' : ''}`} role="dialog" aria-label="Writing assistant">
         <div className="assistant-head">
           <div>
-            <div className="strong" style={{ color: '#fff' }}>✦ Writing assistant</div>
+            <div className="strong row" style={{ color: '#fff', gap: 6 }}><Sparkles size={15} strokeWidth={1.9} aria-hidden="true" /> Writing assistant</div>
             <div className="tiny" style={{ color: 'var(--periwinkle)' }}>{projectName ? `Working on: ${projectName}` : 'Ask anything about what to write'}</div>
           </div>
           <div className="row">

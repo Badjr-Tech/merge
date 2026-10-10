@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
+import {
+  Home, FolderKanban, Library, Handshake, PenLine, CheckCheck, History, FolderOpen, Sparkles,
+  ListChecks, CalendarDays, Users, Settings, Menu, LifeBuoy, Gift, ChartNoAxesColumn, Building2,
+  UserRound, LogOut, Lock,
+} from 'lucide-react';
 import ErrorBoundary from '../components/ErrorBoundary';
 import NotificationBell from '../components/NotificationBell';
 import { useAuth } from '../context/AuthContext';
@@ -13,8 +18,15 @@ import useSeo from '../lib/seo';
 import logo from '../logo';
 
 
+// Lucide, at a single size and stroke so the whole sidebar reads as one set.
+const ico = (Icon) => <Icon size={18} strokeWidth={1.75} aria-hidden="true" />;
 const I = {
-  home: '⌂', projects: '▤', bank: '◫', partners: '☍', tasks: '✎', approvals: '✓', past: '◷', files: '▣', ai: '✦', compliance: '☑', calendar: '▦', team: '☺', settings: '⚙', menu: '☰',
+  home: ico(Home), projects: ico(FolderKanban), bank: ico(Library), partners: ico(Handshake),
+  tasks: ico(PenLine), approvals: ico(CheckCheck), past: ico(History), files: ico(FolderOpen),
+  ai: ico(Sparkles), compliance: ico(ListChecks), calendar: ico(CalendarDays), team: ico(Users),
+  settings: ico(Settings), menu: ico(Menu), support: ico(LifeBuoy), referrals: ico(Gift),
+  overview: ico(ChartNoAxesColumn), workspaces: ico(Building2), users: ico(UserRound),
+  signOut: ico(LogOut), locked: ico(Lock),
 };
 
 export default function AppShell() {
@@ -40,7 +52,7 @@ export default function AppShell() {
     <NavLink to={to} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} end={to === '/app' || to === '/app/staff' || to === '/app/projects'}>
       <span className="nav-icon">{icon}</span>{label}
       {count > 0 && <span className="nav-count">{count}</span>}
-      {feature && !has(feature) && <span className="nav-count" title="Premium feature">★</span>}
+      {feature && !has(feature) && <span className="nav-lock" title="Premium feature">{I.locked}</span>}
     </NavLink>
   );
 
@@ -70,14 +82,14 @@ export default function AppShell() {
           {link('/app/calendar', 'Grant calendar', I.calendar)}
           <div className="nav-section">Workspace</div>
           {isAdmin && (!writerMode || plan?.staff) && link('/app/team', 'Team', I.team)}
-          {!plan?.staff && link('/app/referrals', 'Refer a friend', '♥')}
-          {link('/app/support', 'Support', '✉')}
+          {!plan?.staff && link('/app/referrals', 'Refer a friend', I.referrals)}
+          {link('/app/support', 'Support', I.support)}
           {link('/app/settings', 'Settings', I.settings)}
           {staff && <div className="nav-section">Merge staff</div>}
-          {staff && link('/app/staff/overview', 'Overview', '★')}
-          {staff && link('/app/staff', 'Workspaces & comps', '☍')}
-          {staff && link('/app/staff/users', 'Users', '☺')}
-          {staff && link('/app/staff/tickets', 'Tickets', '✉')}
+          {staff && link('/app/staff/overview', 'Overview', I.overview)}
+          {staff && link('/app/staff', 'Workspaces & pilots', I.workspaces)}
+          {staff && link('/app/staff/users', 'Users', I.users)}
+          {staff && link('/app/staff/tickets', 'Tickets', I.support)}
         </nav>
         <div className="sidebar-footer">
           <Link to="/app/settings" className="user-chip">
@@ -88,7 +100,7 @@ export default function AppShell() {
             </div>
           </Link>
           <button className="nav-link" style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer' }} onClick={signOut}>
-            <span className="nav-icon">⇥</span>Sign out
+            <span className="nav-icon">{I.signOut}</span>Sign out
           </button>
           <div className="powered-side">Powered by <a href="https://badjrtech.com" target="_blank" rel="noopener noreferrer">Badjr</a></div>
         </div>

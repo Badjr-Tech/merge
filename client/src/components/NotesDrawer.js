@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Quote } from 'lucide-react';
 import api, { errorMessage } from '../api';
 import { useToast } from '../context/ToastContext';
 import { usePlan } from '../context/PlanContext';
@@ -97,7 +98,7 @@ export default function NotesDrawer({ projectId, initialNotes, open, onClose, ca
               <span className="sep" />
               <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => cmd('insertUnorderedList')} title="Bulleted list">• List</button>
               <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => cmd('insertOrderedList')} title="Numbered list">1. List</button>
-              <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => cmd('formatBlock', 'blockquote')} title="Quote">❝</button>
+              <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => cmd('formatBlock', 'blockquote')} title="Quote"><Quote size={14} strokeWidth={1.9} aria-hidden="true" /></button>
               <button type="button" onMouseDown={e => e.preventDefault()} onClick={addLink} title="Link">Link</button>
               <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => cmd('formatBlock', 'p')} title="Plain paragraph">¶</button>
             </div>

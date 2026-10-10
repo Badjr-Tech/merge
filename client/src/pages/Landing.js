@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { PenLine, ListChecks, CheckCheck, Sparkles, History, FolderOpen } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card } from '../components/ui';
 import useSeo from '../lib/seo';
@@ -95,12 +96,12 @@ export default function Landing() {
         <h2>Everything a grant team needs in one place</h2>
         <p className="sub">Built for nonprofits, consultants, and small development teams who write proposals as a group.</p>
         <div className="grid-3">
-          <Card className="feature"><div className="icon">✎</div><h3>Assign questions, not documents</h3><p>Each RFP question becomes a task with an owner, a status, and a limit. Nobody edits over anyone else.</p></Card>
-          <Card className="feature"><div className="icon">☑</div><h3>Compliance built in</h3><p>Word and character counts update as you type, so every answer fits before submission day.</p></Card>
-          <Card className="feature"><div className="icon">✓</div><h3>Approvals with a paper trail</h3><p>Send the finished proposal to an approver. Rejections come back with comments and go straight to a correction queue.</p></Card>
-          <Card className="feature"><div className="icon">✦</div><h3>AI reviewer</h3><p>Point Merge at the funder's website and purpose statement to get strengths, weaknesses, and a prioritized fix list.</p></Card>
-          <Card className="feature"><div className="icon">◷</div><h3>Reuse past proposals</h3><p>Store finished applications as searchable Q&amp;A so your best answers are one click away next time.</p></Card>
-          <Card className="feature"><div className="icon">▣</div><h3>File cabinet and calendar</h3><p>Keep 501(c)(3) letters, budgets, and board lists next to the proposals that need them. Track deadlines on a shared calendar.</p></Card>
+          <Card className="feature"><div className="icon"><PenLine size={26} strokeWidth={1.5} aria-hidden="true" /></div><h3>Assign questions, not documents</h3><p>Each RFP question becomes a task with an owner, a status, and a limit. Nobody edits over anyone else.</p></Card>
+          <Card className="feature"><div className="icon"><ListChecks size={26} strokeWidth={1.5} aria-hidden="true" /></div><h3>Compliance built in</h3><p>Word and character counts update as you type, so every answer fits before submission day.</p></Card>
+          <Card className="feature"><div className="icon"><CheckCheck size={26} strokeWidth={1.5} aria-hidden="true" /></div><h3>Approvals with a paper trail</h3><p>Send the finished proposal to an approver. Rejections come back with comments and go straight to a correction queue.</p></Card>
+          <Card className="feature"><div className="icon"><Sparkles size={26} strokeWidth={1.5} aria-hidden="true" /></div><h3>AI reviewer</h3><p>Point Merge at the funder's website and purpose statement to get strengths, weaknesses, and a prioritized fix list.</p></Card>
+          <Card className="feature"><div className="icon"><History size={26} strokeWidth={1.5} aria-hidden="true" /></div><h3>Reuse past proposals</h3><p>Store finished applications as searchable Q&amp;A so your best answers are one click away next time.</p></Card>
+          <Card className="feature"><div className="icon"><FolderOpen size={26} strokeWidth={1.5} aria-hidden="true" /></div><h3>File cabinet and calendar</h3><p>Keep 501(c)(3) letters, budgets, and board lists next to the proposals that need them. Track deadlines on a shared calendar.</p></Card>
         </div>
       </section>
 

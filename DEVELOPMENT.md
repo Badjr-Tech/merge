@@ -63,6 +63,15 @@ password resets, invitations, approval decisions — must never pass it. The onl
 endpoint answers "Unsubscribed" for an address that does not exist, so it cannot be used to test
 whether someone has an account.
 
+## Icons (2026-10-10)
+
+Lucide (`lucide-react`), everywhere, at `size={18} strokeWidth={1.75}` in the sidebar and 26-28px
+for feature and empty-state icons. No emoji and no dingbat glyphs anywhere in the product.
+
+`EmptyState` still takes the old short glyph as its `icon` prop and maps it to a Lucide component
+internally (`EMPTY_ICONS` in `components/ui/index.js`), so the two dozen call sites did not need
+touching. Pass a React element instead to override.
+
 ## Buying extra AI reviewer runs (added 2026-10-10)
 
 $1.99 each, against a fixed Stripe price in `STRIPE_PRICE_EXTRA_REVIEW` — **create that product and

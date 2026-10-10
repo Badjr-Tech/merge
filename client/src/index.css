@@ -171,7 +171,7 @@ img { max-width: 100%; }
 .avatar-lg { width: 44px; height: 44px; font-size: 16px; }
 
 .empty { text-align: center; padding: 56px 24px; color: var(--text-muted); }
-.empty .empty-icon { font-size: 34px; margin-bottom: 8px; }
+.empty .empty-icon { display: inline-flex; color: var(--border-strong); margin-bottom: 10px; }
 .empty h3 { color: var(--navy); margin-bottom: 4px; }
 .empty p { max-width: 380px; margin: 0 auto 16px; }
 
@@ -242,7 +242,9 @@ img[alt="Merge"] { color: transparent; font-size: 0; }
 .nav-link { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--radius-sm); color: rgba(255,252,240,0.85); font-weight: 500; font-size: 14px; text-decoration: none !important; transition: background .12s, color .12s; }
 .nav-link:hover { background: rgba(255,255,255,0.08); color: #fff; }
 .nav-link.active { background: var(--green-dark); color: #fff; font-weight: 600; }
-.nav-link .nav-icon { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; opacity: .9; }
+.nav-link .nav-icon { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; opacity: .85; flex: 0 0 18px; }
+.nav-lock { display: inline-flex; align-items: center; opacity: .55; margin-left: auto; }
+.nav-lock svg { width: 13px; height: 13px; }
 .nav-link .nav-count { margin-left: auto; background: var(--periwinkle); color: var(--navy); border-radius: 999px; padding: 0 7px; font-size: 11px; font-weight: 700; }
 .nav-link.active .nav-count { background: #fff; color: var(--green-dark); }
 .sidebar-footer { padding: 12px; border-top: 1px solid rgba(255,255,255,0.08); }
@@ -379,7 +381,7 @@ img[alt="Merge"] { color: transparent; font-size: 0; }
 .bell-item:hover { background: #fbfaf5; }
 .bell-item.unread { background: var(--periwinkle-soft); }
 .bell-item.unread:hover { background: #dfe5ff; }
-.bell-icon { color: var(--green-dark); font-size: 13px; margin-top: 2px; }
+.bell-icon { display: inline-flex; color: var(--green-dark); margin-top: 2px; flex: 0 0 15px; }
 .bell-title { display: block; font-size: 13px; font-weight: 600; color: var(--navy); line-height: 1.4; }
 .bell-body { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 .bell-time { display: block; font-size: 11px; color: var(--text-faint); margin-top: 3px; }
@@ -400,7 +402,7 @@ img[alt="Merge"] { color: transparent; font-size: 0; }
 .q-section-head::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 .q-section-head:first-child { margin-top: 4px; }
 .q-section-input { max-width: 420px; font-weight: 700; color: var(--dark-green, #476c2e); }
-.q-type-tag { margin-right: 6px; font-size: 13px; }
+.q-type-tag { display: inline-flex; align-items: center; margin-right: 6px; color: var(--text-muted); vertical-align: -2px; }
 .select-xs { font-size: 12px; padding: 2px 24px 2px 8px; height: 26px; border-radius: 6px; background-position: right 6px center; }
 .q-section-assign { max-width: 200px; font-weight: 500; color: var(--text-muted); }
 .q-section-head .q-section-assign { margin-left: auto; }
@@ -411,7 +413,7 @@ img[alt="Merge"] { color: transparent; font-size: 0; }
 .assistant-fab { position: fixed; right: 22px; bottom: 22px; z-index: 900; display: inline-flex; align-items: center; gap: 8px; padding: 12px 18px; border-radius: 999px; border: none; background: var(--indigo); color: #fff; font-weight: 700; font-size: 14px; box-shadow: var(--shadow-lg); cursor: pointer; transition: transform .12s, background .15s, opacity .15s; }
 .assistant-fab:hover { background: var(--navy); transform: translateY(-1px); }
 .assistant-fab.hidden { opacity: 0; pointer-events: none; }
-.assistant-fab-icon { font-size: 16px; }
+.assistant-fab-icon { display: inline-flex; align-items: center; }
 .assistant-panel { position: fixed; right: 22px; bottom: 22px; width: 440px; max-width: calc(100vw - 32px); height: 620px; max-height: calc(100vh - 44px); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; z-index: 950; transform: translateY(16px); opacity: 0; pointer-events: none; transition: transform .18s ease, opacity .18s ease; overflow: hidden; }
 .assistant-panel.open { transform: none; opacity: 1; pointer-events: auto; }
 .assistant-head { background: var(--navy); color: #fff; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; }

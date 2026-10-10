@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { TriangleAlert, Lightbulb, CircleHelp, Heart, Star, Check } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import api, { errorMessage } from '../api';
 import { useToast } from '../context/ToastContext';
@@ -6,10 +7,10 @@ import { Button, Field, Textarea } from './ui';
 
 // Monochrome glyphs, matching the sidebar set — they take the brand colour and sit with the type.
 const TYPES = [
-  { id: 'bug', label: 'Something broke', icon: '⚠' },
-  { id: 'idea', label: 'I have an idea', icon: '✦' },
-  { id: 'question', label: 'I have a question', icon: '?' },
-  { id: 'praise', label: 'This is great', icon: '♥' },
+  { id: 'bug', label: 'Something broke', Icon: TriangleAlert },
+  { id: 'idea', label: 'I have an idea', Icon: Lightbulb },
+  { id: 'question', label: 'I have a question', Icon: CircleHelp },
+  { id: 'praise', label: 'This is great', Icon: Heart },
 ];
 
 export default function FeedbackWidget() {
@@ -58,7 +59,7 @@ export default function FeedbackWidget() {
               ) : (
                 <>
                   <div className="feedback-types">
-                    {TYPES.map(t => <button key={t.id} type="button" className={`feedback-type ${type === t.id ? 'active' : ''}`} onClick={() => setType(t.id)}><span>{t.icon}</span>{t.label}</button>)}
+                    {TYPES.map(t => <button key={t.id} type="button" className={`feedback-type ${type === t.id ? 'active' : ''}`} onClick={() => setType(t.id)}><t.Icon size={16} strokeWidth={1.75} aria-hidden="true" />{t.label}</button>)}
                   </div>
                   <Field label={type === 'bug' ? 'What happened, and what did you expect?' : type === 'question' ? 'What would you like to know?' : 'Tell us about it'}>
                     <Textarea rows={5} value={message} onChange={e => setMessage(e.target.value)} autoFocus placeholder={type === 'bug' ? 'I clicked … and then …' : ''} />
@@ -66,10 +67,10 @@ export default function FeedbackWidget() {
                   <div className="row-between mb-2">
                     <div className="feedback-stars" aria-label="How is Merge working for you?">
                       <span className="tiny muted">How's Merge so far?</span>
-                      {[1, 2, 3, 4, 5].map(n => <button key={n} type="button" className={n <= rating ? 'on' : ''} onClick={() => setRating(n === rating ? 0 : n)} aria-label={`${n} of 5`}>★</button>)}
+                      {[1, 2, 3, 4, 5].map(n => <button key={n} type="button" className={n <= rating ? 'on' : ''} onClick={() => setRating(n === rating ? 0 : n)} aria-label={`${n} of 5`}><Star size={16} strokeWidth={1.8} fill={n <= rating ? 'currentColor' : 'none'} aria-hidden="true" /></button>)}
                     </div>
                     <label className="link-button tiny" style={{ cursor: 'pointer' }}>
-                      {shot ? 'Screenshot added ✓' : 'Attach screenshot'}
+                      {shot ? <><Check size={13} strokeWidth={2.4} aria-hidden="true" /> Screenshot added</> : 'Attach screenshot'}
                       <input ref={fileRef} type="file" accept="image/*" onChange={pickShot} style={{ display: 'none' }} />
                     </label>
                   </div>

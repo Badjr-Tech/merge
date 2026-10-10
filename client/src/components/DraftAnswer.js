@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { Sparkles } from 'lucide-react';
 import { API_URL, errorMessage } from '../api';
 import { usePlan } from '../context/PlanContext';
 import { useToast } from '../context/ToastContext';
@@ -65,5 +66,5 @@ export default function DraftAnswer({ questionId, currentAnswer, onDraft, disabl
 
   return busy
     ? <Button variant="secondary" size="sm" onClick={stop}>Stop writing</Button>
-    : <Button variant="secondary" size="sm" onClick={run} disabled={disabled}>✦ {currentAnswer && currentAnswer.trim() ? 'Help me improve this' : 'Help me answer this'}</Button>;
+    : <Button variant="secondary" size="sm" onClick={run} disabled={disabled}><Sparkles size={14} strokeWidth={1.9} aria-hidden="true" /> {currentAnswer && currentAnswer.trim() ? 'Help me improve this' : 'Help me answer this'}</Button>;
 }
