@@ -105,7 +105,7 @@ the difference and they do not expire with the billing window. Those rows, plus 
 | Professional | 4,000/mo | 300/mo | 5/day per workspace | weekly |
 | Solo Writer | 2,000/mo | 20/mo | 20/mo | monthly |
 | Small Teams | 750/seat/mo | 15/seat/mo | 4/seat/mo | monthly |
-| Large Teams | 1,000/seat/mo | 15/seat/mo | 4/seat/mo | weekly |
+| Large Teams | 1,000/seat/mo | 15/seat/mo | 5/seat/mo | weekly |
 | Companies | 1,000/seat/mo | 30/seat/mo | 15/seat/mo | weekly |
 
 Team rates are per seat but pool company-wide: 5 Companies seats share 5,000 messages, and three

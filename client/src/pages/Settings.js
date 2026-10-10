@@ -16,7 +16,7 @@ const PLAN_FEATURES = {
   professional: ['Everything in Premium', '4,000 Ask Merge messages a month', '300 drafted answers a month', '5 AI reviews a day per workspace', 'Multiple workspaces (one per client)', 'Integrations', 'Priority support'],
   org_solo: ['1 person', 'Unlimited grants', 'Answer bank and Ask Merge', 'AI reviewer', '2,000 Ask Merge messages and 20 drafts a month', '20 AI reviews a month', 'Send for review by link', 'Partners and past proposals'],
   small_team: ['Up to 5 people', 'Assign questions, approvals', 'Answer bank and Ask Merge', 'AI reviewer', '750 Ask Merge messages, 15 drafts and 4 AI reviews per person a month', 'Partners and past proposals', 'Editable narrative with history'],
-  large_team: ['Up to 20 people', 'Everything in Small Teams', '1,000 Ask Merge messages, 15 drafts and 4 AI reviews per person a month', 'Multiple workspaces'],
+  large_team: ['Up to 20 people', 'Everything in Small Teams', '1,000 Ask Merge messages, 15 drafts and 5 AI reviews per person a month', 'Multiple workspaces'],
   company: ['Unlimited people', 'Everything in Large Teams', '1,000 Ask Merge messages, 30 drafts and 15 AI reviews per person a month', 'Integrations', 'Custom branding', 'Priority support'],
 };
 const PER = { workspace: 'free', month: '/mo', person: '/person/mo' };

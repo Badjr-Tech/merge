@@ -56,7 +56,7 @@ const AI_LIMITS = {
   // Organization track: placeholders in step with the old pooled numbers, pending their own decision.
   org_solo:     { chat: { month: 2000 }, draft: { month: 20 }, review: { month: 20, extraPrice: 1.99 }, profile: { everyDays: 30 } },
   small_team:   { chat: { monthPerSeat: 750, perDayPerUser: 200 }, draft: { monthPerSeat: 15, perDayPerUser: 20 }, review: { monthPerSeat: 4, perDayPerUser: 5, extraPrice: 1.99 }, profile: { everyDays: 30 } },
-  large_team:   { chat: { monthPerSeat: 1000, perDayPerUser: 200 }, draft: { monthPerSeat: 15, perDayPerUser: 20 }, review: { monthPerSeat: 4, perDayPerUser: 5, extraPrice: 1.99 }, profile: { everyDays: 7 } },
+  large_team:   { chat: { monthPerSeat: 1000, perDayPerUser: 200 }, draft: { monthPerSeat: 15, perDayPerUser: 20 }, review: { monthPerSeat: 5, perDayPerUser: 5, extraPrice: 1.99 }, profile: { everyDays: 7 } },
   company:      { chat: { monthPerSeat: 1000, perDayPerUser: 200 }, draft: { monthPerSeat: 30, perDayPerUser: 20 }, review: { monthPerSeat: 15, perDayPerUser: 5, extraPrice: 1.99 }, profile: { everyDays: 7 } },
 };
 
