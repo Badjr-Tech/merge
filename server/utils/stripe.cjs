@@ -11,6 +11,11 @@ const PRICE_BY_PLAN = {
   large_team: process.env.STRIPE_PRICE_LARGE_TEAM || 'price_1UGom5JQCQqMQG9fSHmB0b6h',
   company: process.env.STRIPE_PRICE_COMPANY || 'price_1UGom5JQCQqMQG9fBDwMf92v',
 };
+// One-off purchase: an extra AI reviewer run. Create this once in Stripe as a product with a
+// $1.99 one-time price and put the price id in STRIPE_PRICE_EXTRA_REVIEW. Nothing is ever created
+// at checkout time.
+const PRICE_EXTRA_REVIEW = process.env.STRIPE_PRICE_EXTRA_REVIEW || null;
+
 const PLAN_BY_PRICE = Object.fromEntries(Object.entries(PRICE_BY_PLAN).map(([k, v]) => [v, k]));
 const PORTAL_CONFIG = process.env.STRIPE_PORTAL_CONFIG || 'bpc_1UGom8JQCQqMQG9fwkJXfcwP';
 
@@ -23,4 +28,4 @@ function stripe() {
 function configured() { return Boolean(process.env.STRIPE_SECRET_KEY); }
 function perSeat(planKey) { return PLANS[planKey] && PLANS[planKey].per === 'person'; }
 
-module.exports = { stripe, configured, PRICE_BY_PLAN, PLAN_BY_PRICE, PORTAL_CONFIG, perSeat, normalizeKey };
+module.exports = { stripe, configured, PRICE_BY_PLAN, PRICE_EXTRA_REVIEW, PLAN_BY_PRICE, PORTAL_CONFIG, perSeat, normalizeKey };

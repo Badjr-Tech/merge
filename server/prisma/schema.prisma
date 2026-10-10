@@ -58,6 +58,9 @@ model Company {
   currentPeriodEnd     DateTime?
   cancelAtPeriodEnd    Boolean  @default(false)
   compedUntil          DateTime?         // legacy comp; pilots replaced it
+  reviewAutoReload     Boolean           @default(false) // buy extra AI reviewer runs automatically when they run out
+  reviewReloadQty      Int               @default(5)     // how many to buy each time
+  reviewReloadCap      Int               @default(4)     // most reloads allowed in one month
   pilotEndsAt          DateTime?         // free pilot: full access to pilotPlan until this date
   pilotPlan            String?           // what they get during the pilot
   pilotRevertsTo       String?           // the plan they land on when it ends

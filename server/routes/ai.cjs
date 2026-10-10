@@ -45,7 +45,7 @@ router.post('/review', auth, requireFeature(prisma, 'ai_reviewer'), async (req, 
     const text = await generateText(prompt);
 
     // Save the AI review to the database
-    await recordAi(req.user.companyId, req.user.id, 'review', projectId);
+    await recordAi(req.user.companyId, req.user.id, 'review', projectId, gate.spendCredit);
     await prisma.aIReviewLog.create({
       data: {
         projectId: project.id,
@@ -353,6 +353,30 @@ function startOfWeek() { const d = startOfDay(); const back = (d.getDay() + 6) %
 // Extra AI reviewer runs are purchasable; say the price wherever the limit is reported.
 function extra(rule) { return rule.extraPrice ? ` Extra runs are $${rule.extraPrice.toFixed(2)} each.` : ''; }
 
+// Purchased extra runs. One 'credit:review' row per run bought, one 'credit_spent:review' per run
+// used, so unspent = the difference. They never expire with the billing window.
+async function unspentCredits(companyId, feature) {
+  const [bought, spent] = await Promise.all([
+    prisma.aiUsage.count({ where: { companyId, feature: `credit:${feature}` } }),
+    prisma.aiUsage.count({ where: { companyId, feature: `credit_spent:${feature}` } }),
+  ]);
+  return Math.max(0, bought - spent);
+}
+
+// Called when a limit is hit: spend a credit if one is going spare, otherwise report the block.
+async function allowOnCredit(companyId, feature, body) {
+  if (!body.extraPrice) return { ok: false, status: 429, body };
+  let left = await unspentCredits(companyId, feature);
+  if (left <= 0 && feature === 'review') {
+    // Opted into auto-reload: buy another batch on the card on file rather than stopping them.
+    const reload = await require('./billing.cjs').autoReloadReviews(companyId);
+    if (reload.ok) left = await unspentCredits(companyId, feature);
+    else if (reload.reason === 'cap_reached') return { ok: false, status: 429, body: { ...body, canBuy: true, msg: `${body.msg} Auto-reload has already run ${reload.cap} times this month, so nothing was charged.` } };
+  }
+  if (left <= 0) return { ok: false, status: 429, body: { ...body, canBuy: true } };
+  return { ok: true, spendCredit: true, creditsLeft: left - 1 };
+}
+
 async function checkAi(req, feature, opts = {}) {
   const companyId = req.user.companyId;
   if (!companyId) return { ok: false, status: 400, body: { msg: 'You are not attached to a workspace.' } };
@@ -387,7 +411,7 @@ async function checkAi(req, feature, opts = {}) {
   const monthCap = AI_CAP_OVERRIDE !== null && rule.month ? AI_CAP_OVERRIDE : rule.month;
   if (monthCap) {
     const used = await prisma.aiUsage.count({ where: { ...where, createdAt: { gte: startOfMonth() } } });
-    if (used >= monthCap) return { ok: false, status: 429, body: { msg: `Your workspace has used its ${monthCap.toLocaleString()} ${label} actions for this month on ${plan.name}. It resets on the 1st.${extra(rule)}`, feature, used, cap: monthCap, upgrade: true, extraPrice: rule.extraPrice } };
+    if (used >= monthCap) return allowOnCredit(companyId, feature, { msg: `Your workspace has used its ${monthCap.toLocaleString()} ${label} actions for this month on ${plan.name}. It resets on the 1st.${extra(rule)}`, feature, used, cap: monthCap, upgrade: true, extraPrice: rule.extraPrice });
   }
   // Burst guard — one account cannot drain the shared pool in an afternoon
   if (rule.perDayPerUser) {
@@ -404,26 +428,29 @@ async function checkAi(req, feature, opts = {}) {
   // Per day, whole workspace
   if (rule.perDay) {
     const used = await prisma.aiUsage.count({ where: { ...where, createdAt: { gte: startOfDay() } } });
-    if (used >= rule.perDay) return { ok: false, status: 429, body: { msg: `${label} can run ${rule.perDay} times a day on ${plan.name}, and today's runs are used. It resets at midnight.${extra(rule)}`, feature, used, cap: rule.perDay, extraPrice: rule.extraPrice } };
+    if (used >= rule.perDay) return allowOnCredit(companyId, feature, { msg: `${label} can run ${rule.perDay} times a day on ${plan.name}, and today's runs are used. It resets at midnight.${extra(rule)}`, feature, used, cap: rule.perDay, extraPrice: rule.extraPrice });
   }
   // Per calendar week
   if (rule.perWeek) {
     const used = await prisma.aiUsage.count({ where: { ...where, createdAt: { gte: startOfWeek() } } });
-    if (used >= rule.perWeek) return { ok: false, status: 429, body: { msg: `${label} runs ${rule.perWeek} times a week on ${plan.name}, and this week's runs are used. It resets Monday.${extra(rule)}`, feature, used, cap: rule.perWeek, extraPrice: rule.extraPrice } };
+    if (used >= rule.perWeek) return allowOnCredit(companyId, feature, { msg: `${label} runs ${rule.perWeek} times a week on ${plan.name}, and this week's runs are used. It resets Monday.${extra(rule)}`, feature, used, cap: rule.perWeek, extraPrice: rule.extraPrice });
   }
   // Per day, per grant
   if (rule.perDayPerProject && opts.projectId) {
     const used = await prisma.aiUsage.count({ where: { ...where, projectId: opts.projectId, createdAt: { gte: startOfDay() } } });
     if (used >= rule.perDayPerProject) {
       const times = rule.perDayPerProject === 1 ? 'once' : `${rule.perDayPerProject} times`;
-      return { ok: false, status: 429, body: { msg: `${label} runs ${times} a day per grant on ${plan.name}. This grant's run is used — it resets at midnight.${extra(rule)}`, feature, used, cap: rule.perDayPerProject, extraPrice: rule.extraPrice } };
+      return allowOnCredit(companyId, feature, { msg: `${label} runs ${times} a day per grant on ${plan.name}. This grant's run is used — it resets at midnight.${extra(rule)}`, feature, used, cap: rule.perDayPerProject, extraPrice: rule.extraPrice });
     }
   }
   return { ok: true, plan, rule };
 }
 
-async function recordAi(companyId, userId, feature, projectId) {
-  try { await prisma.aiUsage.create({ data: { companyId, userId: userId || null, feature, projectId: projectId || null } }); }
+async function recordAi(companyId, userId, feature, projectId, spendCredit) {
+  try {
+    await prisma.aiUsage.create({ data: { companyId, userId: userId || null, feature, projectId: projectId || null } });
+    if (spendCredit) await prisma.aiUsage.create({ data: { companyId, userId: userId || null, feature: `credit_spent:${feature}` } });
+  }
   catch (err) { console.error('AI usage log failed:', err.message); }
   warnIfNearLimit(companyId, feature).catch(err => console.error('Limit warning failed:', err.message));
 }
@@ -448,11 +475,14 @@ async function warnIfNearLimit(companyId, feature) {
   const used = await prisma.aiUsage.count({ where: { companyId, feature, createdAt: { gte: since } } });
   if (used < Math.ceil(cap * WARN_AT)) return;
 
-  // One warning per feature per window
-  const marker = `warn:${feature}`;
-  const already = await prisma.aiUsage.count({ where: { companyId, feature: marker, createdAt: { gte: since } } });
-  if (already) return;
-  await prisma.aiUsage.create({ data: { companyId, feature: marker } });
+  // One warning per feature per window. The marker's id is deterministic, so two requests landing
+  // at the same moment cannot both create it — the loser hits a duplicate key and stops.
+  const period = window === 'month' ? `${since.getFullYear()}-${since.getMonth() + 1}` : since.toISOString().slice(0, 10);
+  try {
+    await prisma.aiUsage.create({ data: { id: `warn-${companyId}-${feature}-${period}`, companyId, feature: `warn:${feature}` } });
+  } catch (err) {
+    return; // already warned this window
+  }
 
   const label = AI_FEATURE_LABELS[feature] || feature;
   const admins = await prisma.user.findMany({ where: { companyId, role: 'admin', isApproved: true }, select: { id: true, companyId: true, email: true, name: true, username: true } });
@@ -497,7 +527,9 @@ router.get('/usage', auth, async (req, res) => {
       }
       out[feature] = row;
     }
-    res.json({ plan: plan.name, unmetered: Boolean(plan.comped || plan.staff), features: out });
+    const reviewCredits = await unspentCredits(companyId, 'review');
+    const co = await prisma.company.findUnique({ where: { id: companyId }, select: { reviewAutoReload: true, reviewReloadQty: true, reviewReloadCap: true } });
+    res.json({ plan: plan.name, unmetered: Boolean(plan.comped || plan.staff), features: out, credits: { review: reviewCredits }, autoReload: { on: co.reviewAutoReload, qty: co.reviewReloadQty, cap: co.reviewReloadCap, price: 1.99 } });
   } catch (err) { console.error(err); res.status(500).json({ msg: 'Server error' }); }
 });
 

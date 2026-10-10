@@ -63,6 +63,26 @@ password resets, invitations, approval decisions — must never pass it. The onl
 endpoint answers "Unsubscribed" for an address that does not exist, so it cannot be used to test
 whether someone has an account.
 
+## Buying extra AI reviewer runs (added 2026-10-10)
+
+$1.99 each, against a fixed Stripe price in `STRIPE_PRICE_EXTRA_REVIEW` — **create that product and
+price in Stripe and set the env var, or the purchase endpoint returns a clear "not on sale yet"
+message.** Nothing is ever created at checkout.
+
+- **Manual (default):** the limit message carries `canBuy`, and Settings → AI usage has a "Buy 5
+  now" button that opens Stripe Checkout (`POST /api/billing/extra-review`). The webhook grants the
+  credits once payment is confirmed, keyed on the session id so a replayed webhook cannot
+  double-grant.
+- **Auto-reload (opt-in):** `Company.reviewAutoReload` + `reviewReloadQty` + `reviewReloadCap`.
+  When the reviewer is blocked and no credits remain, `autoReloadReviews()` charges the card on
+  file off-session, grants the runs, and emails the admins. Capped at `reviewReloadCap` reloads a
+  month (default 4) so a loop cannot empty an account; with no card or past the cap it falls back
+  to the manual prompt.
+
+Credits live in AiUsage as `credit:review` (bought) and `credit_spent:review` (used); unspent is
+the difference and they do not expire with the billing window. Those rows, plus `warn:` and
+`reload:`, are excluded from usage and spend by `METERED`.
+
 ## AI limits, settled 2026-10-09
 
 | Plan | Ask Merge | Help me answer this | AI reviewer | Profile import |
