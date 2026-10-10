@@ -53,7 +53,10 @@ export default function NotificationBell() {
   return (
     <div className="bell-wrap" ref={ref}>
       <button type="button" className="bell" onClick={() => setOpen(o => !o)} aria-label={data.unread ? `Notifications, ${data.unread} unread` : 'Notifications'}>
-        <span aria-hidden="true">🔔</span>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style={{ display: 'block' }}>
+          <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+        </svg>
         {data.unread > 0 && <span className="bell-dot">{data.unread > 9 ? '9+' : data.unread}</span>}
       </button>
       {open && (

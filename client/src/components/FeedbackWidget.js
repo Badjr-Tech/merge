@@ -4,11 +4,12 @@ import api, { errorMessage } from '../api';
 import { useToast } from '../context/ToastContext';
 import { Button, Field, Textarea } from './ui';
 
+// Monochrome glyphs, matching the sidebar set — they take the brand colour and sit with the type.
 const TYPES = [
-  { id: 'bug', label: 'Something broke', icon: '🐞' },
-  { id: 'idea', label: 'I have an idea', icon: '💡' },
-  { id: 'question', label: 'I have a question', icon: '❓' },
-  { id: 'praise', label: 'This is great', icon: '💚' },
+  { id: 'bug', label: 'Something broke', icon: '⚠' },
+  { id: 'idea', label: 'I have an idea', icon: '✦' },
+  { id: 'question', label: 'I have a question', icon: '?' },
+  { id: 'praise', label: 'This is great', icon: '♥' },
 ];
 
 export default function FeedbackWidget() {
