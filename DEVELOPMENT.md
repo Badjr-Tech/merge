@@ -81,6 +81,11 @@ people doing the writing can use the lot. A per-person daily guard (200 chats / 
 reviews) stops one account draining it. Extra AI reviewer runs are $1.99 on every plan that has
 the reviewer — stated in the limit messages and on the pricing cards, not yet chargeable.
 
+At 90% of a monthly or weekly allowance the workspace admins get an email and a bell notification,
+once per feature per window (a `warn:<feature>` marker row in AiUsage, excluded from usage and spend
+by `METERED` in utils/aicost.cjs). Daily and per-grant caps are not warned on — they are small and
+reset within hours.
+
 Worst case runs 7-8% of revenue on the team plans and 18-23% on the single-seat ones; at measured
 reply lengths roughly half that, and typical use is under 1%.
 

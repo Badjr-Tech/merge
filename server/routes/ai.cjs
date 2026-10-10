@@ -3,6 +3,8 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const prisma = require('../utils/prisma.cjs');
 const { requireFeature, planFor, aiLimit, AI_FEATURE_LABELS } = require('../utils/plans.cjs');
+const { notify } = require('../utils/notify.cjs');
+const { layout, button, appUrl } = require('../utils/email.cjs');
 const gemini = require('../utils/gemini.cjs');
 const { generateText } = gemini;
 
@@ -423,6 +425,52 @@ async function checkAi(req, feature, opts = {}) {
 async function recordAi(companyId, userId, feature, projectId) {
   try { await prisma.aiUsage.create({ data: { companyId, userId: userId || null, feature, projectId: projectId || null } }); }
   catch (err) { console.error('AI usage log failed:', err.message); }
+  warnIfNearLimit(companyId, feature).catch(err => console.error('Limit warning failed:', err.message));
+}
+
+// At 90% of a monthly or weekly allowance, tell the workspace admins once — running out mid-grant
+// with no warning is the thing that makes a limit feel unfair. Daily and per-grant caps are not
+// warned on: they are small and reset within hours.
+const WARN_AT = 0.9;
+async function warnIfNearLimit(companyId, feature) {
+  const company = await prisma.company.findUnique({ where: { id: companyId }, select: { id: true, name: true, plan: true, kind: true, trialEndsAt: true, compedUntil: true, pilotEndsAt: true, pilotPlan: true, pilotRevertsTo: true, isStaff: true } });
+  const plan = planFor(company);
+  if (plan.staff || plan.comped) return;
+  const seats = await prisma.user.count({ where: { companyId, isApproved: true } });
+  const rule = aiLimit(plan.key, feature, seats);
+  if (!rule.allowed) return;
+
+  const window = rule.month ? 'month' : rule.perWeek ? 'week' : null;
+  const cap = rule.month || rule.perWeek;
+  if (!window || !cap || cap < 10) return;                 // nothing useful to warn about
+
+  const since = window === 'month' ? startOfMonth() : startOfWeek();
+  const used = await prisma.aiUsage.count({ where: { companyId, feature, createdAt: { gte: since } } });
+  if (used < Math.ceil(cap * WARN_AT)) return;
+
+  // One warning per feature per window
+  const marker = `warn:${feature}`;
+  const already = await prisma.aiUsage.count({ where: { companyId, feature: marker, createdAt: { gte: since } } });
+  if (already) return;
+  await prisma.aiUsage.create({ data: { companyId, feature: marker } });
+
+  const label = AI_FEATURE_LABELS[feature] || feature;
+  const admins = await prisma.user.findMany({ where: { companyId, role: 'admin', isApproved: true }, select: { id: true, companyId: true, email: true, name: true, username: true } });
+  const resets = window === 'month' ? 'on the 1st' : 'on Monday';
+  const left = Math.max(0, cap - used);
+  for (const admin of admins) {
+    await notify({
+      user: admin, companyId, type: 'ai_limit',
+      title: `${label} is at ${Math.round((used / cap) * 100)}% for this ${window}`,
+      body: `${used.toLocaleString()} of ${cap.toLocaleString()} used · ${left.toLocaleString()} left · resets ${resets}`,
+      link: '/app/settings#ai-usage',
+      email: {
+        subject: `${company.name} has used ${Math.round((used / cap) * 100)}% of its ${label} allowance`,
+        html: layout(`${label}: ${left.toLocaleString()} left`, `<p>Hi ${(admin.name || admin.username)},</p><p><strong>${company.name}</strong> has used <strong>${used.toLocaleString()} of ${cap.toLocaleString()}</strong> ${label} actions for this ${window} on ${plan.name}. It resets ${resets}.</p><p>When it runs out that feature pauses until the reset — everything else keeps working, and nothing you have written is affected.</p>${button(appUrl('/app/settings#ai-usage'), 'See your usage')}`),
+        text: `${company.name} has used ${used} of ${cap} ${label} actions for this ${window} on ${plan.name}. Resets ${resets}. ${appUrl('/app/settings#ai-usage')}`,
+      },
+    });
+  }
 }
 
 // GET /api/ai/usage — what's left this month, per feature

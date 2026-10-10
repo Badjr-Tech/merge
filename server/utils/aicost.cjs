@@ -22,4 +22,8 @@ function spendFrom(rows) {
   return rows.reduce((sum, r) => sum + costOf(r.feature) * (r._count ? r._count._all ?? r._count : r.count || 0), 0);
 }
 
-module.exports = { RATE, TOKENS, costOf, spendFrom };
+// The only features that count as usage or spend. AiUsage also holds 'warn:*' marker rows, which
+// are bookkeeping, not actions.
+const METERED = Object.keys(TOKENS);
+
+module.exports = { RATE, TOKENS, costOf, spendFrom, METERED };

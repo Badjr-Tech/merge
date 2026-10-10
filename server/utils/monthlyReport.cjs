@@ -3,7 +3,7 @@
 // does it; AI spend is priced from measured token counts (utils/aicost.cjs).
 const prisma = require('./prisma.cjs');
 const { PLANS, planFor, normalizeKey } = require('./plans.cjs');
-const { costOf } = require('./aicost.cjs');
+const { costOf, METERED } = require('./aicost.cjs');
 
 const PAID = ['active', 'trialing', 'past_due'];
 
@@ -32,8 +32,8 @@ async function monthlySummary(monthStart, monthEnd) {
     prisma.project.count({ where: { createdAt: inMonth } }),
     prisma.question.count({ where: { status: 'submitted', updatedAt: inMonth } }),
     prisma.feedbackTicket.count({ where: { createdAt: inMonth } }),
-    prisma.aiUsage.groupBy({ by: ['feature'], where: { createdAt: inMonth }, _count: { _all: true } }),
-    prisma.aiUsage.groupBy({ by: ['companyId', 'feature'], where: { createdAt: inMonth }, _count: { _all: true } }),
+    prisma.aiUsage.groupBy({ by: ['feature'], where: { feature: { in: METERED }, createdAt: inMonth }, _count: { _all: true } }),
+    prisma.aiUsage.groupBy({ by: ['companyId', 'feature'], where: { feature: { in: METERED }, createdAt: inMonth }, _count: { _all: true } }),
   ]);
 
   const byFeature = {}; let aiSpend = 0, aiActions = 0;

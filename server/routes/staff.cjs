@@ -3,7 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const prisma = require('../utils/prisma.cjs');
 const { PLANS, publicPlan, planFor } = require('../utils/plans.cjs');
-const { costOf } = require('../utils/aicost.cjs');
+const { costOf, METERED } = require('../utils/aicost.cjs');
 const { stripe, configured } = require('../utils/stripe.cjs');
 
 // Merge staff: emails listed in STAFF_EMAILS (comma-separated). They can comp any workspace.
@@ -110,9 +110,9 @@ router.get('/overview', auth, async (req, res) => {
     // AI spend: every metered action, priced at what it costs us (utils/aicost.cjs)
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const [aiAll, aiMonth, ai30] = await Promise.all([
-      prisma.aiUsage.groupBy({ by: ['feature'], _count: { _all: true } }),
-      prisma.aiUsage.groupBy({ by: ['feature'], where: { createdAt: { gte: monthStart } }, _count: { _all: true } }),
-      prisma.aiUsage.groupBy({ by: ['feature'], where: { createdAt: { gte: d30 } }, _count: { _all: true } }),
+      prisma.aiUsage.groupBy({ by: ['feature'], where: { feature: { in: METERED } }, _count: { _all: true } }),
+      prisma.aiUsage.groupBy({ by: ['feature'], where: { feature: { in: METERED }, createdAt: { gte: monthStart } }, _count: { _all: true } }),
+      prisma.aiUsage.groupBy({ by: ['feature'], where: { feature: { in: METERED }, createdAt: { gte: d30 } }, _count: { _all: true } }),
     ]);
     const priced = (rows) => {
       const byFeature = {}; let total = 0, actions = 0;
@@ -128,7 +128,7 @@ router.get('/overview', auth, async (req, res) => {
     aiSpend.thisMonth.percentOfMrr = mrrRounded > 0 ? Math.round((aiSpend.thisMonth.spend / mrrRounded) * 1000) / 10 : null;
 
     // The workspaces costing the most this month
-    const topRows = await prisma.aiUsage.groupBy({ by: ['companyId', 'feature'], where: { createdAt: { gte: monthStart } }, _count: { _all: true } });
+    const topRows = await prisma.aiUsage.groupBy({ by: ['companyId', 'feature'], where: { feature: { in: METERED }, createdAt: { gte: monthStart } }, _count: { _all: true } });
     const byCompany = {};
     for (const r of topRows) byCompany[r.companyId] = (byCompany[r.companyId] || 0) + costOf(r.feature) * r._count._all;
     const nameById = Object.fromEntries(companies.map(c => [c.id, c.name]));
