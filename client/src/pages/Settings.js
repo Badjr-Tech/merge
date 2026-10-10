@@ -12,12 +12,12 @@ import AiUsageCard from '../components/AiUsageCard';
 const PLAN_FEATURES = {
   free: ['1 grant', 'Send for review with notes', 'Answer bank, partners, past proposals', 'Download PDF or Word', 'No AI features'],
   writer: ['Unlimited grants', 'Answer bank', 'Send for review by link', 'File cabinet and calendar'],
-  writer_pro: ['Everything in Starter', 'Ask Merge writing assistant', 'AI reviewer', '2,000 AI actions a month', 'Partners and past proposals', 'Editable document with history'],
-  professional: ['Everything in Premium', '5,000 AI actions a month', 'Multiple workspaces (one per client)', 'Integrations', 'Priority support'],
-  org_solo: ['1 person', 'Unlimited grants', 'Answer bank and Ask Merge', 'AI reviewer', '1,500 AI actions a month', 'Send for review by link', 'Partners and past proposals'],
-  small_team: ['Up to 5 people', 'Assign questions, approvals', 'Answer bank and Ask Merge', 'AI reviewer', '750 AI actions per person a month', 'Partners and past proposals', 'Editable narrative with history'],
-  large_team: ['Up to 20 people', 'Everything in Small Teams', '750 AI actions per person a month', 'Multiple workspaces'],
-  company: ['Unlimited people', 'Everything in Large Teams', '1,000 AI actions per person a month', 'Integrations', 'Custom branding', 'Priority support'],
+  writer_pro: ['Everything in Starter', 'Ask Merge writing assistant', 'AI reviewer', '2,000 Ask Merge messages a month', '150 drafted answers a month', 'Partners and past proposals', 'Editable document with history'],
+  professional: ['Everything in Premium', '4,000 Ask Merge messages a month', '300 drafted answers a month', '3 AI reviews a day per workspace', 'Multiple workspaces (one per client)', 'Integrations', 'Priority support'],
+  org_solo: ['1 person', 'Unlimited grants', 'Answer bank and Ask Merge', 'AI reviewer', '2,000 Ask Merge messages and 20 drafts a month', '5 AI reviews a week', 'Send for review by link', 'Partners and past proposals'],
+  small_team: ['Up to 5 people', 'Assign questions, approvals', 'Answer bank and Ask Merge', 'AI reviewer', '750 Ask Merge messages, 15 drafts and 4 AI reviews per person a month', 'Partners and past proposals', 'Editable narrative with history'],
+  large_team: ['Up to 20 people', 'Everything in Small Teams', '750 Ask Merge messages, 15 drafts and 4 AI reviews per person a month', 'Multiple workspaces'],
+  company: ['Unlimited people', 'Everything in Large Teams', '1,000 Ask Merge messages, 30 drafts and 15 AI reviews per person a month', 'Integrations', 'Custom branding', 'Priority support'],
 };
 const PER = { workspace: 'free', month: '/mo', person: '/person/mo' };
 

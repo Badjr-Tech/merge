@@ -63,6 +63,27 @@ password resets, invitations, approval decisions — must never pass it. The onl
 endpoint answers "Unsubscribed" for an address that does not exist, so it cannot be used to test
 whether someone has an account.
 
+## AI limits, settled 2026-10-09
+
+| Plan | Ask Merge | Help me answer this | AI reviewer | Profile import |
+|---|---|---|---|---|
+| Free | — | — | — | once ever |
+| Starter | — | — | — | monthly |
+| Premium | 2,000/mo | 150/mo | 1/day per grant | monthly |
+| Professional | 4,000/mo | 300/mo | 3/day per workspace | weekly |
+| Solo Writer | 2,000/mo | 20/mo | 5/week | monthly |
+| Small Teams | 750/seat/mo | 15/seat/mo | 4/seat/mo | monthly |
+| Large Teams | 750/seat/mo | 15/seat/mo | 4/seat/mo | weekly |
+| Companies | 1,000/seat/mo | 30/seat/mo | 15/seat/mo | weekly |
+
+Team rates are per seat but pool company-wide: 5 Companies seats share 5,000 messages, and three
+people doing the writing can use the lot. A per-person daily guard (200 chats / 20 drafts / 5
+reviews) stops one account draining it. Extra AI reviewer runs are $1.99 on every plan that has
+the reviewer — stated in the limit messages and on the pricing cards, not yet chargeable.
+
+Worst case runs 7-8% of revenue on the team plans and 18-23% on the single-seat ones; at measured
+reply lengths roughly half that, and typical use is under 1%.
+
 ## Pilots (added 2026-10-09, replaces comping)
 
 A pilot is free full access to a chosen plan for a set period that then lands the workspace on a
