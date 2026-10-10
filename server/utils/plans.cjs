@@ -52,9 +52,9 @@ const AI_LIMITS = {
   free:         { chat: 0, draft: 0, review: 0, profile: { once: true } },
   writer:       { chat: 0, draft: 0, review: 0, profile: { everyDays: 30 } },
   writer_pro:   { chat: { month: 2000 }, draft: { month: 150 }, review: { perDayPerProject: 1, extraPrice: 1.99 }, profile: { everyDays: 30 } },
-  professional: { chat: { month: 4000 }, draft: { month: 300 }, review: { perDay: 3, extraPrice: 1.99 }, profile: { everyDays: 7 } },
+  professional: { chat: { month: 4000 }, draft: { month: 300 }, review: { perDay: 5, extraPrice: 1.99 }, profile: { everyDays: 7 } },
   // Organization track: placeholders in step with the old pooled numbers, pending their own decision.
-  org_solo:     { chat: { month: 2000 }, draft: { month: 20 }, review: { perWeek: 5, extraPrice: 1.99 }, profile: { everyDays: 30 } },
+  org_solo:     { chat: { month: 2000 }, draft: { month: 20 }, review: { month: 20, extraPrice: 1.99 }, profile: { everyDays: 30 } },
   small_team:   { chat: { monthPerSeat: 750, perDayPerUser: 200 }, draft: { monthPerSeat: 15, perDayPerUser: 20 }, review: { monthPerSeat: 4, perDayPerUser: 5, extraPrice: 1.99 }, profile: { everyDays: 30 } },
   large_team:   { chat: { monthPerSeat: 750, perDayPerUser: 200 }, draft: { monthPerSeat: 15, perDayPerUser: 20 }, review: { monthPerSeat: 4, perDayPerUser: 5, extraPrice: 1.99 }, profile: { everyDays: 7 } },
   company:      { chat: { monthPerSeat: 1000, perDayPerUser: 200 }, draft: { monthPerSeat: 30, perDayPerUser: 20 }, review: { monthPerSeat: 15, perDayPerUser: 5, extraPrice: 1.99 }, profile: { everyDays: 7 } },

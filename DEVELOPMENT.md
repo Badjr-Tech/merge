@@ -70,8 +70,8 @@ whether someone has an account.
 | Free | — | — | — | once ever |
 | Starter | — | — | — | monthly |
 | Premium | 2,000/mo | 150/mo | 1/day per grant | monthly |
-| Professional | 4,000/mo | 300/mo | 3/day per workspace | weekly |
-| Solo Writer | 2,000/mo | 20/mo | 5/week | monthly |
+| Professional | 4,000/mo | 300/mo | 5/day per workspace | weekly |
+| Solo Writer | 2,000/mo | 20/mo | 20/mo | monthly |
 | Small Teams | 750/seat/mo | 15/seat/mo | 4/seat/mo | monthly |
 | Large Teams | 750/seat/mo | 15/seat/mo | 4/seat/mo | weekly |
 | Companies | 1,000/seat/mo | 30/seat/mo | 15/seat/mo | weekly |
