@@ -58,6 +58,7 @@ model Company {
   currentPeriodEnd     DateTime?
   cancelAtPeriodEnd    Boolean  @default(false)
   compedUntil          DateTime?         // legacy comp; pilots replaced it
+  downgradeNudgeAt     DateTime?         // last time we suggested a cheaper plan, so we do not nag
   reviewAutoReload     Boolean           @default(false) // buy extra AI reviewer runs automatically when they run out
   reviewReloadQty      Int               @default(5)     // how many to buy each time
   reviewReloadCap      Int               @default(4)     // most reloads allowed in one month

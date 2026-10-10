@@ -34,6 +34,10 @@
       "schedule": "0 13 * * *"
     },
     {
+      "path": "/api/cron/plan-fit",
+      "schedule": "0 15 * * 1"
+    },
+    {
       "path": "/api/cron/monthly-report",
       "schedule": "0 14 1 * *"
     }

@@ -3,7 +3,7 @@ const router = express.Router();
 const prisma = require('../utils/prisma.cjs');
 const { sendEmail, appUrl, layout, button, unsubscribeFooter } = require('../utils/email.cjs');
 const { notify } = require('../utils/notify.cjs');
-const { TRIAL_PLAN_BY_KIND, PLANS } = require('../utils/plans.cjs');
+const { TRIAL_PLAN_BY_KIND, PLANS, AI_LIMITS, FEATURE_LABELS } = require('../utils/plans.cjs');
 const TRIAL_PLANS = Object.values(TRIAL_PLAN_BY_KIND);
 
 // Vercel Cron calls this daily (see server/vercel.json). Protected by CRON_SECRET.
@@ -239,6 +239,78 @@ router.get('/pilots', async (req, res) => {
   if (!authorized(req)) return res.status(401).json({ msg: 'Unauthorized' });
   try { res.json(await runPilots(new Date())); }
   catch (err) { console.error('Pilot cron error:', err); res.status(500).json({ msg: 'Cron failed' }); }
+});
+
+// --- Paying for more than they use ---------------------------------------
+// A workspace on a big per-seat plan that has shrunk below the next plan down is quietly
+// overpaying. Tell them, with the numbers and what they would lose, rather than banking it.
+const CHEAPER = { large_team: 'small_team', company: 'large_team' };
+const NUDGE_EVERY_DAYS = 60;
+
+function planDifferences(fromKey, toKey) {
+  const from = PLANS[fromKey], to = PLANS[toKey];
+  const lostFeatures = from.features.filter(f => !to.features.includes(f)).map(f => FEATURE_LABELS[f]).filter(Boolean);
+  const rows = [];
+  const a = AI_LIMITS[fromKey] || {}, b = AI_LIMITS[toKey] || {};
+  const seatRate = (r) => (r && (r.monthPerSeat || r.month)) || 0;
+  for (const [key, label] of [['chat', 'Ask Merge messages'], ['draft', 'Drafted answers'], ['review', 'AI reviewer runs']]) {
+    const x = seatRate(a[key]), y = seatRate(b[key]);
+    if (x !== y) rows.push(`${label}: ${x} → ${y} per person a month`);
+  }
+  const seats = `People: up to ${from.limits.seats ?? 'unlimited'} → up to ${to.limits.seats ?? 'unlimited'}`;
+  return { lostFeatures, rows, seats };
+}
+
+async function runPlanFitChecks(now) {
+  const cutoff = new Date(now.getTime() - NUDGE_EVERY_DAYS * 864e5);
+  const companies = await prisma.company.findMany({
+    where: {
+      plan: { in: Object.keys(CHEAPER) },
+      stripeSubscriptionId: { not: null },
+      subscriptionStatus: { in: ['active', 'past_due'] },
+      OR: [{ downgradeNudgeAt: null }, { downgradeNudgeAt: { lt: cutoff } }],
+    },
+    select: { id: true, name: true, plan: true, pilotEndsAt: true, compedUntil: true },
+  });
+  let sent = 0;
+  for (const c of companies) {
+    if (c.pilotEndsAt && new Date(c.pilotEndsAt) > now) continue;   // on a pilot, not paying per seat
+    if (c.compedUntil && new Date(c.compedUntil) > now) continue;
+    const toKey = CHEAPER[c.plan];
+    const seats = await prisma.user.count({ where: { companyId: c.id, isApproved: true } });
+    const fits = PLANS[toKey].limits.seats;
+    if (seats >= fits) continue;                                     // still too big for the cheaper plan
+
+    const from = PLANS[c.plan], to = PLANS[toKey];
+    const now$ = from.price * seats, new$ = to.price * seats;
+    const saving = now$ - new$;
+    if (saving <= 0) continue;
+    const d = planDifferences(c.plan, toKey);
+
+    for (const a of await adminsOf(c.id)) {
+      await sendEmail({
+        to: a.email,
+        subject: `${c.name} could save $${saving.toFixed(2)} a month on Merge`,
+        html: layout('You may be on a bigger plan than you need', `<p>Hi ${a.name || a.username},</p>
+<p><strong>${c.name}</strong> has ${seats} ${seats === 1 ? 'person' : 'people'} on <strong>${from.name}</strong>, which is built for up to ${from.limits.seats}. <strong>${to.name}</strong> covers up to ${to.limits.seats} and would cost you <strong>$${new$.toFixed(2)}</strong> a month instead of $${now$.toFixed(2)} — a saving of <strong>$${saving.toFixed(2)} a month</strong>, or $${(saving * 12).toFixed(2)} a year.</p>
+<p><strong>What changes if you switch</strong></p>
+<ul>${[d.seats, ...d.rows].map(r => `<li>${r}</li>`).join('')}${d.lostFeatures.map(f => `<li>You would lose ${f}</li>`).join('')}</ul>
+<p>Nothing you have written is affected either way, and you can move back up whenever you add people.</p>
+${button(appUrl('/app/settings#plan'), `Switch to ${to.name}`)}
+<p style="font-size:13px;color:#6b6b6e">Happy where you are? Ignore this — we will not ask again for a couple of months.</p>`),
+        text: `${c.name} has ${seats} people on ${from.name}. ${to.name} covers up to ${to.limits.seats} and would cost $${new$.toFixed(2)} a month instead of $${now$.toFixed(2)}, saving $${saving.toFixed(2)}. ${appUrl('/app/settings#plan')}`,
+      });
+    }
+    await prisma.company.update({ where: { id: c.id }, data: { downgradeNudgeAt: now } });
+    sent += 1;
+  }
+  return { nudged: sent };
+}
+
+router.get('/plan-fit', async (req, res) => {
+  if (!authorized(req)) return res.status(401).json({ msg: 'Unauthorized' });
+  try { res.json(await runPlanFitChecks(new Date())); }
+  catch (err) { console.error('Plan fit cron error:', err); res.status(500).json({ msg: 'Cron failed' }); }
 });
 
 // --- Monthly owner report ------------------------------------------------

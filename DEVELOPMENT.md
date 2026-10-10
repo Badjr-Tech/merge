@@ -121,6 +121,17 @@ reset within hours.
 Worst case runs 7-8% of revenue on the team plans and 18-23% on the single-seat ones; at measured
 reply lengths roughly half that, and typical use is under 1%.
 
+## Telling people they are overpaying (added 2026-10-10)
+
+`/api/cron/plan-fit`, Mondays at 15:00 UTC. A paying workspace on a per-seat plan that has shrunk
+below the next plan down gets an email with the saving, the new monthly cost, and exactly what
+changes — seat cap, the AI rates per person, and any feature it would lose. All of that is derived
+from `PLANS` and `AI_LIMITS`, so it stays true when the numbers change.
+
+`CHEAPER` maps large_team to small_team and company to large_team. Pilots and comped workspaces are
+skipped, as is any workspace still too big for the cheaper plan. `Company.downgradeNudgeAt` holds it
+to once every 60 days.
+
 ## Pilots (added 2026-10-09, replaces comping)
 
 A pilot is free full access to a chosen plan for a set period that then lands the workspace on a
