@@ -6,7 +6,12 @@ const { sendEmail, emailConfigured, layout } = require('../utils/email.cjs');
 const { rateLimit } = require('../middleware/antispam.cjs');
 
 const TYPES = ['bug', 'idea', 'question', 'praise'];
-const TO = () => (process.env.FEEDBACK_NOTIFY || 'feedback@badjrtech.com').split(',').map(s => s.trim()).filter(Boolean);
+// Tickets and contact-form messages always reach these people, whatever the env vars say, so a
+// stale FEEDBACK_NOTIFY can never silently drop support mail. Add more with the env vars.
+const ALWAYS = ['alexander@badjrtech.com'];
+const list = (env, fallback) => [...new Set([...(env || fallback).split(',').map(x => x.trim()).filter(Boolean), ...ALWAYS])];
+const TO = () => list(process.env.FEEDBACK_NOTIFY, 'feedback@badjrtech.com');
+const CONTACT_TO = () => list(process.env.CONTACT_NOTIFY, 'merge@badjrtech.com');
 
 // POST /api/feedback — emails the message to the feedback address. Nothing is stored.
 router.post('/', auth, rateLimit({ max: 10 }), async (req, res) => {
@@ -59,7 +64,7 @@ router.post('/contact', rateLimit({ max: 5 }), honeypot, async (req, res) => {
   try {
     await prisma.feedbackTicket.create({ data: { userEmail: email, userName: name, workspace: 'Contact form', plan: null, type: topic === 'support' ? 'question' : 'idea', message: `[${topic}] ${message}`, page: '/contact' } });
     if (emailConfigured()) {
-      sendEmail({ to: (process.env.CONTACT_NOTIFY || 'merge@badjrtech.com'), replyTo: email, subject: `[Merge contact] ${topic}: ${name}`, html: layout(`Contact form: ${topic}`, `<p><strong>${name.replace(/</g, '&lt;')}</strong> &lt;${email}&gt;</p><p style="white-space:pre-wrap">${message.replace(/</g, '&lt;')}</p><p style="font-size:12px;color:#888">Reply to this email to answer them.</p>`), text: `${name} <${email}>\n[${topic}]\n\n${message}` }).catch(() => {});
+      sendEmail({ to: CONTACT_TO().join(','), replyTo: email, subject: `[Merge contact] ${topic}: ${name}`, html: layout(`Contact form: ${topic}`, `<p><strong>${name.replace(/</g, '&lt;')}</strong> &lt;${email}&gt;</p><p style="white-space:pre-wrap">${message.replace(/</g, '&lt;')}</p><p style="font-size:12px;color:#888">Reply to this email to answer them.</p>`), text: `${name} <${email}>\n[${topic}]\n\n${message}` }).catch(() => {});
     }
     res.json({ msg: "Thanks. We'll reply by email, usually within one business day." });
   } catch (err) { console.error('Contact error:', err); res.status(500).json({ msg: 'Could not send. Email merge@badjrtech.com directly.' }); }
