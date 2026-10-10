@@ -33,6 +33,7 @@ const F = {
   aiPro: ['The highest AI limits', '4,000 Ask Merge messages and 300 drafted answers a month, plus 5 AI reviews a day for each workspace you run. Extra reviews are $1.99.'],
   aiSolo: ['AI built in', '2,000 Ask Merge messages and 20 drafted answers a month, plus 20 AI reviews a month. Extra reviews are $1.99.'],
   aiTeamPool: ['A shared AI pool', 'Your workspace gets 750 Ask Merge messages, 15 drafted answers, and 4 AI reviews per seat each month, shared across the team so the people doing the writing get the room. Extra reviews are $1.99.'],
+  aiLargePool: ['A shared AI pool', '1,000 Ask Merge messages, 15 drafted answers, and 4 AI reviews per seat each month, shared across the team so the people doing the writing get the room. Extra reviews are $1.99.'],
   aiCompanyPool: ['The largest AI pool', '1,000 Ask Merge messages, 30 drafted answers, and 15 AI reviews per seat each month, shared across everyone so your heaviest writers are never the ones held up. Extra reviews are $1.99.'],
   profileImport: ['Profile from your website', 'Merge reads your site once and fills in your mission, programs, and impact.'],
 };
@@ -147,7 +148,7 @@ export default function Landing() {
             <Plan name="Free" price="$0" blurb="Try Merge on one real grant." feats={['grants1', 'people1', 'review', 'bank', 'download', 'noai']} cta="Get started" to="/signup" />
             <Plan name="Solo Writer" price="$14.99" per="/mo" blurb="One person writing grants for their organization." feats={['people1', 'grants', 'ask', 'aireview', 'aiSolo', 'review', 'partners']} cta="Start free trial" to="/signup" />
             <Plan name="Small Teams" price="$12.99" per="/person/mo" blurb="Up to 5 people writing together." feats={['people5', 'assign', 'approvals', 'bank', 'ask', 'aireview', 'aiTeamPool', 'edit']} cta="Start free trial" to="/signup" featured badge="Most popular" />
-            <Plan name="Large Teams" price="$21.99" per="/person/mo" blurb="Up to 20 people." feats={['people20', ['assign', 'Everything in Small Teams', 'Assignments, approvals, AI, shared library.'], 'aiTeamPool', 'workspaces']} cta="Start free trial" to="/signup" />
+            <Plan name="Large Teams" price="$21.99" per="/person/mo" blurb="Up to 20 people." feats={['people20', ['assign', 'Everything in Small Teams', 'Assignments, approvals, AI, shared library.'], 'aiLargePool', 'workspaces']} cta="Start free trial" to="/signup" />
             <Plan name="Companies" price="$29.99" per="/person/mo" blurb="Unlimited people." feats={['peopleAll', ['assign', 'Everything in Large Teams', 'Multiple workspaces plus all team features.'], 'aiCompanyPool', 'integrations', 'branding', 'support']} cta="Start free trial" to="/signup" />
           </div>
         )}

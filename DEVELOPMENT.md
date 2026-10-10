@@ -74,9 +74,12 @@ touching. Pass a React element instead to override.
 
 ## Buying extra AI reviewer runs (added 2026-10-10)
 
-$1.99 each, against a fixed Stripe price in `STRIPE_PRICE_EXTRA_REVIEW` — **create that product and
-price in Stripe and set the env var, or the purchase endpoint returns a clear "not on sale yet"
-message.** Nothing is ever created at checkout.
+$1.99 each, against a fixed Stripe price. Live since 2026-10-10:
+`prod_VPxyf4Zg2KKQML` / `price_1UP82dJQCQqMQG9fydi6ONsK`, set as `STRIPE_PRICE_EXTRA_REVIEW` on all
+three Vercel environments. `server/scripts/stripe-extra-review.cjs` reports it and, with `--create`,
+makes it if it is missing — it scans the catalogue rather than using `products.search`, which is
+eventually consistent and misses a product created seconds earlier. Nothing is ever created at
+checkout; the app only references this price.
 
 - **Manual (default):** the limit message carries `canBuy`, and Settings → AI usage has a "Buy 5
   now" button that opens Stripe Checkout (`POST /api/billing/extra-review`). The webhook grants the
@@ -102,7 +105,7 @@ the difference and they do not expire with the billing window. Those rows, plus 
 | Professional | 4,000/mo | 300/mo | 5/day per workspace | weekly |
 | Solo Writer | 2,000/mo | 20/mo | 20/mo | monthly |
 | Small Teams | 750/seat/mo | 15/seat/mo | 4/seat/mo | monthly |
-| Large Teams | 750/seat/mo | 15/seat/mo | 4/seat/mo | weekly |
+| Large Teams | 1,000/seat/mo | 15/seat/mo | 4/seat/mo | weekly |
 | Companies | 1,000/seat/mo | 30/seat/mo | 15/seat/mo | weekly |
 
 Team rates are per seat but pool company-wide: 5 Companies seats share 5,000 messages, and three
