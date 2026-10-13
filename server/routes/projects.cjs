@@ -8,10 +8,6 @@ const crypto = require('crypto');
 const { sendEmail, appUrl, layout, button, unsubscribeFooter } = require('../utils/email.cjs');
 const { notify } = require('../utils/notify.cjs');
 
-router.get('/test-route', (req, res) => {
-  res.send('Projects test route is working!');
-});
-
 // @route   GET api/projects
 // @desc    Get all projects for the logged-in user's company
 // @access  Private
@@ -1500,15 +1496,15 @@ router.put('/questions/:id/assign', auth, async (req, res) => {
   const { assignedToId, status, answer, text } = req.body; // Add text
 
   try {
-    let question = await prisma.question.findUnique({ where: { id: req.params.id } });
+    let question = await prisma.question.findUnique({ where: { id: req.params.id }, include: { project: true } });
 
-    if (!question) {
+    // Workspace first: being an admin somewhere else must not grant access here.
+    if (!question || !question.project || question.project.companyId !== req.user.companyId) {
       return res.status(404).json({ msg: 'Question not found' });
     }
 
-    // Authorization: Only project owner or admin can assign/update questions
-    // Or the assigned user can update their own answer/status
-    const project = await prisma.project.findUnique({ where: { id: question.projectId } });
+    // Then who inside the workspace: the project owner, an admin, or the assignee.
+    const project = question.project;
     const isAuthorizedToAssign = (project.ownerId === req.user.id || req.user.role === 'admin');
     const isAssignedUser = (question.assignedToId === req.user.id);
 
@@ -1679,8 +1675,8 @@ router.delete('/questions/:id', auth, async (req, res) => {
       return res.status(401).json({ msg: 'User not authorized to delete questions' });
     }
 
-    const question = await prisma.question.findUnique({ where: { id: req.params.id } });
-    if (!question) {
+    const question = await prisma.question.findUnique({ where: { id: req.params.id }, include: { project: { select: { companyId: true } } } });
+    if (!question || !question.project || question.project.companyId !== req.user.companyId) {
       return res.status(404).json({ msg: 'Question not found' });
     }
 
@@ -1702,14 +1698,20 @@ router.put('/questions/:questionId', auth, async (req, res) => {
   try {
     let question = await prisma.question.findUnique({
       where: { id: questionId },
+      include: { project: { select: { companyId: true, ownerId: true } } },
     });
 
-    if (!question) {
+    // The workspace check comes first: without it an admin of ANY workspace could write into this
+    // one. 404 rather than 403 so the endpoint does not confirm the id exists.
+    if (!question || !question.project || question.project.companyId !== req.user.companyId) {
       return res.status(404).json({ msg: 'Question not found' });
     }
 
-    // Authorization: Only the assigned user or an admin can update the question
-    if (req.user.role !== 'admin' && req.user.id !== question.assignedToId) {
+    // Then who inside the workspace may write: the assignee, an admin, or the project's owner.
+    const mayWrite = req.user.id === question.assignedToId
+      || req.user.role === 'admin'
+      || question.project.ownerId === req.user.id;
+    if (!mayWrite) {
       return res.status(401).json({ msg: 'Not authorized to update this question' });
     }
 

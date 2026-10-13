@@ -1,3 +1,5 @@
+// Legacy router: the app itself uses the project-scoped narrative endpoints in projects.cjs.
+// Everything here is scoped to the caller's workspace; it is a candidate for removal.
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
@@ -12,11 +14,19 @@ router.post('/', auth, async (req, res) => {
   }
 
   try {
+    // A narrative belongs to a project; without one it is an orphan nobody can reach or police.
+    const project = req.body.projectId
+      ? await prisma.project.findUnique({ where: { id: String(req.body.projectId) }, select: { id: true, companyId: true } })
+      : null;
+    if (!project || project.companyId !== req.user.companyId) {
+      return res.status(400).json({ msg: 'A narrative must belong to a project in your workspace.' });
+    }
     const narrative = await prisma.narrative.create({
       data: {
         title: req.body.title,
         content: req.body.content,
         authorId: req.user.id,
+        projectId: project.id,
         status: req.body.status || 'draft'
       }
     });
@@ -33,6 +43,7 @@ router.post('/', auth, async (req, res) => {
 router.get('/', auth, async (req, res) => {
   try {
     const narratives = await prisma.narrative.findMany({
+      where: { project: { companyId: req.user.companyId } },
       include: {
         author: {
           select: { username: true, role: true }
@@ -54,13 +65,12 @@ router.get('/:id', auth, async (req, res) => {
     const narrative = await prisma.narrative.findUnique({
       where: { id: req.params.id },
       include: {
-        author: {
-          select: { username: true, role: true }
-        }
+        author: { select: { username: true, role: true } },
+        project: { select: { companyId: true } },
       }
     });
 
-    if (!narrative) {
+    if (!narrative || !narrative.project || narrative.project.companyId !== req.user.companyId) {
       return res.status(404).json({ msg: 'Narrative not found' });
     }
 
@@ -78,9 +88,12 @@ router.put('/:id', auth, async (req, res) => {
   const { title, content, status } = req.body;
 
   try {
-    let narrative = await prisma.narrative.findUnique({ where: { id: req.params.id } });
+    let narrative = await prisma.narrative.findUnique({ where: { id: req.params.id }, include: { project: { select: { companyId: true } } } });
 
-    if (!narrative) return res.status(404).json({ msg: 'Narrative not found' });
+    // Workspace first — being an admin elsewhere must not reach this narrative.
+    if (!narrative || !narrative.project || narrative.project.companyId !== req.user.companyId) {
+      return res.status(404).json({ msg: 'Narrative not found' });
+    }
 
     // Check user permissions
     if (req.user.role === 'viewer') {
@@ -113,9 +126,9 @@ router.put('/:id', auth, async (req, res) => {
 // @access  Private (admin, or author)
 router.delete('/:id', auth, async (req, res) => {
   try {
-    const narrative = await prisma.narrative.findUnique({ where: { id: req.params.id } });
+    const narrative = await prisma.narrative.findUnique({ where: { id: req.params.id }, include: { project: { select: { companyId: true } } } });
 
-    if (!narrative) {
+    if (!narrative || !narrative.project || narrative.project.companyId !== req.user.companyId) {
       return res.status(404).json({ msg: 'Narrative not found' });
     }
 
