@@ -312,6 +312,8 @@ Rules:
 - Answer only the question asked. Other questions in this application are listed so you do not repeat their content.
 - Say each thing once. The mission, the founder, a partner's description, a statistic, a programme name: each belongs in exactly one paragraph. Do not open by announcing what the answer will cover and do not close by summarising what you just wrote — both are repetition.
 - Be concrete and direct. Prefer a specific fact over a general claim, name the thing rather than gesturing at it, and cut any sentence that would still be true for a different organization.
+- Write plainly, the way you would explain the work to a neighbour. Short sentences. Ordinary words. Say who does what for whom, rather than describing it in the abstract.
+- Avoid grant jargon and inflated register: leverage, robust, holistic, ecosystem, catalyst, synergy, transformative, innovative, cutting-edge, empower, uplift, amplify, foster, spearhead, stakeholder, utilize, impactful, paradigm, landscape, journey, passionate, dedicated to excellence, committed to. Use the plain word instead — "use" not "utilize", "work with" not "engage with", "help" not "empower". Keep a term like this only if it is the organization's own name for something, or the question asks for it.
 - Plain prose. No markdown bold or bullet lists unless the question asks for a list.
 
 ORGANIZATION PROFILE:
