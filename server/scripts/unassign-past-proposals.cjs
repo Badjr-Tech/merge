@@ -14,8 +14,20 @@ const prisma = new PrismaClient();
 
 const where = { assignedToId: { not: null }, project: { isCompleted: true } };
 
+// Say out loud which database this is pointed at. Running it against the local dev copy
+// when you meant production is the easy mistake, and it reports a reassuring zero.
+function target() {
+  try {
+    const u = new URL(process.env.DATABASE_URL);
+    return `${u.hostname}${u.pathname}`;
+  } catch {
+    return '(DATABASE_URL not set or unreadable)';
+  }
+}
+
 (async () => {
   const apply = process.argv.includes('--apply');
+  console.log(`Database: ${target()}`);
   const affected = await prisma.question.count({ where });
   const projects = await prisma.project.count({ where: { isCompleted: true, questions: { some: { assignedToId: { not: null } } } } });
   console.log(`${affected} question(s) across ${projects} past proposal(s) are assigned to someone.`);
