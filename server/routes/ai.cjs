@@ -285,7 +285,7 @@ router.post('/draft', auth, requireFeature(prisma, 'assistant'), async (req, res
     const unit = (question.limitUnit || 'words').startsWith('char') ? 'characters' : 'words';
     const limitLine = question.maxLimit
       ? `Hard limit: ${question.maxLimit} ${unit}. Stay comfortably under it — aim for about ${Math.floor(question.maxLimit * 0.9)} ${unit}.`
-      : 'No stated limit. Two to four tight paragraphs is usually right.';
+      : 'No stated limit. Aim for about 250 words and do not exceed 400. A reviewer reads hundreds of these; short and specific beats long and general.';
     const siblings = (question.project.questions || [])
       .filter(q => q.text !== question.text)
       .slice(0, 25)
@@ -301,6 +301,7 @@ Rules:
 - ${limitLine}
 - Never invent numbers, dates, names, partners, or outcomes. Where a specific fact is needed and you do not have it, write a placeholder in square brackets like [number of families served in 2025] so the writer can fill it in.
 - Answer only the question asked. Other questions in this application are listed so you do not repeat their content.
+- Say each thing once. Do not restate the mission, the founder, or a partner's description in more than one paragraph, and do not close with a paragraph that summarises what you just wrote.
 - Plain prose. No markdown bold or bullet lists unless the question asks for a list.
 
 ORGANIZATION PROFILE:
@@ -309,7 +310,7 @@ ${partnerLine}
 THIS APPLICATION: ${question.project.name}${question.project.description ? `\n${question.project.description}` : ''}
 ${siblings ? `\nOTHER QUESTIONS IN THIS APPLICATION:\n${siblings}\n` : ''}${priorBlock}`;
 
-    const prompt = `Question to answer${question.section ? ` (section: ${question.section})` : ''}:\n${question.text}${question.answer && question.answer.trim() ? `\n\nThe writer already has this draft. Improve on it rather than ignoring it:\n${question.answer.slice(0, 2000)}` : ''}${instruction ? `\n\nExtra instruction from the writer: ${instruction}` : ''}`;
+    const prompt = `Question to answer${question.section ? ` (section: ${question.section})` : ''}:\n${question.text}${question.answer && question.answer.trim() ? `\n\nThe writer already has this draft. Rewrite it in full, keeping every fact in it, and return the complete rewritten answer — not a continuation, not a comment on it:\n${question.answer.slice(0, 12000)}` : ''}${instruction ? `\n\nExtra instruction from the writer: ${instruction}` : ''}`;
 
     res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -318,12 +319,20 @@ ${siblings ? `\nOTHER QUESTIONS IN THIS APPLICATION:\n${siblings}\n` : ''}${prio
     const emit = (event, data) => { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); if (typeof res.flush === 'function') res.flush(); };
 
     let draft = '';
+    let truncated = false;
     try {
       // Allow the question's limit plus room to finish the sentence; ~1.5 tokens a word, 1.4 for slack.
+      // With no stated limit the prompt asks for ~250 words and caps at 400, so 1200 tokens
+      // (~900 words) is headroom to land the ending rather than a target to fill.
       const cap = question.maxLimit
         ? Math.min(4000, Math.ceil((unit === 'characters' ? question.maxLimit / 4 : question.maxLimit * 1.5) * 1.4))
-        : 900;
-      draft = await gemini.chatReplyStream({ systemInstruction: system, history: [], message: prompt, onChunk: t => emit('chunk', t), generationConfig: { maxOutputTokens: cap, temperature: 0.7 } });
+        : 1200;
+      draft = await gemini.chatReplyStream({
+        systemInstruction: system, history: [], message: prompt,
+        onChunk: t => emit('chunk', t),
+        onFinish: ({ finishReason }) => { truncated = finishReason === 'MAX_TOKENS'; },
+        generationConfig: { maxOutputTokens: cap, temperature: 0.7 },
+      });
     } catch (err) {
       console.error('Draft error:', err);
       emit('error', { msg: err.status === 429 ? err.message : 'The assistant could not write a draft. Try again.' });
@@ -331,7 +340,7 @@ ${siblings ? `\nOTHER QUESTIONS IN THIS APPLICATION:\n${siblings}\n` : ''}${prio
     }
     // Counts against the monthly cap like a chat message does.
     await recordAi(req.user.companyId, req.user.id, 'draft', question.project.id);
-    emit('done', { length: draft.length });
+    emit('done', { length: draft.length, truncated });
     res.end();
   } catch (err) {
     console.error('Draft error:', err);

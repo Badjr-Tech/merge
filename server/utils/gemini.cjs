@@ -49,8 +49,14 @@ async function withModel(run) {
   throw lastErr || new Error('No Gemini model available');
 }
 
+// Gemini 2.5 models think before answering, and those hidden thinking tokens come out of
+// maxOutputTokens. A 1200-token budget was being spent ~785 on thinking, so answers stopped
+// mid-sentence. Nothing here needs chain-of-thought, so turn it off and give the whole
+// budget to the text. Callers can override by passing their own thinkingConfig.
 function getModel(name, options) {
-  return client().getGenerativeModel({ model: name, ...(options || {}) });
+  const opts = options || {};
+  const generationConfig = { thinkingConfig: { thinkingBudget: 0 }, ...(opts.generationConfig || {}) };
+  return client().getGenerativeModel({ model: name, ...opts, generationConfig });
 }
 
 async function generateText(prompt, options) {
@@ -71,7 +77,10 @@ async function chatReply({ systemInstruction, history, message, generationConfig
 }
 
 // Streams the reply: onChunk(text) is called as Gemini produces it. Resolves with the full text.
-async function chatReplyStream({ systemInstruction, history, message, onChunk, generationConfig }) {
+// onFinish({ finishReason }) fires once the stream ends. 'MAX_TOKENS' means the model was
+// cut off mid-thought rather than finishing, which the caller needs to know so it does not
+// present half a sentence as a finished draft.
+async function chatReplyStream({ systemInstruction, history, message, onChunk, onFinish, generationConfig }) {
   return withModel(async (name) => {
     const model = getModel(name, { systemInstruction, ...(generationConfig ? { generationConfig } : {}) });
     const chat = model.startChat({ history });
@@ -80,6 +89,14 @@ async function chatReplyStream({ systemInstruction, history, message, onChunk, g
     for await (const chunk of result.stream) {
       const text = chunk.text();
       if (text) { full += text; onChunk(text); }
+    }
+    if (onFinish) {
+      let finishReason = null;
+      try {
+        const response = await result.response;
+        finishReason = (response.candidates || [])[0]?.finishReason || null;
+      } catch { /* the text is what matters; the reason is a nicety */ }
+      onFinish({ finishReason });
     }
     return full;
   });

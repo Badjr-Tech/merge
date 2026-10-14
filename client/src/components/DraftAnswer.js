@@ -7,7 +7,10 @@ import { Button } from './ui';
 
 // "Help me answer this" — streams a first draft for one question, written from the organization
 // profile, the rest of the application, the question's limit, and the workspace's own past answers.
-// The draft lands in the answer box as it arrives; nothing is saved until the writer saves it.
+// When there is already an answer the button becomes "Help me improve this": the existing text is
+// sent along and the model rewrites it, so what comes back REPLACES what was in the box rather
+// than piling a second version underneath it. Nothing is saved until the writer saves, so the
+// original is still on the question until they do.
 export default function DraftAnswer({ questionId, currentAnswer, onDraft, disabled }) {
   const { has } = usePlan();
   const toast = useToast();
@@ -23,7 +26,6 @@ export default function DraftAnswer({ questionId, currentAnswer, onDraft, disabl
     setBusy(true);
     const ctrl = new AbortController();
     abortRef.current = ctrl;
-    const prefix = currentAnswer && currentAnswer.trim() ? `${currentAnswer.trim()}\n\n` : '';
     let draft = '';
     try {
       const res = await fetch(`${API_URL}/api/ai/draft`, {
@@ -37,6 +39,7 @@ export default function DraftAnswer({ questionId, currentAnswer, onDraft, disabl
         try { const d = await res.json(); msg = d.msg || msg; } catch (_) { /* keep the default */ }
         throw new Error(msg);
       }
+      let cutOff = false;
       const reader = res.body.getReader();
       const dec = new TextDecoder();
       let buf = '';
@@ -51,11 +54,16 @@ export default function DraftAnswer({ questionId, currentAnswer, onDraft, disabl
           const line = frame.split('\n').find(l => l.startsWith('data: '));
           if (!line) continue;
           const data = JSON.parse(line.slice(6));
-          if (ev === 'chunk') { draft += data; onDraft(prefix + draft); }
+          if (ev === 'chunk') { draft += data; onDraft(draft); }
+          else if (ev === 'done') cutOff = !!data.truncated;
           else if (ev === 'error') throw new Error(data.msg);
         }
       }
-      if (draft.trim()) toast.success('Draft written. Edit it before you submit — check anything in [brackets].');
+      if (draft.trim()) {
+        // Never let a draft that stopped mid-sentence look finished.
+        if (cutOff) toast.error('The draft ran long and stopped mid-sentence. Keep what is useful and write the ending yourself, or try again.');
+        else toast.success('Draft written. Edit it before you submit — check anything in [brackets].');
+      }
     } catch (err) {
       if (err.name !== 'AbortError') toast.error(errorMessage(err, err.message));
     } finally {
