@@ -35,7 +35,7 @@ function InnerAnswerBank() {
                   <div className="q-text">{r.text}</div>
                   <div className="q-meta">
                     <Link to={`/app/projects/${r.project.id}`}>{r.project.name}</Link>
-                    <span>· {displayName(r.assignedTo)}</span>
+                    {r.assignedTo && <span>· {displayName(r.assignedTo)}</span>}
                     <span>· {formatDate(r.updatedAt)}</span>
                     <span>· {wordCount(r.answer)} words</span>
                     {r.score !== undefined && q && <Badge tone={r.score >= 0.5 ? 'green' : 'gray'}>{Math.round(r.score * 100)}% match</Badge>}
