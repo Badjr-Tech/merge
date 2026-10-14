@@ -14,7 +14,7 @@ async function seatCount(companyId) {
 // GET /api/billing/status
 router.get('/status', auth, async (req, res) => {
   try {
-    const c = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true, isStaff: true, stripeCustomerId: true, stripeSubscriptionId: true, subscriptionStatus: true, currentPeriodEnd: true, cancelAtPeriodEnd: true } });
+    const c = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true, pilotEndsAt: true, pilotPlan: true, pilotRevertsTo: true, isStaff: true, stripeCustomerId: true, stripeSubscriptionId: true, subscriptionStatus: true, currentPeriodEnd: true, cancelAtPeriodEnd: true } });
     const seats = await seatCount(req.user.companyId);
     let billedSeats = null;
     if (c.stripeSubscriptionId && perSeat(c.plan) && configured()) {

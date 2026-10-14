@@ -88,6 +88,14 @@ function minPlanFor(feature, kind) {
   return k ? PLANS[k].name : 'a higher plan';
 }
 
+// Every field planFor reads. Any query whose result is passed to planFor, hasFeature or
+// publicPlan must select all of these: a missing pilotEndsAt does not throw, it silently
+// falls through to the stored company.plan and reports the wrong plan.
+const COMPANY_PLAN_SELECT = {
+  plan: true, kind: true, trialEndsAt: true, compedUntil: true,
+  pilotEndsAt: true, pilotPlan: true, pilotRevertsTo: true, isStaff: true,
+};
+
 // A company on a trial is treated as its trial plan until trialEndsAt, then as Free.
 function planFor(company) {
   const now = new Date();
@@ -135,7 +143,7 @@ function upgradeMessage(feature, company) {
 function requireFeature(prisma, feature) {
   return async (req, res, next) => {
     try {
-      const company = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true } });
+      const company = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: COMPANY_PLAN_SELECT });
       if (!hasFeature(company, feature)) return res.status(402).json({ msg: upgradeMessage(feature, company), feature, upgrade: true });
       req.plan = planFor(company);
       next();
@@ -152,4 +160,5 @@ function catalogue() {
   return Object.entries(PLANS).map(([key, p]) => ({ key, track: p.track, name: p.name, price: p.price, per: p.per, features: p.features, limits: p.limits }));
 }
 
-module.exports = { aiAllowance, AI_LIMITS, AI_FEATURE_LABELS, aiLimit, PLANS, ALIASES, TRIAL_DAYS, TRIAL_PLAN_BY_KIND, FEATURE_LABELS, planFor, hasFeature, requireFeature, publicPlan, upgradeMessage, catalogue, normalizeKey };
+module.exports = {
+  COMPANY_PLAN_SELECT, aiAllowance, AI_LIMITS, AI_FEATURE_LABELS, aiLimit, PLANS, ALIASES, TRIAL_DAYS, TRIAL_PLAN_BY_KIND, FEATURE_LABELS, planFor, hasFeature, requireFeature, publicPlan, upgradeMessage, catalogue, normalizeKey };

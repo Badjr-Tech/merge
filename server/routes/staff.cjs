@@ -188,7 +188,7 @@ router.get('/workspaces/:id', auth, async (req, res) => {
   try {
     const c = await prisma.company.findUnique({
       where: { id: req.params.id },
-      select: { id: true, name: true, kind: true, plan: true, trialEndsAt: true, compedUntil: true, isStaff: true, compNote: true, createdAt: true, stripeCustomerId: true, stripeSubscriptionId: true, subscriptionStatus: true, currentPeriodEnd: true, cancelAtPeriodEnd: true, referralCode: true, referredByCode: true, profile: true,
+      select: { id: true, name: true, kind: true, plan: true, trialEndsAt: true, compedUntil: true, pilotEndsAt: true, pilotPlan: true, pilotRevertsTo: true, isStaff: true, compNote: true, createdAt: true, stripeCustomerId: true, stripeSubscriptionId: true, subscriptionStatus: true, currentPeriodEnd: true, cancelAtPeriodEnd: true, referralCode: true, referredByCode: true, profile: true,
         users: { select: { id: true, email: true, name: true, username: true, role: true, isApproved: true, createdAt: true }, orderBy: { createdAt: 'asc' } },
         projects: { select: { id: true, name: true, status: true, isCompleted: true, isArchived: true, deadlineDate: true, createdAt: true, _count: { select: { questions: true } } }, orderBy: { createdAt: 'desc' }, take: 50 },
         _count: { select: { files: true, partners: true, assistantMessages: true } } },

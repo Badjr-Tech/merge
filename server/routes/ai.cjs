@@ -402,7 +402,7 @@ async function allowOnCredit(companyId, feature, body) {
 async function checkAi(req, feature, opts = {}) {
   const companyId = req.user.companyId;
   if (!companyId) return { ok: false, status: 400, body: { msg: 'You are not attached to a workspace.' } };
-  const company = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true, isStaff: true } });
+  const company = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true, pilotEndsAt: true, pilotPlan: true, pilotRevertsTo: true, isStaff: true } });
   const plan = planFor(company);
   if (plan.comped || plan.staff) return { ok: true, plan, unmetered: true };
 
@@ -529,7 +529,7 @@ async function warnIfNearLimit(companyId, feature) {
 router.get('/usage', auth, async (req, res) => {
   try {
     const companyId = req.user.companyId;
-    const company = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true, isStaff: true } });
+    const company = await prisma.company.findUnique({ where: { id: companyId }, select: { plan: true, kind: true, trialEndsAt: true, compedUntil: true, pilotEndsAt: true, pilotPlan: true, pilotRevertsTo: true, isStaff: true } });
     const plan = planFor(company);
     const seats = await prisma.user.count({ where: { companyId, isApproved: true } });
     const out = {};

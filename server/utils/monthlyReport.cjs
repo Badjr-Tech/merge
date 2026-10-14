@@ -9,7 +9,7 @@ const PAID = ['active', 'trialing', 'past_due'];
 
 async function monthlySummary(monthStart, monthEnd) {
   const companies = await prisma.company.findMany({
-    select: { id: true, name: true, kind: true, plan: true, trialEndsAt: true, compedUntil: true, isStaff: true, stripeSubscriptionId: true, subscriptionStatus: true, createdAt: true, referredByCode: true },
+    select: { id: true, name: true, kind: true, plan: true, trialEndsAt: true, compedUntil: true, pilotEndsAt: true, pilotPlan: true, pilotRevertsTo: true, isStaff: true, stripeSubscriptionId: true, subscriptionStatus: true, createdAt: true, referredByCode: true },
   });
   const seatRows = await prisma.user.groupBy({ by: ['companyId'], where: { isApproved: true, companyId: { not: null } }, _count: { _all: true } });
   const seats = Object.fromEntries(seatRows.map(r => [r.companyId, r._count._all]));
