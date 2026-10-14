@@ -485,6 +485,7 @@ router.get('/questions/assigned', auth, async (req, res) => {
     const assignedQuestions = await prisma.question.findMany({
       where: {
         assignedToId: req.user.id,
+        project: { isCompleted: false, isArchived: false },
       },
       include: {
         project: {
@@ -536,6 +537,10 @@ router.get('/with-assigned-questions', auth, async (req, res) => {
       where: {
         companyId: user.companyId,
         questions: { some: {} }, // Filter for projects that have at least one question
+        // A finished proposal is not work. Without this, importing a past proposal
+        // dropped every one of its questions into the uploader's task list.
+        isCompleted: false,
+        isArchived: false,
       },
       include: {
         owner: { select: { id: true, username: true, name: true } },
@@ -1886,7 +1891,7 @@ router.post('/:projectId/questions/manual', auth, async (req, res) => {
         text: questionText,
         answer: answerText,
         status: 'completed', // Manually added Q&A can be marked as completed by default
-        assignedToId: req.user.id, // Assign to the user who added it
+        assignedToId: null, // Nobody owes work on an answer that is already written
       },
     });
 
@@ -1977,7 +1982,7 @@ router.post('/manual-project', auth, requireFeature(prisma, 'past_proposals'), a
             section: q.section ? String(q.section).trim().slice(0, 200) || null : null,
             answer: q.answer || null,
             status: 'completed',
-            assignedToId: req.user.id,
+            assignedToId: null, // A past proposal is a record, not an assignment
           })),
         },
       },
