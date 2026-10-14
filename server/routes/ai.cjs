@@ -283,9 +283,18 @@ router.post('/draft', auth, requireFeature(prisma, 'assistant'), async (req, res
     } catch (err) { /* the draft is still useful without the answer bank */ }
 
     const unit = (question.limitUnit || 'words').startsWith('char') ? 'characters' : 'words';
+    // With no stated limit, the length of what the writer already has is the best signal we
+    // have of how long the answer should be — a rewrite should not shrink a 900-word answer
+    // to a default. Only fall back to a house length when the box is empty.
+    const existingWords = (question.answer || '').trim() ? question.answer.trim().split(/\s+/).length : 0;
+    // House length for an unlimited question is 600-900 words. The one exception is a draft
+    // that is already longer than that: match it rather than cutting the writer's work down.
+    const longExisting = existingWords > 900;
     const limitLine = question.maxLimit
       ? `Hard limit: ${question.maxLimit} ${unit}. Stay comfortably under it — aim for about ${Math.floor(question.maxLimit * 0.9)} ${unit}.`
-      : 'No stated limit. Aim for about 250 words and do not exceed 400. A reviewer reads hundreds of these; short and specific beats long and general.';
+      : longExisting
+        ? `No stated limit. The draft you are rewriting is about ${existingWords} words; return something close to that length. Do not cut it down to a summary.`
+        : 'No stated limit. Write between 600 and 900 words. This is a full narrative answer, not a summary — if you are near 600 you have more to say, so develop the specifics rather than restating what you already wrote.';
     const siblings = (question.project.questions || [])
       .filter(q => q.text !== question.text)
       .slice(0, 25)
@@ -299,9 +308,10 @@ router.post('/draft', auth, requireFeature(prisma, 'assistant'), async (req, res
 Rules:
 - Write in the organization's voice, using the profile below. ${(company.profile || {}).tone ? `Preferred tone: ${(company.profile || {}).tone}.` : ''}
 - ${limitLine}
-- Never invent numbers, dates, names, partners, or outcomes. Where a specific fact is needed and you do not have it, write a placeholder in square brackets like [number of families served in 2025] so the writer can fill it in.
+- Never invent numbers, dates, names, partners, or outcomes. Where a specific fact is needed and you do not have it, write a placeholder in square brackets like [number of families served in 2025] so the writer can fill it in. Use square brackets for nothing else, so every bracket in the answer is something that still needs a real value.
 - Answer only the question asked. Other questions in this application are listed so you do not repeat their content.
-- Say each thing once. Do not restate the mission, the founder, or a partner's description in more than one paragraph, and do not close with a paragraph that summarises what you just wrote.
+- Say each thing once. The mission, the founder, a partner's description, a statistic, a programme name: each belongs in exactly one paragraph. Do not open by announcing what the answer will cover and do not close by summarising what you just wrote — both are repetition.
+- Be concrete and direct. Prefer a specific fact over a general claim, name the thing rather than gesturing at it, and cut any sentence that would still be true for a different organization.
 - Plain prose. No markdown bold or bullet lists unless the question asks for a list.
 
 ORGANIZATION PROFILE:
@@ -322,11 +332,12 @@ ${siblings ? `\nOTHER QUESTIONS IN THIS APPLICATION:\n${siblings}\n` : ''}${prio
     let truncated = false;
     try {
       // Allow the question's limit plus room to finish the sentence; ~1.5 tokens a word, 1.4 for slack.
-      // With no stated limit the prompt asks for ~250 words and caps at 400, so 1200 tokens
-      // (~900 words) is headroom to land the ending rather than a target to fill.
+      // With no stated limit the target is the existing answer's length (or 650 words when the
+      // box is empty), so the ceiling has to follow it rather than sit at a fixed number.
+      const targetWords = longExisting ? Math.ceil(existingWords * 1.15) : 900;
       const cap = question.maxLimit
         ? Math.min(4000, Math.ceil((unit === 'characters' ? question.maxLimit / 4 : question.maxLimit * 1.5) * 1.4))
-        : 1200;
+        : Math.min(6000, Math.ceil(targetWords * 1.5 * 1.4));
       draft = await gemini.chatReplyStream({
         systemInstruction: system, history: [], message: prompt,
         onChunk: t => emit('chunk', t),

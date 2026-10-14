@@ -7,6 +7,7 @@ import { useToast } from '../context/ToastContext';
 import { Avatar, Badge, Button, Card, CopyButton, EmptyState, ErrorBlock, Field, Input, Loading, Modal, Progress, Select, Tabs, Textarea, useConfirm } from '../components/ui';
 import SimilarAnswers from '../components/SimilarAnswers';
 import DraftAnswer from '../components/DraftAnswer';
+import Placeholders from '../components/Placeholders';
 import NotesDrawer from '../components/NotesDrawer';
 import { usePlan } from '../context/PlanContext';
 import { FEATURE_COPY } from '../components/Upgrade';
@@ -146,6 +147,7 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
               {(writerMode || q.status !== 'submitted') && <SimilarAnswers questionId={q.id} onUse={(text) => { setAnswer(a => a.trim() ? `${a}\n\n${text}` : text); toast.success('Added to your draft. Edit it, then save or submit.'); }} />}
               <Textarea rows={6} value={answer} onChange={e => setAnswer(e.target.value)} placeholder="No answer yet. Write one here…" />
               <div className={`count-hint ${lc.over ? 'over' : lc.limit ? 'ok' : ''}`}>{lc.count} {lc.unit}{lc.limit ? ` of ${lc.limit}` : ''}{lc.over ? ' · over the limit' : ''}</div>
+              <Placeholders text={answer} />
             </>
           ) : (
             <div className="q-answer">{q.answer || <span className="faint">No answer yet.</span>}</div>

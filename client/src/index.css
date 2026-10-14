@@ -362,6 +362,9 @@ img[alt="Merge"] { color: transparent; font-size: 0; }
 .count-hint.over { color: var(--danger); font-weight: 600; }
 .count-hint.ok { color: var(--green-dark); }
 
+/* Placeholders a draft left behind, listed under the answer box */
+.placeholder-chip { display: inline-block; font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 11px; background: #fff; border: 1px solid #e0cfa0; border-radius: 4px; padding: 2px 6px; margin: 2px 4px 2px 0; color: var(--text); }
+
 /* Crash screen (ErrorBoundary) — shown instead of a blank page */
 .crash { min-height: 60vh; display: flex; align-items: center; justify-content: center; padding: 32px 16px; }
 .crash-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow); padding: 32px; max-width: 540px; width: 100%; }

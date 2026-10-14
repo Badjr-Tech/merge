@@ -7,6 +7,7 @@ import { Badge, Button, Card, EmptyState, ErrorBlock, Loading, PageHeader, Texta
 import { dueLabel, limitCheck, questionStatus } from '../lib/format';
 import SimilarAnswers from '../components/SimilarAnswers';
 import DraftAnswer from '../components/DraftAnswer';
+import Placeholders from '../components/Placeholders';
 
 function TaskCard({ q, project, onSaved }) {
   const toast = useToast();
@@ -42,6 +43,7 @@ function TaskCard({ q, project, onSaved }) {
       {q.status !== 'submitted' && <SimilarAnswers questionId={q.id} onUse={(text) => { setAnswer(a => a.trim() ? `${a}\n\n${text}` : text); toast.success('Added to your draft. Edit it, then save or submit.'); }} />}
       <Textarea className="mt-2" rows={5} value={answer} onChange={e => setAnswer(e.target.value)} placeholder="Write your answer here…" />
       <div className={`count-hint ${lc.over ? 'over' : lc.limit ? 'ok' : ''}`}>{lc.count} {lc.unit}{lc.limit ? ` of ${lc.limit}` : ''}{lc.over ? ' · over the limit' : ''}</div>
+      <Placeholders text={answer} />
       <div className="row mt-1" style={{ justifyContent: 'flex-end' }}>
         {q.status !== 'submitted' && <DraftAnswer questionId={q.id} currentAnswer={answer} onDraft={setAnswer} disabled={saving} />}
         {q.status === 'submitted' && !dirty ? (
