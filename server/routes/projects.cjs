@@ -341,7 +341,12 @@ router.get('/completed', auth, requireFeature(prisma, 'past_proposals'), async (
         companyId: user.companyId,
         isCompleted: true, // Filter for completed projects
       },
-      include: { owner: { select: { id: true, username: true, name: true } }, company: { select: { name: true } } },
+      include: {
+        owner: { select: { id: true, username: true, name: true } },
+        company: { select: { name: true } },
+        // The page counts these and searches them, so they have to come back with the list.
+        questions: { select: { id: true, text: true, answer: true, section: true } },
+      },
       orderBy: {
         createdAt: 'desc',
       },
@@ -547,6 +552,77 @@ router.get('/with-assigned-questions', auth, async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
+  }
+});
+
+// @route   POST api/projects/past-proposals/extract
+// @desc    Read a finished proposal (PDF, Word or text) and pull out its question-and-answer pairs
+//          so a past proposal can be imported instead of retyped. Returns the pairs for review —
+//          nothing is saved until the writer confirms them.
+const importUpload = require('multer')({ storage: require('multer').memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
+router.post('/past-proposals/extract', auth, requireFeature(prisma, 'past_proposals'), importUpload.single('document'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ msg: 'Choose a file first.' });
+    const { checkAi, recordAi } = require('./ai.cjs');
+    const gate = await checkAi(req, 'import');
+    if (!gate.ok) return res.status(gate.status).json(gate.body);
+    if (!process.env.GEMINI_API_KEY) return res.status(500).json({ msg: 'AI is not configured on the server.' });
+
+    const ext = (req.file.originalname.split('.').pop() || '').toLowerCase();
+    let text = '';
+    if (ext === 'pdf') {
+      text = (await require('pdf-parse')(req.file.buffer)).text;
+    } else if (ext === 'docx') {
+      text = (await require('mammoth').extractRawText({ buffer: req.file.buffer })).value;
+    } else if (['txt', 'md', 'rtf'].includes(ext)) {
+      text = req.file.buffer.toString('utf8');
+    } else {
+      return res.status(400).json({ msg: `Merge can read PDF, Word (.docx) and text files. That one is .${ext}.` });
+    }
+    text = text.replace(/\r/g, '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    if (text.length < 200) return res.status(400).json({ msg: 'There is very little readable text in that file. A scanned PDF with no text layer will not work.' });
+    const TRUNCATED = text.length > 120000;
+    text = text.slice(0, 120000);
+
+    const prompt = `Below is the full text of a completed grant or funding application. Pull out every question the funder asked and the answer that was written for it.
+
+Rules:
+- Use the exact wording of each question and each answer from the document. Do not summarise, improve or shorten anything.
+- An answer runs from the end of its question all the way to the next question or section heading. Include EVERY paragraph in between, not just the first one. A blank line does not end an answer.
+- Copy numbers, percentages, dates and names exactly as written. Those are the facts the writer will reuse.
+- Ignore cover pages, tables of contents, headers, footers, page numbers and signature blocks.
+- If a section heading groups several questions, put the heading in "section" for each of them.
+- If a question clearly asked for an attachment rather than written text, set "answer" to an empty string.
+- If the document contains no question-and-answer structure at all, return an empty array.
+
+Return JSON: {"title": "the name of the grant or funder if the document states one, else empty", "pairs": [{"section": "", "question": "", "answer": ""}]}
+
+DOCUMENT:
+${text}`;
+
+    const { generateText } = require('../utils/gemini.cjs');
+    const raw = await generateText(prompt, { generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 60000, temperature: 0.1 } });
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch { return res.status(502).json({ msg: 'The AI returned something Merge could not read. Try again.' }); }
+
+    const pairs = (Array.isArray(parsed.pairs) ? parsed.pairs : [])
+      .map(p => ({
+        section: String(p.section || '').trim().slice(0, 200),
+        question: String(p.question || '').trim().slice(0, 2000),
+        answer: String(p.answer || '').trim().slice(0, 20000),
+      }))
+      .filter(p => p.question);
+
+    await recordAi(req.user.companyId, req.user.id, 'import');
+    res.json({
+      title: String(parsed.title || '').trim().slice(0, 200) || req.file.originalname.replace(/\.[^.]+$/, ''),
+      pairs,
+      truncated: TRUNCATED,
+      source: req.file.originalname,
+    });
+  } catch (err) {
+    console.error('Past proposal import error:', err.message);
+    res.status(500).json({ msg: err.status === 429 ? err.message : 'Could not read that document. Try again, or add the questions by hand.' });
   }
 });
 
@@ -1896,7 +1972,13 @@ router.post('/manual-project', auth, requireFeature(prisma, 'past_proposals'), a
         isCompleted: true,
         status: 'completed',
         questions: {
-          create: pairs.map(q => ({ text: q.question.trim(), answer: q.answer || null, status: 'completed', assignedToId: req.user.id })),
+          create: pairs.map(q => ({
+            text: q.question.trim(),
+            section: q.section ? String(q.section).trim().slice(0, 200) || null : null,
+            answer: q.answer || null,
+            status: 'completed',
+            assignedToId: req.user.id,
+          })),
         },
       },
       include: { owner: { select: { username: true, name: true } }, company: { select: { name: true } }, questions: true },

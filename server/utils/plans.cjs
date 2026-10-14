@@ -49,18 +49,18 @@ const FEATURE_LABELS = {
 //   extraPrice            — AI reviewer only: what one more run costs (not yet charged; see DEVELOPMENT.md)
 // 0 or absent = the feature is not available on that plan.
 const AI_LIMITS = {
-  free:         { chat: 0, draft: 0, review: 0, profile: { once: true } },
-  writer:       { chat: 0, draft: 0, review: 0, profile: { everyDays: 30 } },
-  writer_pro:   { chat: { month: 2000 }, draft: { month: 150 }, review: { perDayPerProject: 1, extraPrice: 1.99 }, profile: { everyDays: 30 } },
-  professional: { chat: { month: 4000 }, draft: { month: 300 }, review: { perDay: 5, extraPrice: 1.99 }, profile: { everyDays: 7 } },
+  free:         { chat: 0, draft: 0, review: 0, profile: { once: true }, import: 0 },
+  writer:       { chat: 0, draft: 0, review: 0, profile: { everyDays: 30 }, import: 0 },
+  writer_pro:   { chat: { month: 2000 }, draft: { month: 150 }, review: { perDayPerProject: 1, extraPrice: 1.99 }, profile: { everyDays: 30 }, import: { month: 20 } },
+  professional: { chat: { month: 4000 }, draft: { month: 300 }, review: { perDay: 5, extraPrice: 1.99 }, profile: { everyDays: 7 }, import: { month: 50 } },
   // Organization track: placeholders in step with the old pooled numbers, pending their own decision.
-  org_solo:     { chat: { month: 2000 }, draft: { month: 20 }, review: { month: 20, extraPrice: 1.99 }, profile: { everyDays: 30 } },
-  small_team:   { chat: { monthPerSeat: 750, perDayPerUser: 200 }, draft: { monthPerSeat: 15, perDayPerUser: 20 }, review: { monthPerSeat: 4, perDayPerUser: 5, extraPrice: 1.99 }, profile: { everyDays: 30 } },
-  large_team:   { chat: { monthPerSeat: 1000, perDayPerUser: 200 }, draft: { monthPerSeat: 15, perDayPerUser: 20 }, review: { monthPerSeat: 5, perDayPerUser: 5, extraPrice: 1.99 }, profile: { everyDays: 7 } },
-  company:      { chat: { monthPerSeat: 1000, perDayPerUser: 200 }, draft: { monthPerSeat: 30, perDayPerUser: 20 }, review: { monthPerSeat: 15, perDayPerUser: 5, extraPrice: 1.99 }, profile: { everyDays: 7 } },
+  org_solo:     { chat: { month: 2000 }, draft: { month: 20 }, review: { month: 20, extraPrice: 1.99 }, profile: { everyDays: 30 }, import: { month: 20 } },
+  small_team:   { chat: { monthPerSeat: 750, perDayPerUser: 200 }, draft: { monthPerSeat: 15, perDayPerUser: 20 }, review: { monthPerSeat: 4, perDayPerUser: 5, extraPrice: 1.99 }, profile: { everyDays: 30 }, import: { monthPerSeat: 5, perDayPerUser: 5 } },
+  large_team:   { chat: { monthPerSeat: 1000, perDayPerUser: 200 }, draft: { monthPerSeat: 15, perDayPerUser: 20 }, review: { monthPerSeat: 5, perDayPerUser: 5, extraPrice: 1.99 }, profile: { everyDays: 7 }, import: { monthPerSeat: 5, perDayPerUser: 5 } },
+  company:      { chat: { monthPerSeat: 1000, perDayPerUser: 200 }, draft: { monthPerSeat: 30, perDayPerUser: 20 }, review: { monthPerSeat: 15, perDayPerUser: 5, extraPrice: 1.99 }, profile: { everyDays: 7 }, import: { monthPerSeat: 10, perDayPerUser: 5 } },
 };
 
-const AI_FEATURE_LABELS = { chat: 'Ask Merge', draft: 'Help me answer this', review: 'AI reviewer', profile: 'Build profile from your website' };
+const AI_FEATURE_LABELS = { chat: 'Ask Merge', draft: 'Help me answer this', review: 'AI reviewer', profile: 'Build profile from your website', import: 'Import a past proposal' };
 
 // The rule for one feature on one plan, with per-seat counts already resolved.
 function aiLimit(planKey, feature, seats) {

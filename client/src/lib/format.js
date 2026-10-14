@@ -75,7 +75,8 @@ export function limitCheck(answer, maxLimit, limitUnit) {
 export function projectProgress(project) {
   const qs = project.questions || [];
   const total = qs.length;
-  const done = qs.filter(q => q.status === 'submitted').length;
+  // Past proposals land as 'completed' — they are written, just never routed through submit.
+  const done = qs.filter(q => q.status === 'submitted' || q.status === 'completed').length;
   return { total, done, pct: total ? Math.round((done / total) * 100) : 0 };
 }
 
