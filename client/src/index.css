@@ -463,7 +463,7 @@ img[alt="Merge"] { color: transparent; font-size: 0; }
 .upgrade-card h3 { font-size: 20px; }
 .plan-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 @media (max-width: 1100px) { .plan-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.trial-pill { margin-left: auto; background: var(--green-soft); color: var(--green-dark); border: 1px solid #cfe0c2; border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 700; text-decoration: none !important; white-space: nowrap; }
+.trial-pill { background: var(--green-soft); color: var(--green-dark); border: 1px solid #cfe0c2; border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 700; text-decoration: none !important; white-space: nowrap; }
 .trial-pill.ended { background: var(--gold-soft); color: #7a5a12; border-color: #efdfb3; }
 .pricing-5 { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
 .pricing-5 .price-card { padding: 22px 14px; }
