@@ -34,9 +34,20 @@ async function getBytes(pathname) {
   }
 }
 
+// Metadata only — used to confirm a browser-uploaded blob really exists before trusting the
+// client's claim about it.
+async function stat(pathname) {
+  try {
+    const meta = await head(pathname, { token: token() });
+    return { size: meta.size, contentType: meta.contentType };
+  } catch {
+    return null;
+  }
+}
+
 async function remove(pathname) {
   if (!pathname) return;
   try { await del(pathname, { token: token() }); } catch { /* already gone is fine */ }
 }
 
-module.exports = { configured, putPrivate, getBytes, remove };
+module.exports = { configured, putPrivate, getBytes, stat, remove };

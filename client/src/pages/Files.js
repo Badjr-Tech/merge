@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import api, { errorMessage } from '../api';
+import api, { errorMessage, API_URL } from '../api';
+import { upload as blobUpload } from '@vercel/blob/client';
 import { useToast } from '../context/ToastContext';
-import { Badge, Button, Card, EmptyState, ErrorBlock, Field, Input, Loading, PageHeader, Select, useConfirm } from '../components/ui';
+import { Badge, Button, Card, EmptyState, ErrorBlock, Field, Input, Loading, PageHeader, Progress, Select, useConfirm } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 
 import { displayName, formatDate } from '../lib/format';
@@ -26,6 +27,7 @@ export default function Files() {
   const [selected, setSelected] = useState(null);
   const [name, setName] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [q, setQ] = useState('');
   const [category, setCategory] = useState('other');
   const [notes, setNotes] = useState('');
@@ -49,19 +51,35 @@ export default function Files() {
     if (!selected) return;
     if (selected.size > limits.maxFileBytes) { toast.error(`That file is ${fmtSize(selected.size)}. The maximum is ${limits.maxFileLabel}.`); return; }
     setUploading(true);
+    setProgress(0);
     try {
-      const fd = new FormData();
-      fd.append('file', selected);
-      fd.append('newFilename', name.trim() || selected.name);
-      fd.append('category', category);
-      fd.append('notes', notes);
       // Rendered here rather than on the server: a PDF preview needs a canvas. If it fails
       // the upload still goes ahead and the file just gets a filetype glyph on hover.
       const thumb = await makeThumbnail(selected).catch(() => null);
-      if (thumb) fd.append('thumbnail', thumb);
-      await api.post('/api/files/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const finalName = name.trim() || selected.name;
+
+      if (limits.direct) {
+        // Straight from the browser to storage. The bytes never pass through the API, which
+        // is what lets this take files far larger than the 4.5 MB serverless body limit.
+        const token = localStorage.getItem('token') || '';
+        const result = await blobUpload(`files/${user.companyId}/${Date.now()}-${selected.name}`, selected, {
+          access: 'private',
+          handleUploadUrl: `${API_URL}/api/files/upload-token`,
+          headers: { 'x-auth-token': token },
+          onUploadProgress: (p) => setProgress(Math.round(p.percentage)),
+        });
+        await api.post('/api/files/record', { pathname: result.pathname, filename: finalName, category, notes, thumbnail: thumb || undefined });
+      } else {
+        const fd = new FormData();
+        fd.append('file', selected);
+        fd.append('newFilename', finalName);
+        fd.append('category', category);
+        fd.append('notes', notes);
+        if (thumb) fd.append('thumbnail', thumb);
+        await api.post('/api/files/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      }
       toast.success('File uploaded.'); setSelected(null); setName(''); setNotes(''); if (fileRef.current) fileRef.current.value = ''; load();
-    } catch (err) { toast.error(errorMessage(err, 'Upload failed.')); } finally { setUploading(false); }
+    } catch (err) { toast.error(errorMessage(err, 'Upload failed.')); } finally { setUploading(false); setProgress(0); }
   };
 
   const download = async (f) => {
@@ -88,7 +106,8 @@ export default function Files() {
           <Field label="Save as"><Input value={name} onChange={e => setName(e.target.value)} placeholder="Filename" /></Field>
           <Field label="Category"><Select value={category} onChange={e => setCategory(e.target.value)}>{CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</Select></Field>
           <Field label="Notes" hint="e.g. funder, year, outcome"><Input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional" /></Field>
-          <Button onClick={upload} loading={uploading} disabled={!selected || tooBig} block>Upload</Button>
+          <Button onClick={upload} loading={uploading} disabled={!selected || tooBig} block>{uploading && progress > 0 ? `Uploading ${progress}%` : 'Upload'}</Button>
+          {uploading && progress > 0 && <div className="mt-1"><Progress value={progress} /></div>}
         </Card>
         <Card>
           <div className="card-header"><h3>Files</h3><div className="row"><Select className="select-sm" value={filter} onChange={e => setFilter(e.target.value)} style={{ width: 200 }}><option value="">All categories</option>{CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</Select><Input className="input-sm" placeholder="Search…" value={q} onChange={e => setQ(e.target.value)} style={{ maxWidth: 180 }} /></div></div>
