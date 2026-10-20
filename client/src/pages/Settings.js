@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import api, { errorMessage } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { Button, Card, Field, Input, PageHeader, Textarea, useConfirm } from '../components/ui';
+import { Avatar, Button, Card, Field, Input, PageHeader, Textarea, useConfirm } from '../components/ui';
+import { resizeAvatar } from '../lib/imagePreview';
+import { forgetAvatar } from '../lib/avatarCache';
 import { formatDate } from '../lib/format';
 import { usePlan } from '../context/PlanContext';
 import { useSearchParams } from 'react-router-dom';
@@ -75,6 +77,45 @@ export default function Settings() {
   const [companyName, setCompanyName] = useState('');
   const [pw, setPw] = useState({ oldPassword: '', newPassword: '', confirmNewPassword: '' });
   const [busy, setBusy] = useState('');
+  const picRef = React.useRef();
+  // Kept locally so the picture updates the moment it is saved, without a page reload.
+  const [me, setMe] = useState(user);
+  useEffect(() => { setMe(user); }, [user]);
+
+  const changePicture = async (file) => {
+    if (!file) return;
+    setBusy('pic');
+    try {
+      const small = await resizeAvatar(file);
+      const fd = new FormData();
+      fd.append('avatar', small);
+      await api.post('/api/users/me/avatar', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      forgetAvatar(user.id);
+      const stamped = { ...me, avatarKey: 'set', avatarUpdatedAt: new Date().toISOString() };
+      setMe(stamped);
+      if (updateUser) updateUser(stamped);
+      toast.success('Picture updated.');
+    } catch (err) {
+      toast.error(errorMessage(err, 'Could not save that picture.'));
+    } finally {
+      setBusy('');
+      if (picRef.current) picRef.current.value = '';
+    }
+  };
+
+  const removePicture = async () => {
+    setBusy('picdel');
+    try {
+      await api.delete('/api/users/me/avatar');
+      forgetAvatar(user.id);
+      const cleared = { ...me, avatarKey: null, avatarUpdatedAt: new Date().toISOString() };
+      setMe(cleared);
+      if (updateUser) updateUser(cleared);
+      toast.success('Picture removed.');
+    } catch (err) {
+      toast.error(errorMessage(err, 'Could not remove that picture.'));
+    } finally { setBusy(''); }
+  };
   const [profile, setProfile] = useState({ mission: '', philosophy: '', programs: '', audience: '', impact: '', website: '', tone: '', notes: '' });
   const [importUrl, setImportUrl] = useState('');
   const canEditProfile = isAdmin || user?.role === 'editor';
@@ -150,6 +191,19 @@ export default function Settings() {
       </Card>}
       <Card pad className="mb-3">
         <h3>Profile</h3>
+        <div className="row mb-3" style={{ gap: 14, alignItems: 'center' }}>
+          <Avatar user={me} size="lg" />
+          <div>
+            <input ref={picRef} type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} onChange={e => changePicture(e.target.files && e.target.files[0])} />
+            <div className="row" style={{ gap: 8 }}>
+              <Button variant="secondary" size="sm" onClick={() => picRef.current && picRef.current.click()} loading={busy === 'pic'}>
+                {me?.avatarKey ? 'Change picture' : 'Add a picture'}
+              </Button>
+              {me?.avatarKey && <Button variant="secondary" size="sm" onClick={removePicture} loading={busy === 'picdel'}>Remove</Button>}
+            </div>
+            <div className="tiny muted mt-1">PNG, JPEG or WebP. Resized to 256px before it is uploaded.</div>
+          </div>
+        </div>
         <Field label="Name"><Input value={name} onChange={e => setName(e.target.value)} /></Field>
         <Field label="Email" hint="Email is used to sign in and can't be changed here."><Input value={user?.email || ''} disabled /></Field>
         <label className="row" style={{ gap: 8, alignItems: 'flex-start', marginTop: 4 }}>

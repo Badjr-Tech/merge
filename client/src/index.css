@@ -169,6 +169,14 @@ img { max-width: 100%; }
 .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--periwinkle); color: var(--navy); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
 .avatar-sm { width: 26px; height: 26px; font-size: 11px; }
 .avatar-lg { width: 44px; height: 44px; font-size: 16px; }
+/* A picture fills the same circle the initials occupy, so nothing shifts when one is added. */
+.avatar-img { object-fit: cover; background: var(--periwinkle); }
+
+/* File cabinet hover preview */
+.thumb-wrap { position: relative; display: inline-block; }
+.thumb-card { position: absolute; left: 0; top: calc(100% + 6px); z-index: 80; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); padding: 8px; width: 240px; }
+.thumb-card img { display: block; width: 100%; height: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+.thumb-glyph { display: flex; align-items: center; justify-content: center; height: 120px; color: var(--text-faint); background: #fbfaf5; border-radius: var(--radius-sm); border: 1px solid var(--border); }
 
 .empty { text-align: center; padding: 56px 24px; color: var(--text-muted); }
 .empty .empty-icon { display: inline-flex; color: var(--border-strong); margin-bottom: 10px; }

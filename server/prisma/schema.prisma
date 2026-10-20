@@ -18,6 +18,8 @@ model User {
   name               String?
   role               Role                    @default(viewer)
   companyId          String?
+  avatarKey          String?                 // Vercel Blob pathname for their profile picture; null means fall back to initials
+  avatarUpdatedAt    DateTime?               // cache-busts the avatar URL when they change the picture
   deadlineEmails     Boolean                 @default(true) // deadline reminder emails for projects they own or have open questions on
   assignmentEmails   Boolean                 @default(true) // told by email when a question is assigned to them
   aiReviewLogs       AIReviewLog[]
@@ -175,7 +177,10 @@ model File {
   mimetype     String
   category     String?
   notes        String?
-  data         Bytes
+  data         Bytes?   // legacy: files uploaded before Blob still have their bytes here
+  blobKey      String?  // Vercel Blob pathname; the storage for everything uploaded from now on
+  size         Int?     // byte length, so the list can show it without loading the file
+  thumbKey     String?  // Vercel Blob pathname for the hover preview; null means show a filetype glyph
   companyId    String
   uploadedById String
   createdAt    DateTime @default(now())

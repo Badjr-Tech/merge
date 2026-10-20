@@ -5,6 +5,7 @@ import {
   FolderOpen, Handshake, Mail, Users,
 } from 'lucide-react';
 import { initials, displayName } from '../../lib/format';
+import { avatarKeyFor, cachedAvatar, loadAvatar } from '../../lib/avatarCache';
 
 export function Button({ variant = 'primary', size, block, as, to, href, children, className = '', loading, ...rest }) {
   const cls = `btn btn-${variant} ${size ? `btn-${size}` : ''} ${block ? 'btn-block' : ''} ${className}`;
@@ -45,8 +46,25 @@ export function Badge({ tone = 'gray', children, dot }) {
   return <span className={`badge badge-${tone}`}>{dot && <span className="dot" style={{ background: 'currentColor' }} />}{children}</span>;
 }
 
+// Shows their picture when they have one, initials when they do not. The picture is private,
+// so it is fetched with auth and cached as an object URL (see avatarCache); a failure just
+// leaves the initials in place rather than showing a broken image.
 export function Avatar({ user, size }) {
-  return <span className={`avatar ${size ? `avatar-${size}` : ''}`} title={displayName(user)}>{initials(user)}</span>;
+  const key = avatarKeyFor(user);
+  const [src, setSrc] = useState(() => cachedAvatar(key));
+
+  useEffect(() => {
+    let alive = true;
+    const cached = cachedAvatar(key);
+    if (cached) { setSrc(cached); return undefined; }
+    setSrc(null);
+    if (key) loadAvatar(user).then(url => { if (alive) setSrc(url); });
+    return () => { alive = false; };
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const cls = `avatar ${size ? `avatar-${size}` : ''}`;
+  if (src) return <img className={`${cls} avatar-img`} src={src} alt={displayName(user)} title={displayName(user)} />;
+  return <span className={cls} title={displayName(user)}>{initials(user)}</span>;
 }
 
 export function Progress({ value, tone }) {

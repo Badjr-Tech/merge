@@ -5,6 +5,8 @@ import { Badge, Button, Card, EmptyState, ErrorBlock, Field, Input, Loading, Pag
 import { useAuth } from '../context/AuthContext';
 
 import { displayName, formatDate } from '../lib/format';
+import { makeThumbnail } from '../lib/imagePreview';
+import FileThumb from '../components/FileThumb';
 
 const CATEGORIES = [
   { value: 'past-grant', label: 'Past grant application' },
@@ -53,6 +55,10 @@ export default function Files() {
       fd.append('newFilename', name.trim() || selected.name);
       fd.append('category', category);
       fd.append('notes', notes);
+      // Rendered here rather than on the server: a PDF preview needs a canvas. If it fails
+      // the upload still goes ahead and the file just gets a filetype glyph on hover.
+      const thumb = await makeThumbnail(selected).catch(() => null);
+      if (thumb) fd.append('thumbnail', thumb);
       await api.post('/api/files/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       toast.success('File uploaded.'); setSelected(null); setName(''); setNotes(''); if (fileRef.current) fileRef.current.value = ''; load();
     } catch (err) { toast.error(errorMessage(err, 'Upload failed.')); } finally { setUploading(false); }
@@ -91,7 +97,7 @@ export default function Files() {
           {files && filtered.length === 0 && <EmptyState icon="▣" title={q ? 'No matches' : 'No files yet'}>{q ? '' : 'Upload the documents your proposals reuse most.'}</EmptyState>}
           {files && filtered.length > 0 && (
             <div className="table-wrap"><table className="table"><thead><tr><th>Name</th><th>Category</th><th>Uploaded</th><th /></tr></thead><tbody>{filtered.map(f => (
-              <tr key={f.id}><td><div className="strong" style={{ color: 'var(--navy)' }}>{f.filename}</div>{f.notes && <div className="tiny muted">{f.notes}</div>}</td><td><Badge tone={f.category === 'past-grant' ? 'green' : f.category === 'rfp' ? 'indigo' : 'gray'}>{catLabel(f.category)}</Badge></td><td className="small muted">{displayName(f.uploadedBy)} · {formatDate(f.createdAt)}</td><td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}><Button variant="secondary" size="sm" onClick={() => download(f)}>Download</Button>{(isAdmin || f.uploadedBy?.id === user.id) && <Button variant="danger" size="sm" onClick={() => remove(f)}>Delete</Button>}</td></tr>
+              <tr key={f.id}><td><FileThumb file={f} />{f.notes && <div className="tiny muted">{f.notes}</div>}</td><td><Badge tone={f.category === 'past-grant' ? 'green' : f.category === 'rfp' ? 'indigo' : 'gray'}>{catLabel(f.category)}</Badge></td><td className="small muted">{displayName(f.uploadedBy)} · {formatDate(f.createdAt)}</td><td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}><Button variant="secondary" size="sm" onClick={() => download(f)}>Download</Button>{(isAdmin || f.uploadedBy?.id === user.id) && <Button variant="danger" size="sm" onClick={() => remove(f)}>Delete</Button>}</td></tr>
             ))}</tbody></table></div>
           )}
         </Card>

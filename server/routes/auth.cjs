@@ -42,6 +42,8 @@ function publicUser(user) {
     companyId: user.companyId,
     deadlineEmails: user.deadlineEmails,
     assignmentEmails: user.assignmentEmails,
+    avatarKey: user.avatarKey,
+    avatarUpdatedAt: user.avatarUpdatedAt,
     company: user.company ? { id: user.company.id, name: user.company.name } : null,
     createdAt: user.createdAt,
   };
