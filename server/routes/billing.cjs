@@ -302,7 +302,17 @@ async function webhook(req, res) {
   let event;
   try {
     const secret = process.env.STRIPE_WEBHOOK_SECRET;
-    event = secret ? stripe().webhooks.constructEvent(req.body, req.headers['stripe-signature'], secret) : JSON.parse(req.body.toString());
+    if (secret) {
+      event = stripe().webhooks.constructEvent(req.body, req.headers['stripe-signature'], secret);
+    } else if (process.env.NODE_ENV === 'production') {
+      // Never trust an unsigned webhook in production. Without the signature anyone who knows
+      // this URL could post a "payment succeeded" event and grant themselves credits or a plan.
+      console.error('STRIPE_WEBHOOK_SECRET is not set — refusing unsigned webhook.');
+      return res.status(503).send('Webhook not configured');
+    } else {
+      // Local development, where events are replayed by hand with the Stripe CLI.
+      event = JSON.parse(req.body.toString());
+    }
   } catch (err) {
     console.error('Webhook signature error:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
