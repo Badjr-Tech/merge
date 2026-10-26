@@ -21,7 +21,7 @@ const F = {
   assign: ['Assign questions', 'Give each question to a teammate and watch progress fill in.'],
   approvals: ['Approvals', 'A formal sign-off queue with a paper trail.'],
   workspaces: ['Multiple workspaces', 'Separate clients or departments under one login.'],
-  integrations: ['Integrations', 'Google Drive export, Zapier, and webhooks.'],
+  calendar: ['Deadlines on your calendar', 'Add a grant due date to Google Calendar, Outlook or Apple Calendar.'],
   branding: ['Custom branding', 'Your logo and colors on review pages and exports.'],
   support: ['Priority support', 'A person answers within one business day.'],
   people1: ['1 person', 'One writer. Reviewers never need a seat.'],
@@ -141,7 +141,7 @@ export default function Landing() {
             <Plan name="Free" price="$0" blurb="Try Merge on one real grant." feats={['grants1', 'review', 'bank', 'past', 'download', 'noai']} cta="Get started" to="/signup" />
             <Plan name="Starter" price="$6.99" per="/mo" blurb="For a working grant writer." feats={['grants', 'bank', 'review', 'partners', 'files', 'noai']} cta="Start free trial" to="/signup" />
             <Plan name="Premium" price="$21.99" per="/mo" blurb="Write faster with AI on your side." feats={[['grants', 'Everything in Starter', 'Unlimited grants, answer bank, review links, partners, files.'], 'ask', 'aireview', 'aiPremium', 'edit']} cta="Start free trial" to="/signup" featured badge="Most popular" />
-            <Plan name="Professional" price="$59.99" per="/mo" blurb="For consultants with many clients." feats={[['ask', 'Everything in Premium', 'Ask Merge, AI reviewer, editable document.'], 'aiPro', 'workspaces', 'integrations', 'support']} cta="Start free trial" to="/signup" />
+            <Plan name="Professional" price="$59.99" per="/mo" blurb="For consultants with many clients." feats={[['ask', 'Everything in Premium', 'Ask Merge, AI reviewer, editable document.'], 'aiPro', 'workspaces', 'calendar', 'support']} cta="Start free trial" to="/signup" />
           </div>
         ) : (
           <div className="grid-4 pricing-grid pricing-5">
@@ -149,7 +149,7 @@ export default function Landing() {
             <Plan name="Solo Writer" price="$14.99" per="/mo" blurb="One person writing grants for their organization." feats={['people1', 'grants', 'ask', 'aireview', 'aiSolo', 'review', 'partners']} cta="Start free trial" to="/signup" />
             <Plan name="Small Teams" price="$12.99" per="/person/mo" blurb="Up to 5 people writing together." feats={['people5', 'assign', 'approvals', 'bank', 'ask', 'aireview', 'aiTeamPool', 'edit']} cta="Start free trial" to="/signup" featured badge="Most popular" />
             <Plan name="Large Teams" price="$21.99" per="/person/mo" blurb="Up to 20 people." feats={['people20', ['assign', 'Everything in Small Teams', 'Assignments, approvals, AI, shared library.'], 'aiLargePool', 'workspaces']} cta="Start free trial" to="/signup" />
-            <Plan name="Companies" price="$29.99" per="/person/mo" blurb="Unlimited people." feats={['peopleAll', ['assign', 'Everything in Large Teams', 'Multiple workspaces plus all team features.'], 'aiCompanyPool', 'integrations', 'branding', 'support']} cta="Start free trial" to="/signup" />
+            <Plan name="Companies" price="$29.99" per="/person/mo" blurb="Unlimited people." feats={['peopleAll', ['assign', 'Everything in Large Teams', 'Multiple workspaces plus all team features.'], 'aiCompanyPool', 'calendar', 'branding', 'support']} cta="Start free trial" to="/signup" />
           </div>
         )}
       </section>

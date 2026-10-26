@@ -3,7 +3,7 @@
 const CORE = ['projects', 'exports', 'notes', 'external_review'];
 const W_STARTER = [...CORE, 'unlimited_projects', 'answer_bank', 'external_review', 'file_cabinet', 'calendar'];
 const W_PREMIUM = [...W_STARTER, 'assistant', 'ai_reviewer', 'partners', 'past_proposals', 'narrative_editing'];
-const W_PRO = [...W_PREMIUM, 'multi_workspace', 'integrations', 'priority_support', 'deadline_digest'];
+const W_PRO = [...W_PREMIUM, 'multi_workspace', 'priority_support', 'deadline_digest'];
 const TEAM = [...W_PREMIUM, 'team', 'approvals'];
 
 const ORG_SOLO = [...W_PREMIUM, 'external_review'];
@@ -18,7 +18,7 @@ const PLANS = {
   org_solo:     { track: 'team',   name: 'Solo Writer',  price: 14.99, per: 'month',     features: ORG_SOLO,  limits: { seats: 1, totalProjects: null, questionsPerProject: null, aiMonthly: 1500 } },
   small_team:   { track: 'team',   name: 'Small Teams',  price: 12.99, per: 'person',    features: ORG_TEAM,  limits: { seats: 5, totalProjects: null, questionsPerProject: null, aiMonthly: null, aiPerSeat: 750 } },
   large_team:   { track: 'team',   name: 'Large Teams',  price: 21.99, per: 'person',    features: [...ORG_TEAM, 'multi_workspace'], limits: { seats: 20, totalProjects: null, questionsPerProject: null, aiMonthly: null, aiPerSeat: 750 } },
-  company:      { track: 'team',   name: 'Companies',    price: 29.99, per: 'person',    features: [...ORG_TEAM, 'multi_workspace', 'integrations', 'priority_support', 'custom_branding'], limits: { seats: null, totalProjects: null, questionsPerProject: null, aiMonthly: null, aiPerSeat: 1000 } },
+  company:      { track: 'team',   name: 'Companies',    price: 29.99, per: 'person',    features: [...ORG_TEAM, 'multi_workspace', 'priority_support', 'custom_branding'], limits: { seats: null, totalProjects: null, questionsPerProject: null, aiMonthly: null, aiPerSeat: 1000 } },
 };
 // Older plan keys still stored on some workspaces
 const ALIASES = { starter: 'writer', premium: 'small_team', team: 'small_team', enterprise: 'large_team', custom: 'company' };
@@ -32,7 +32,7 @@ const FEATURE_LABELS = {
   unlimited_projects: 'Unlimited projects', answer_bank: 'Answer bank', assistant: 'Ask Merge writing assistant',
   file_cabinet: 'File cabinet', calendar: 'Grant calendar', team: 'Teammates', approvals: 'Approvals',
   partners: 'Partners directory', past_proposals: 'Past proposals library', narrative_editing: 'Editable document with version history',
-  ai_reviewer: 'AI reviewer', multi_workspace: 'Multiple workspaces', integrations: 'Integrations', external_review: 'Send for review', notes: 'Grant notes',
+  ai_reviewer: 'AI reviewer', multi_workspace: 'Multiple workspaces', external_review: 'Send for review', notes: 'Grant notes',
 };
 
 

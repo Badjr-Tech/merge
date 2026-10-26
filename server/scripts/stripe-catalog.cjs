@@ -17,11 +17,11 @@ const APPLY = process.argv.includes('--apply');
 const BLURB = {
   writer: 'For one grant writer. Unlimited grants, answer bank, file cabinet, grant calendar, and send-for-review links.',
   writer_pro: 'Everything in Starter plus Ask Merge, the AI reviewer, partners, past proposals, and an editable document with version history.',
-  professional: 'Everything in Premium plus multiple workspaces (one per client), integrations, higher AI limits, and priority support.',
+  professional: 'Everything in Premium plus multiple workspaces (one per client), higher AI limits, and priority support.',
   org_solo: 'For a one-person organization. Unlimited grants, Ask Merge, the AI reviewer, partners, past proposals, and send-for-review links.',
   small_team: 'For teams up to 5. Assign questions, track progress, run approvals, and merge every answer into one narrative.',
   large_team: 'For teams up to 20. Everything in Small Teams plus multiple workspaces.',
-  company: 'For unlimited people. Everything in Large Teams plus integrations, custom branding, and priority support.',
+  company: 'For unlimited people. Everything in Large Teams plus custom branding and priority support.',
 };
 
 function money(cents) { return `$${(cents / 100).toFixed(2)}`; }
