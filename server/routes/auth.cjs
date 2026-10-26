@@ -82,9 +82,6 @@ router.post('/signup', rateLimit({ max: 5 }), honeypot, async (req, res) => {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return res.status(400).json({ msg: 'An account with that email already exists. Try signing in.' });
 
-    const companyExists = await prisma.company.findUnique({ where: { name: companyName.trim() } });
-    if (companyExists) return res.status(400).json({ msg: 'That workspace name is taken. Try another.' });
-
     const hashed = await bcrypt.hash(password, await bcrypt.genSalt(10));
     const username = await uniqueUsername(email.split('@')[0]);
 

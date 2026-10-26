@@ -3,11 +3,11 @@
 const CORE = ['projects', 'exports', 'notes', 'external_review'];
 const W_STARTER = [...CORE, 'unlimited_projects', 'answer_bank', 'external_review', 'file_cabinet', 'calendar'];
 const W_PREMIUM = [...W_STARTER, 'assistant', 'ai_reviewer', 'partners', 'past_proposals', 'narrative_editing'];
-const W_PRO = [...W_PREMIUM, 'multi_workspace', 'integrations', 'priority_support'];
+const W_PRO = [...W_PREMIUM, 'multi_workspace', 'integrations', 'priority_support', 'deadline_digest'];
 const TEAM = [...W_PREMIUM, 'team', 'approvals'];
 
 const ORG_SOLO = [...W_PREMIUM, 'external_review'];
-const ORG_TEAM = [...W_PREMIUM, 'team', 'approvals'];
+const ORG_TEAM = [...W_PREMIUM, 'team', 'approvals', 'deadline_digest'];
 
 const PLANS = {
   // Free = the Solo Writer feature set minus AI, capped at one grant. Both tracks land here after a trial.
@@ -28,6 +28,7 @@ const TRIAL_DAYS = 14;
 const TRIAL_PLAN_BY_KIND = { writer: 'writer_pro', team: 'small_team' };
 
 const FEATURE_LABELS = {
+  deadline_digest: 'Weekly deadline digest',
   unlimited_projects: 'Unlimited projects', answer_bank: 'Answer bank', assistant: 'Ask Merge writing assistant',
   file_cabinet: 'File cabinet', calendar: 'Grant calendar', team: 'Teammates', approvals: 'Approvals',
   partners: 'Partners directory', past_proposals: 'Past proposals library', narrative_editing: 'Editable document with version history',

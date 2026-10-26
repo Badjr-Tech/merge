@@ -3,7 +3,8 @@ const router = express.Router();
 const prisma = require('../utils/prisma.cjs');
 const { sendEmail, appUrl, layout, button, unsubscribeFooter } = require('../utils/email.cjs');
 const { notify } = require('../utils/notify.cjs');
-const { TRIAL_PLAN_BY_KIND, PLANS, AI_LIMITS, FEATURE_LABELS } = require('../utils/plans.cjs');
+const { TRIAL_PLAN_BY_KIND, PLANS, AI_LIMITS, FEATURE_LABELS, planFor, COMPANY_PLAN_SELECT } = require('../utils/plans.cjs');
+const { similarity, answeredQuestions } = require('../utils/similar.cjs');
 const TRIAL_PLANS = Object.values(TRIAL_PLAN_BY_KIND);
 
 // Vercel Cron calls this daily (see server/vercel.json). Protected by CRON_SECRET.
@@ -181,6 +182,126 @@ router.get('/deadline-reminders', async (req, res) => {
     res.json(await runDeadlineReminders(new Date()));
   } catch (err) {
     console.error('Deadline reminder cron error:', err);
+    res.status(500).json({ msg: 'Cron failed' });
+  }
+});
+
+
+// --- Weekly deadline digest ------------------------------------------------
+// Five business days before a grant is due, tell the people working on it what is still open
+// and — the useful part — which of those questions the workspace has already answered
+// somewhere else. Only on the plans that include it.
+
+// Business days, so a Monday deadline warns on the Monday before rather than over a weekend.
+function businessDaysUntil(date, now) {
+  const a = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const b = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  if (b <= a) return 0;
+  let days = 0;
+  for (let t = a + 86400000; t <= b; t += 86400000) {
+    const d = new Date(t).getUTCDay();
+    if (d !== 0 && d !== 6) days += 1;
+  }
+  return days;
+}
+
+const DIGEST_AT = 5; // business days out
+
+async function runDeadlineDigests(now) {
+  const projects = await prisma.project.findMany({
+    where: {
+      deadlineDate: { not: null, gte: new Date(now.getTime() - 86400000) },
+      isCompleted: false,
+      isArchived: false,
+      companyId: { not: null },
+    },
+    select: {
+      id: true, name: true, deadlineDate: true, companyId: true, details: true,
+      owner: { select: { id: true, companyId: true, email: true, name: true, username: true, deadlineEmails: true } },
+      questions: { select: { id: true, text: true, status: true, answer: true, section: true } },
+      company: { select: { id: true, kind: true, ...COMPANY_PLAN_SELECT } },
+    },
+  });
+
+  let sent = 0; let digests = 0;
+  for (const p of projects) {
+    if (businessDaysUntil(new Date(p.deadlineDate), now) !== DIGEST_AT) continue;
+    if (!p.company || !planFor(p.company).features.includes('deadline_digest')) continue;
+    // Once per project. A grant re-dated into the window gets a fresh one.
+    const marker = `digest:${new Date(p.deadlineDate).toISOString().slice(0, 10)}`;
+    if (p.details && p.details.deadlineDigestSentFor === marker) continue;
+
+    const writerMode = p.company.kind === 'writer';
+    const open = p.questions.filter(q => (writerMode ? !(q.answer && q.answer.trim()) : q.status !== 'submitted'));
+    if (!open.length) continue;
+
+    // What the workspace has already written, scored against each open question. The same
+    // matching the answer bank uses, so the suggestions here are the ones they would find.
+    const pool = await answeredQuestions(p.companyId).catch(() => []);
+    const reusable = [];
+    for (const q of open) {
+      let best = null;
+      for (const r of pool) {
+        if (r.id === q.id) continue;
+        const score = similarity(q.text, r.text);
+        if (score >= 0.45 && (!best || score > best.score)) best = { score, from: r };
+      }
+      if (best) reusable.push({ q, ...best });
+    }
+
+    const when = new Date(p.deadlineDate).toDateString();
+    const link = appUrl(`/app/projects/${p.id}`);
+    const people = [p.owner, ...(await adminsWithIds(p.companyId))]
+      .filter(Boolean)
+      .filter((u, i, a) => a.findIndex(x => x.id === u.id) === i)
+      .filter(u => u.deadlineEmails !== false);
+
+    const openList = `<ul>${open.slice(0, 12).map(q => `<li>${esc(q.text.length > 110 ? `${q.text.slice(0, 107)}…` : q.text)}</li>`).join('')}</ul>${open.length > 12 ? `<p>…and ${open.length - 12} more.</p>` : ''}`;
+    const reuseBlock = reusable.length
+      ? `<p><strong>${reusable.length} of these you have answered before.</strong> Merge found a close match in your answer bank for each — open the question and the suggestion is right there.</p><ul>${reusable.slice(0, 8).map(r => `<li>${esc(r.q.text.length > 80 ? `${r.q.text.slice(0, 77)}…` : r.q.text)}<br><span style="color:#6b6b6b">matches “${esc(r.from.text.length > 70 ? `${r.from.text.slice(0, 67)}…` : r.from.text)}” from ${esc(r.from.project ? r.from.project.name : 'an earlier grant')}</span></li>`).join('')}</ul>`
+      : '<p>None of the open questions closely match anything in your answer bank yet.</p>';
+
+    for (const user of people) {
+      await notify({
+        user, companyId: p.companyId, type: 'deadline',
+        title: `${p.name} is due in a week`,
+        body: `${open.length} question${open.length === 1 ? '' : 's'} still open${reusable.length ? ` · ${reusable.length} can reuse a past answer` : ''}.`,
+        link: `/app/projects/${p.id}`,
+        list: 'deadlines',
+        email: {
+          because: 'you own this grant or administer this workspace',
+          subject: `${p.name}: ${open.length} question${open.length === 1 ? '' : 's'} left, due ${when}`,
+          html: layout('Five working days to go', `<p>Hi ${esc(user.name || user.username)},</p><p><strong>${esc(p.name)}</strong> is due ${when} — five working days away.</p><p><strong>${open.length}</strong> question${open.length === 1 ? ' is' : 's are'} still open:</p>${openList}${reuseBlock}${button(link, 'Open the project', { tone: 'soon' })}`, {
+            tone: 'soon',
+            banner: '5 working days left',
+            bannerSub: `Due ${when}`,
+            preview: `${open.length} still open${reusable.length ? `, ${reusable.length} can reuse a past answer` : ''}`,
+          }),
+          text: `${p.name} is due ${when}. ${open.length} question(s) still open${reusable.length ? `, ${reusable.length} of which match an answer you already have` : ''}. ${link}`,
+        },
+      });
+      sent += 1;
+    }
+
+    await prisma.project.update({ where: { id: p.id }, data: { details: { ...(p.details || {}), deadlineDigestSentFor: marker } } });
+    digests += 1;
+  }
+  return { digests, emails: sent };
+}
+
+async function adminsWithIds(companyId) {
+  return prisma.user.findMany({
+    where: { companyId, role: 'admin', isApproved: true },
+    select: { id: true, companyId: true, email: true, name: true, username: true, deadlineEmails: true },
+  });
+}
+
+router.get('/deadline-digests', async (req, res) => {
+  if (!authorized(req)) return res.status(401).json({ msg: 'Unauthorized' });
+  try {
+    res.json(await runDeadlineDigests(new Date()));
+  } catch (err) {
+    console.error('Deadline digest cron error:', err);
     res.status(500).json({ msg: 'Cron failed' });
   }
 });

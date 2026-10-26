@@ -40,8 +40,6 @@ router.put('/mine', auth, async (req, res) => {
   const name = String(req.body.name || '').trim();
   if (!name) return res.status(400).json({ msg: 'Workspace name is required.' });
   try {
-    const taken = await prisma.company.findUnique({ where: { name } });
-    if (taken && taken.id !== req.user.companyId) return res.status(400).json({ msg: 'That workspace name is taken.' });
     const company = await prisma.company.update({ where: { id: req.user.companyId }, data: { name }, select: { id: true, name: true } });
     res.json(company);
   } catch (err) {
