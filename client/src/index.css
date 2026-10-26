@@ -371,6 +371,22 @@ img[alt="Merge"] { color: transparent; font-size: 0; }
 .count-hint.ok { color: var(--green-dark); }
 
 /* Placeholders a draft left behind, listed under the answer box */
+/* Workspace switcher in the sidebar */
+.ws-switch { position: relative; }
+.ws-current { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: none; padding: 0; cursor: pointer; color: #fff; font: inherit; font-weight: 700; font-size: 14px; text-align: left; }
+.ws-current:hover { opacity: .85; }
+.ws-menu { position: absolute; left: 0; right: 0; top: calc(100% + 8px); z-index: 90; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); overflow: hidden; }
+.ws-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; background: none; border: none; border-bottom: 1px solid var(--border); padding: 10px 12px; cursor: pointer; font: inherit; font-size: 13px; color: var(--navy); text-align: left; }
+.ws-item:last-child { border-bottom: none; }
+.ws-item:hover:not(:disabled) { background: #fbfaf5; }
+.ws-item.active { font-weight: 700; background: var(--periwinkle-soft); }
+.ws-item.muted { color: var(--text-muted); cursor: default; }
+.ws-add { color: var(--green-dark); font-weight: 600; justify-content: flex-start; }
+.ws-new { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--border); }
+.ws-new input { flex: 1; min-width: 0; font: inherit; font-size: 13px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.ws-new button { font: inherit; font-size: 12px; font-weight: 700; padding: 6px 10px; border: 1px solid var(--green-dark); background: var(--green-dark); color: #fff; border-radius: var(--radius-sm); cursor: pointer; }
+.ws-new button:disabled { opacity: .5; cursor: default; }
+
 .placeholder-chip { display: inline-block; font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 11px; background: #fff; border: 1px solid #e0cfa0; border-radius: 4px; padding: 2px 6px; margin: 2px 4px 2px 0; color: var(--text); }
 
 /* Crash screen (ErrorBoundary) — shown instead of a blank page */

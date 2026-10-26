@@ -44,6 +44,7 @@ app.use('/api/notifications', require('./routes/notifications.cjs'));
 app.use('/api/unsubscribe', require('./routes/unsubscribe.cjs'));
 app.use('/api/ai', require('./routes/ai.cjs')); // New route for AI operations
 app.use('/api/users', require('./routes/users.cjs'));
+app.use('/api/workspaces', require('./routes/workspaces.cjs'));
 app.use('/api/partners', require('./routes/partners.cjs'));
 app.use('/api/cron', require('./routes/cron.cjs'));
 app.use('/api/review', require('./routes/review.cjs'));

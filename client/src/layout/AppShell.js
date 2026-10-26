@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import ErrorBoundary from '../components/ErrorBoundary';
 import NotificationBell from '../components/NotificationBell';
+import WorkspaceSwitcher from '../components/WorkspaceSwitcher';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
 import { Avatar } from '../components/ui';
@@ -64,7 +65,7 @@ export default function AppShell() {
           <Link to="/app"><img src={logo} alt="Merge" /></Link>
         </div>
         <div className="sidebar-workspace">
-          <div className="name truncate">{user?.company?.name || 'Workspace'}</div>
+          <WorkspaceSwitcher current={user?.company?.name} canCreate={Boolean(plan?.features?.includes('multi_workspace'))} />
           <div className="role">{user?.role}{plan ? (plan.staff ? ' · Merge staff' : ` · ${plan.name}${plan.trialing ? ' trial' : plan.pilot ? ' pilot' : plan.comped ? ' · complimentary' : ''}`) : ''}</div>
         </div>
         <nav className="sidebar-nav">

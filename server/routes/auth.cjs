@@ -87,7 +87,7 @@ router.post('/signup', rateLimit({ max: 5 }), honeypot, async (req, res) => {
 
     const user = await prisma.$transaction(async (tx) => {
       const company = await tx.company.create({ data: { name: companyName.trim(), kind, plan: TRIAL_PLAN_BY_KIND[kind], trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 24 * 3600 * 1000) } });
-      return tx.user.create({
+      const created = await tx.user.create({
         data: {
           username,
           email,
@@ -99,6 +99,8 @@ router.post('/signup', rateLimit({ max: 5 }), honeypot, async (req, res) => {
         },
         include: { company: true },
       });
+      await tx.membership.create({ data: { userId: created.id, companyId: company.id, role: 'admin' } });
+      return created;
     });
 
     sendEmail({
@@ -348,6 +350,7 @@ router.post('/invitations/token/:token/accept', rateLimit({ max: 10 }), async (r
         },
         include: { company: true },
       });
+      await tx.membership.create({ data: { userId: created.id, companyId: invite.companyId, role: invite.role } });
       await tx.invitation.update({ where: { id: invite.id }, data: { acceptedAt: new Date() } });
       return created;
     });

@@ -39,6 +39,22 @@ model User {
   assistantMessages  AssistantMessage[]
   notifications      Notification[]
   company            Company?                @relation(fields: [companyId], references: [id])
+  memberships        Membership[]
+}
+
+// One row per workspace a person can open. Their User.companyId is whichever of these is
+// currently active; switching workspaces moves that pointer after checking a row exists here.
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  companyId String
+  role      Role     @default(viewer)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, companyId])
+  @@index([userId])
 }
 
 model Company {
@@ -81,6 +97,7 @@ model Company {
   assistantMessages AssistantMessage[]
   aiUsage           AiUsage[]
   partners     Partner[]
+  memberships  Membership[]
 }
 
 model Project {
