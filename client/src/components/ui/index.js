@@ -39,7 +39,11 @@ export function Field({ label, hint, error, children, htmlFor }) {
 }
 
 export function Input({ className = '', ...props }) { return <input className={`input ${className}`} {...props} />; }
-export function Textarea({ className = '', ...props }) { return <textarea className={`textarea ${className}`} {...props} />; }
+// Forwards its ref so callers can put the cursor on a specific bit of text — used to point
+// at a placeholder in an answer rather than making the writer hunt for it.
+export const Textarea = React.forwardRef(function Textarea({ className = '', ...props }, ref) {
+  return <textarea ref={ref} className={`textarea ${className}`} {...props} />;
+});
 export function Select({ children, className = '', ...props }) { return <select className={`select ${className}`} {...props}>{children}</select>; }
 
 export function Badge({ tone = 'gray', children, dot }) {

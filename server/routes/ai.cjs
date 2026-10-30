@@ -245,6 +245,53 @@ function projectBlock(project) {
 // POST /api/ai/draft — stream a first-draft answer for one question
 // Grounded in the organization profile, the rest of the project, the question's limit, and the
 // workspace's own past answers, so the draft sounds like them rather than like a chatbot.
+// @route   POST api/ai/tidy
+// @desc    Smooth the wording after placeholders have been filled in by hand.
+// Deliberately narrow: the values are already in the text, so this only fixes the grammar
+// around them. A full rewrite would undo edits the writer has already made, and would cost a
+// drafting call for what is usually a handful of words.
+router.post('/tidy', auth, requireFeature(prisma, 'assistant'), async (req, res) => {
+  const text = String(req.body.text || '').trim();
+  if (!text) return res.status(400).json({ msg: 'There is nothing to tidy.' });
+  if (text.length > 20000) return res.status(400).json({ msg: 'That answer is too long to tidy.' });
+  const gate = await checkAi(req, 'draft');
+  if (!gate.ok) return res.status(402).json(gate.body);
+  try {
+    const system = `You are tidying a grant answer in which the writer has just replaced bracketed placeholders with real values.
+
+Rules:
+- Change as little as possible. Fix only what reads wrong because a value was dropped in: agreement, articles, number formatting, duplicated or missing words.
+- Do not rewrite sentences that already read correctly. Do not restructure, reorder or re-argue anything.
+- Never change a number, name, date or percentage the writer supplied.
+- Do not add new facts, and do not introduce new square brackets.
+- Return only the corrected answer, with no preamble and no commentary.`;
+    // Room for the whole answer back plus slack. The floor matters: a short answer scaled by
+    // word count alone produced a cap of a few dozen tokens, which cut the reply off after one
+    // word.
+    const words = text.split(/\s+/).filter(Boolean).length;
+    const cap = Math.min(8000, Math.max(800, Math.ceil(words * 3)));
+    const tidied = await gemini.chatReply({
+      systemInstruction: system,
+      history: [],
+      message: text,
+      generationConfig: { maxOutputTokens: cap, temperature: 0.1 },
+    });
+    const out = (tidied || '').trim();
+    // A tidy only ever adjusts wording, so a much shorter reply means it was cut off or the
+    // model misbehaved. Never hand back something shorter than what the writer already had.
+    const outWords = out.split(/\s+/).filter(Boolean).length;
+    if (!out || outWords < words * 0.8) {
+      console.error(`Tidy returned ${outWords} words for an answer of ${words}; keeping the original.`);
+      return res.json({ text, unchanged: true, msg: 'The answer was left as it was.' });
+    }
+    await recordAi(req.user.companyId, req.user.id, 'draft', req.body.projectId || null);
+    res.json({ text: out });
+  } catch (err) {
+    console.error('Tidy error:', err.message);
+    res.status(500).json({ msg: 'Could not tidy that answer.' });
+  }
+});
+
 router.post('/draft', auth, requireFeature(prisma, 'assistant'), async (req, res) => {
   const questionId = String(req.body.questionId || '');
   const instruction = String(req.body.instruction || '').trim().slice(0, 500);

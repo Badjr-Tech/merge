@@ -48,7 +48,7 @@ function InnerAnswerBank() {
                 </div>
               </div>
               {openId === r.id ? (
-                <div className="q-answer">{r.answer}</div>
+                <div className="q-answer" style={{ whiteSpace: 'pre-wrap' }}>{r.answer && r.answer.trim() ? r.answer : <span className="muted">This answer is empty.</span>}</div>
               ) : (
                 <div className="q-answer small muted" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{r.answer}</div>
               )}

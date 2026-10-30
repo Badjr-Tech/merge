@@ -36,7 +36,11 @@ export default function SimilarAnswers({ questionId, onUse }) {
                 <Button size="sm" onClick={() => onUse(m.answer)}>Use this answer</Button>
               </div>
             </div>
-            {openId === m.id && <div className="q-answer small mt-1" style={{ maxHeight: 220, overflow: 'auto' }}>{m.answer}</div>}
+            {openId === m.id && (
+              <div className="q-answer small mt-1" style={{ maxHeight: 220, overflow: 'auto', whiteSpace: 'pre-wrap' }}>
+                {m.answer && m.answer.trim() ? m.answer : <span className="muted">This answer is empty.</span>}
+              </div>
+            )}
           </div>
         ))}
       </div>

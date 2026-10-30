@@ -387,7 +387,17 @@ img[alt="Merge"] { color: transparent; font-size: 0; }
 .ws-new button { font: inherit; font-size: 12px; font-weight: 700; padding: 6px 10px; border: 1px solid var(--green-dark); background: var(--green-dark); color: #fff; border-radius: var(--radius-sm); cursor: pointer; }
 .ws-new button:disabled { opacity: .5; cursor: default; }
 
-.placeholder-chip { display: inline-block; font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 11px; background: #fff; border: 1px solid #e0cfa0; border-radius: 4px; padding: 2px 6px; margin: 2px 4px 2px 0; color: var(--text); }
+.placeholder-chip:hover:not(:disabled) { border-color: var(--green-dark); color: var(--green-dark); }
+.placeholder-chip:disabled { cursor: default; }
+.ph-tidy { display: inline-flex; align-items: center; gap: 5px; font: inherit; font-size: 12px; font-weight: 700; padding: 5px 10px; border: 1px solid var(--green-dark); background: #fff; color: var(--green-dark); border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; }
+.ph-tidy:hover:not(:disabled) { background: var(--green-soft); }
+.ph-tidy:disabled { opacity: .5; cursor: default; }
+.ph-fill { display: inline-flex; align-items: center; gap: 4px; margin: 2px 4px 2px 0; }
+.ph-fill input { font: inherit; font-size: 12px; padding: 3px 7px; border: 1px solid var(--green-dark); border-radius: 4px; min-width: 150px; }
+.ph-fill button { display: inline-flex; align-items: center; padding: 4px 6px; border: 1px solid var(--green-dark); background: var(--green-dark); color: #fff; border-radius: 4px; cursor: pointer; }
+.ph-fill button:disabled { opacity: .45; cursor: default; }
+
+.placeholder-chip { display: inline-block; cursor: pointer; font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 11px; background: #fff; border: 1px solid #e0cfa0; border-radius: 4px; padding: 2px 6px; margin: 2px 4px 2px 0; color: var(--text); }
 
 /* Crash screen (ErrorBoundary) — shown instead of a blank page */
 .crash { min-height: 60vh; display: flex; align-items: center; justify-content: center; padding: 32px 16px; }

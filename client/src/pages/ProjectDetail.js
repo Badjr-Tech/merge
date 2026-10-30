@@ -19,6 +19,17 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
   const [editing, setEditing] = useState(false);
   const [edit, setEdit] = useState({ text: q.text, section: q.section || '', type: q.type || 'text', assignedToId: q.assignedToId || '', maxLimit: q.maxLimit || '', limitUnit: q.limitUnit || 'words' });
   const [answer, setAnswer] = useState(q.answer || '');
+  const answerRef = React.useRef();
+  // Puts the cursor on the placeholder in the answer box, so "where is it" stops being a hunt.
+  const locate = (needle) => {
+    const el = answerRef.current;
+    if (!el) return;
+    const i = el.value.indexOf(needle);
+    if (i < 0) return;
+    el.focus();
+    el.setSelectionRange(i, i + needle.length);
+    el.blur(); el.focus();
+  };
   const isUpload = q.type === 'upload';
   const [files, setFiles] = useState(null);
   const [fileId, setFileId] = useState(q.fileId || '');
@@ -145,9 +156,9 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
           ) : canAnswer ? (
             <>
               {(writerMode || q.status !== 'submitted') && <SimilarAnswers questionId={q.id} onUse={(text) => { setAnswer(a => a.trim() ? `${a}\n\n${text}` : text); toast.success('Added to your draft. Edit it, then save or submit.'); }} />}
-              <Textarea rows={6} value={answer} onChange={e => setAnswer(e.target.value)} placeholder="No answer yet. Write one here…" />
+              <Textarea ref={answerRef} rows={6} value={answer} onChange={e => setAnswer(e.target.value)} placeholder="No answer yet. Write one here…" />
               <div className={`count-hint ${lc.over ? 'over' : lc.limit ? 'ok' : ''}`}>{lc.count} {lc.unit}{lc.limit ? ` of ${lc.limit}` : ''}{lc.over ? ' · over the limit' : ''}</div>
-              <Placeholders text={answer} />
+              <Placeholders text={answer} onChange={setAnswer} onLocate={locate} projectId={project?.id} />
             </>
           ) : (
             <div className="q-answer">{q.answer || <span className="faint">No answer yet.</span>}</div>
