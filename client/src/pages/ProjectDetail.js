@@ -315,7 +315,10 @@ export default function ProjectDetail() {
       const res = await api.get(`/api/projects/${id}/export/${format}`, { responseType: 'blob' });
       const url = window.URL.createObjectURL(res.data);
       const a = document.createElement('a'); a.href = url; a.download = `${project.name.replace(/[^a-z0-9]+/gi, '-')}.${format}`; document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
-    } catch (err) { toast.error(errorMessage(err, 'Could not build the document.')); }
+    } catch (err) {
+      const d = err && err.response && err.response.data;
+      toast.error(d && d.detail ? `Could not build the document. ${d.detail}` : errorMessage(err, 'Could not build the document.'));
+    }
   };
   const saveNarrative = async () => {
     setBusy(true);

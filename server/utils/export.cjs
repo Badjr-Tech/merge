@@ -20,8 +20,8 @@ function sections(project) {
     if ((q.section || null) !== section) { section = q.section || null; if (section) out.push({ heading: section }); }
     out.push({
       n: i + 1,
-      question: q.text,
-      answer: q.type === 'upload' ? (q.file ? `[Attachment: ${q.file.filename}]` : '[Attachment not uploaded yet]') : ((q.answer && q.answer.trim()) || '[No answer provided]'),
+      question: String(q.text == null ? '' : q.text),
+      answer: q.type === 'upload' ? (q.file ? `[Attachment: ${q.file.filename}]` : '[Attachment not uploaded yet]') : (String(q.answer == null ? '' : q.answer).trim() || '[No answer provided]'),
     });
   });
   return out;

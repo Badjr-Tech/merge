@@ -57,4 +57,17 @@ app.get('/api/test', (req, res) => {
   res.send('Test route is working!');
 });
 
+// Builds a throwaway document from fixed text, so a failing export can be told apart
+// from a problem with one project's data. No workspace data is touched.
+app.get('/api/health/export', async (req, res) => {
+  const { buildPdf, buildDocx } = require('./utils/export.cjs');
+  const sample = { name: 'Export check', description: 'A one-question document.', questions: [{ text: 'Does this build?', answer: 'Yes.', type: 'text' }] };
+  const out = {};
+  for (const [format, build] of [['pdf', buildPdf], ['docx', buildDocx]]) {
+    try { out[format] = { ok: true, bytes: (await build(sample, { name: 'Merge' })).length }; }
+    catch (err) { out[format] = { ok: false, error: err.message, code: err.code || null }; }
+  }
+  res.status(out.pdf.ok && out.docx.ok ? 200 : 500).json(out);
+});
+
 module.exports = app;

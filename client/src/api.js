@@ -15,7 +15,13 @@ export function setUnauthorizedHandler(fn) { onUnauthorized = fn; }
 
 api.interceptors.response.use(
   (res) => res,
-  (err) => {
+  async (err) => {
+    // Downloads ask for a blob, so an error body arrives as a Blob and errorMessage() cannot
+    // read it. Turn it back into JSON first, or every failed download reads "Something went wrong".
+    const body = err.response && err.response.data;
+    if (typeof Blob !== 'undefined' && body instanceof Blob && body.size && body.size < 64 * 1024) {
+      try { err.response.data = JSON.parse(await body.text()); } catch (e) { /* not JSON; leave it */ }
+    }
     if (err.response && err.response.status === 401 && onUnauthorized) onUnauthorized();
     return Promise.reject(err);
   }

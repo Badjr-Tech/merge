@@ -939,8 +939,14 @@ router.get('/:id/export/:format', auth, async (req, res) => {
     res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'Content-Disposition': `attachment; filename="${filename}"` });
     return res.send(buf);
   } catch (err) {
-    console.error('Export error:', err);
-    res.status(500).json({ msg: 'Could not build the document.' });
+    console.error(`Export error (${format}, project ${req.params.id}):`, err && err.stack ? err.stack : err);
+    // Staff workspaces see the underlying reason so a failure can be reported precisely.
+    let detail = null;
+    try {
+      const c = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { isStaff: true } });
+      if (c && c.isStaff) detail = err && err.message ? err.message : String(err);
+    } catch (e) { /* the reason is in the log either way */ }
+    res.status(500).json({ msg: 'Could not build the document.', detail });
   }
 });
 
