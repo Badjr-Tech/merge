@@ -27,7 +27,7 @@ const I = {
   ai: ico(Sparkles), compliance: ico(ListChecks), calendar: ico(CalendarDays), team: ico(Users),
   settings: ico(Settings), menu: ico(Menu), support: ico(LifeBuoy), referrals: ico(Gift),
   overview: ico(ChartNoAxesColumn), workspaces: ico(Building2), users: ico(UserRound),
-  signOut: ico(LogOut), locked: ico(Lock),
+  signOut: ico(LogOut), locked: ico(Lock), org: ico(Building2),
 };
 
 export default function AppShell() {
@@ -74,6 +74,7 @@ export default function AppShell() {
           {!writerMode && link('/app/tasks', 'My tasks', I.tasks, counts.myOpenQuestions)}
           {!writerMode && link('/app/approvals', 'Approvals', I.approvals, isApprover ? counts.awaitingMyApproval : counts.pendingApproval)}
           <div className="nav-section">Tools</div>
+          {link('/app/organization', 'Organization', I.org)}
           {link('/app/answer-bank', 'Answer bank', I.bank)}
           {link('/app/ai-review', 'AI reviewer', I.ai, 0, 'ai_reviewer')}
           {link('/app/compliance', 'Compliance check', I.compliance)}

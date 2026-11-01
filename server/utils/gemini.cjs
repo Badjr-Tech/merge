@@ -49,13 +49,24 @@ async function withModel(run) {
   throw lastErr || new Error('No Gemini model available');
 }
 
-// Gemini 2.5 models think before answering, and those hidden thinking tokens come out of
-// maxOutputTokens. A 1200-token budget was being spent ~785 on thinking, so answers stopped
-// mid-sentence. Nothing here needs chain-of-thought, so turn it off and give the whole
-// budget to the text. Callers can override by passing their own thinkingConfig.
+// Gemini 2.5 models think before answering, and those hidden thinking tokens come out of the
+// same maxOutputTokens budget as the reply. Measured: a 252-token cap was spent 238 on
+// thinking, leaving 10 for the answer, which arrived as four words.
+//
+// thinkingConfig.thinkingBudget is sent but this SDK version does not reliably pass it on —
+// the same call reports hundreds of thinking tokens with it set. So the cap itself has to
+// carry the cost: THINKING_ALLOWANCE is added to whatever the caller asks for. Billing is on
+// tokens actually produced, so a ceiling that is never reached costs nothing.
+const THINKING_ALLOWANCE = 2000;
+
 function getModel(name, options) {
   const opts = options || {};
-  const generationConfig = { thinkingConfig: { thinkingBudget: 0 }, ...(opts.generationConfig || {}) };
+  const caller = opts.generationConfig || {};
+  const generationConfig = {
+    thinkingConfig: { thinkingBudget: 0 },
+    ...caller,
+    ...(caller.maxOutputTokens ? { maxOutputTokens: caller.maxOutputTokens + THINKING_ALLOWANCE } : {}),
+  };
   return client().getGenerativeModel({ model: name, ...opts, generationConfig });
 }
 

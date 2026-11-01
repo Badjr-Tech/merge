@@ -48,10 +48,31 @@ router.put('/mine', auth, async (req, res) => {
 });
 
 const PROFILE_FIELDS = ['mission', 'philosophy', 'programs', 'audience', 'impact', 'website', 'tone', 'notes'];
+// Background is the long-form dumping ground — history, theory of change, staff and board,
+// evaluation approach — so it gets far more room than a profile field.
+const BACKGROUND_MAX = 40000;
+// Facts are the numbers a draft would otherwise leave as "[number of families served]".
+const MAX_FACTS = 60;
+
+function cleanFacts(input) {
+  if (!Array.isArray(input)) return [];
+  return input
+    .filter(f => f && typeof f.label === 'string' && typeof f.value === 'string')
+    .map(f => ({ label: f.label.trim().slice(0, 120), value: f.value.trim().slice(0, 300) }))
+    .filter(f => f.label && f.value)
+    .slice(0, MAX_FACTS);
+}
 
 function cleanProfile(input) {
   const out = {};
   PROFILE_FIELDS.forEach(k => { if (input && typeof input[k] === 'string') out[k] = input[k].trim().slice(0, 4000); });
+  if (input && typeof input.background === 'string') out.background = input.background.trim().slice(0, BACKGROUND_MAX);
+  out.facts = cleanFacts(input && input.facts);
+  // Past answers the organization has picked as representative. These go into every draft,
+  // rather than only when the question happens to share words with them.
+  out.exemplarIds = Array.isArray(input && input.exemplarIds)
+    ? input.exemplarIds.filter(id => typeof id === 'string' && id).slice(0, 12)
+    : [];
   return out;
 }
 

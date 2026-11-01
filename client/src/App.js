@@ -17,6 +17,7 @@ import Projects from './pages/Projects';
 import NewProject from './pages/NewProject';
 import ProjectDetail from './pages/ProjectDetail';
 import MyTasks from './pages/MyTasks';
+import Organization from './pages/Organization';
 import Approvals from './pages/Approvals';
 import PastProposals from './pages/PastProposals';
 import Files from './pages/Files';
@@ -103,6 +104,7 @@ export default function App() {
               <Route path="projects/new" element={<NewProject />} />
               <Route path="projects/:id" element={<ProjectDetail />} />
               <Route path="tasks" element={<MyTasks />} />
+              <Route path="organization" element={<Organization />} />
               <Route path="approvals" element={<Approvals />} />
               <Route path="past-proposals" element={<PastProposals />} />
               <Route path="answer-bank" element={<AnswerBank />} />

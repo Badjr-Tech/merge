@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react';
 import api, { errorMessage } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { Avatar, Button, Card, Field, Input, PageHeader, Textarea, useConfirm } from '../components/ui';
+import { Avatar, Button, Card, Field, Input, PageHeader, useConfirm } from '../components/ui';
 import { resizeAvatar } from '../lib/imagePreview';
 import { forgetAvatar } from '../lib/avatarCache';
 import { formatDate } from '../lib/format';
 import { usePlan } from '../context/PlanContext';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import RemovedProjects from '../components/RemovedProjects';
 import AiUsageCard from '../components/AiUsageCard';
 
@@ -116,27 +116,8 @@ export default function Settings() {
       toast.error(errorMessage(err, 'Could not remove that picture.'));
     } finally { setBusy(''); }
   };
-  const [profile, setProfile] = useState({ mission: '', philosophy: '', programs: '', audience: '', impact: '', website: '', tone: '', notes: '' });
-  const [importUrl, setImportUrl] = useState('');
-  const canEditProfile = isAdmin || user?.role === 'editor';
+  useEffect(() => { api.get('/api/companies/mine').then(r => { setCompany(r.data); setCompanyName(r.data.name); }).catch(() => {}); }, []);
 
-  useEffect(() => { api.get('/api/companies/mine').then(r => { setCompany(r.data); setCompanyName(r.data.name); setProfile(p => ({ ...p, ...(r.data.profile || {}) })); setImportUrl((r.data.profile && r.data.profile.website) || ''); }).catch(() => {}); }, []);
-
-  const saveProfile2 = async () => {
-    setBusy('org');
-    try { await api.put('/api/companies/mine/profile', profile); toast.success('Organization profile saved. The assistant will use it right away.'); }
-    catch (err) { toast.error(errorMessage(err)); } finally { setBusy(''); }
-  };
-  const importProfile = async () => {
-    setBusy('import');
-    try {
-      const res = await api.post('/api/companies/mine/profile/import', { url: importUrl });
-      const draft = res.data.profile;
-      setProfile(p => { const next = { ...p }; Object.keys(draft).forEach(k => { if (draft[k]) next[k] = draft[k]; }); return next; });
-      toast.success('Drafted from your website. Review the fields, then save.');
-    } catch (err) { toast.error(errorMessage(err)); } finally { setBusy(''); }
-  };
-  const pf = (k) => (e) => setProfile(p => ({ ...p, [k]: e.target.value }));
 
   const saveProfile = async () => {
     setBusy('profile');
@@ -159,35 +140,13 @@ export default function Settings() {
     <div className="content-full">
       {confirmDialog}
       <PageHeader title="Settings" subtitle={plan?.staff ? "Your profile and password." : "Your profile, your workspace, and what the writing assistant knows about your organization."} />
-      {!plan?.staff && <Card className="mb-3" id="organization">
-        <div className="card-header">
-          <div><h3>Organization profile</h3><div className="tiny muted">The writing assistant uses this to give advice in your voice. Everyone in the workspace shares it.</div></div>
-        </div>
-        <div className="card-body">
-          {canEditProfile && (
-            <div className="callout callout-indigo mb-3">
-              <div className="label mb-1">Start from your website</div>
-              <div className="row wrap">
-                <Input value={importUrl} onChange={e => setImportUrl(e.target.value)} placeholder="https://yourorganization.org/about" className="grow" style={{ minWidth: 220 }} />
-                <Button variant="accent" onClick={importProfile} loading={busy === 'import'} disabled={!importUrl.trim()}>Draft from website</Button>
-              </div>
-              <div className="tiny muted mt-1">Reads the page and drafts the fields below. You can edit everything before saving.</div>
-            </div>
-          )}
-          <Field label="Mission" hint="What the organization exists to do."><Textarea rows={2} value={profile.mission} onChange={pf('mission')} disabled={!canEditProfile} /></Field>
-          <Field label="Philosophy and values" hint="The beliefs and approach behind the work. The assistant will suggest weaving these into answers."><Textarea rows={3} value={profile.philosophy} onChange={pf('philosophy')} disabled={!canEditProfile} /></Field>
-          <div className="grid-2">
-            <Field label="Programs and services"><Textarea rows={3} value={profile.programs} onChange={pf('programs')} disabled={!canEditProfile} /></Field>
-            <Field label="Who you serve"><Textarea rows={3} value={profile.audience} onChange={pf('audience')} disabled={!canEditProfile} /></Field>
-          </div>
-          <Field label="Impact, results, and history" hint="Numbers, milestones, awards, years in operation. Only facts you can back up."><Textarea rows={3} value={profile.impact} onChange={pf('impact')} disabled={!canEditProfile} /></Field>
-          <div className="grid-2">
-            <Field label="Website"><Input value={profile.website} onChange={pf('website')} disabled={!canEditProfile} /></Field>
-            <Field label="Writing tone" hint="e.g. warm, direct, evidence-based"><Input value={profile.tone} onChange={pf('tone')} disabled={!canEditProfile} /></Field>
-          </div>
-          <Field label="Anything else the assistant should know"><Textarea rows={2} value={profile.notes} onChange={pf('notes')} disabled={!canEditProfile} /></Field>
-          {canEditProfile ? <div className="form-actions"><Button onClick={saveProfile2} loading={busy === 'org'}>Save organization profile</Button></div> : <p className="tiny faint">Admins and editors can edit this profile.</p>}
-        </div>
+      {!plan?.staff && <Card pad className="mb-3" id="organization">
+        <h3>Organization</h3>
+        <p className="small muted" style={{ marginTop: -4 }}>
+          Your mission, key figures, background material and the answers that represent you now live on their
+          own page — it is what Merge reads before it writes anything.
+        </p>
+        <Link to="/app/organization" className="btn btn-secondary btn-sm">Open the Organization page</Link>
       </Card>}
       <Card pad className="mb-3">
         <h3>Profile</h3>

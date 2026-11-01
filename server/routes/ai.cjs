@@ -228,7 +228,23 @@ function profileBlock(company) {
   const lines = [];
   const label = { mission: 'Mission', philosophy: 'Philosophy and values', programs: 'Programs and services', audience: 'Who we serve', impact: 'Impact, results, and history', website: 'Website', tone: 'Preferred writing tone', notes: 'Other notes' };
   Object.keys(label).forEach(k => { if (p[k]) lines.push(`${label[k]}: ${p[k]}`); });
-  return lines.length ? lines.join('\n') : '(The organization profile is empty. Suggest the user fill it in under Settings so answers can be specific.)';
+
+  // Known figures come first and are called out hard: these are the values a draft would
+  // otherwise leave in brackets for the writer to chase, which is the single biggest
+  // complaint about drafted answers.
+  const facts = Array.isArray(p.facts) ? p.facts.filter(f => f && f.label && f.value) : [];
+  const factBlock = facts.length
+    ? `KNOWN FIGURES — use these exact values wherever the answer calls for them, and never put one of these in brackets:\n${facts.map(f => `- ${f.label}: ${f.value}`).join('\n')}\n\n`
+    : '';
+
+  const background = typeof p.background === 'string' && p.background.trim()
+    ? `\n\nBACKGROUND MATERIAL (everything the organization has written about itself — draw facts from here):\n${p.background.trim()}`
+    : '';
+
+  if (!lines.length && !factBlock && !background) {
+    return '(Nothing has been filled in on the Organization page. Suggest the user add their context there so answers can be specific.)';
+  }
+  return `${factBlock}${lines.join('\n')}${background}`;
 }
 
 function projectBlock(project) {
@@ -314,18 +330,34 @@ router.post('/draft', auth, requireFeature(prisma, 'assistant'), async (req, res
       prisma.partner.findMany({ where: { companyId: req.user.companyId }, orderBy: { name: 'asc' }, take: 40 }),
     ]);
 
+    // Answers the organization has marked as representative of how it writes about itself.
+    // Always included, unlike the matched ones below, which depend on wording overlap.
+    let exemplarBlock = '';
+    const exemplarIds = Array.isArray((company.profile || {}).exemplarIds) ? company.profile.exemplarIds : [];
+    const exemplarSet = new Set(exemplarIds);
+    if (exemplarIds.length) {
+      const rows = await prisma.question.findMany({
+        where: { id: { in: exemplarIds }, project: { companyId: req.user.companyId }, answer: { not: null } },
+        select: { text: true, answer: true, project: { select: { name: true } } },
+      }).catch(() => []);
+      if (rows.length) {
+        exemplarBlock = `\nANSWERS THIS ORGANIZATION CHOSE AS REPRESENTATIVE (its voice and its real facts — follow these closely):\n${rows.map(r => `Q: ${r.text}\nA: ${String(r.answer).slice(0, 2000)}`).join('\n\n')}\n`;
+      }
+    }
+
     // Past answers to similar questions, as voice and fact reference.
     let priorBlock = '';
     try {
       const { answeredQuestions, similarity } = require('./projects.cjs');
       const rows = await answeredQuestions(req.user.companyId, question.id);
       const close = rows
+        .filter(r => !exemplarSet.has(r.id))
         .map(r => ({ ...r, score: similarity(question.text, r.text) }))
         .filter(r => r.score >= 0.25)
         .sort((a, b) => b.score - a.score)
         .slice(0, 3);
       if (close.length) {
-        priorBlock = `\nHOW THIS ORGANIZATION HAS ANSWERED SIMILAR QUESTIONS BEFORE (reuse the facts and the voice; do not copy word for word):\n${close.map(r => `Q: ${r.text}\nA: ${String(r.answer).slice(0, 1200)}`).join('\n\n')}\n`;
+        priorBlock = `\nHOW THIS ORGANIZATION HAS ANSWERED SIMILAR QUESTIONS BEFORE (reuse the facts and the voice; do not copy word for word):\n${close.map(r => `Q: ${r.text} [from ${r.project ? r.project.name : 'an earlier grant'}]\nA: ${String(r.answer).slice(0, 1200)}`).join('\n\n')}\n`;
       }
     } catch (err) { /* the draft is still useful without the answer bank */ }
 
@@ -363,10 +395,10 @@ Rules:
 - Avoid grant jargon and inflated register: leverage, robust, holistic, ecosystem, catalyst, synergy, transformative, innovative, cutting-edge, empower, uplift, amplify, foster, spearhead, stakeholder, utilize, impactful, paradigm, landscape, journey, passionate, dedicated to excellence, committed to. Use the plain word instead — "use" not "utilize", "work with" not "engage with", "help" not "empower". Keep a term like this only if it is the organization's own name for something, or the question asks for it.
 - Plain prose. No markdown bold or bullet lists unless the question asks for a list.
 
-ORGANIZATION PROFILE:
+ORGANIZATION PROFILE (kept on the Organization page — this is what the workspace has told you about itself):
 ${profileBlock(company)}
-${partnerLine}
-THIS APPLICATION: ${question.project.name}${question.project.description ? `\n${question.project.description}` : ''}
+${exemplarBlock}${partnerLine}
+THIS APPLICATION: ${question.project.name}${question.project.description ? `\n${question.project.description}` : ''}${(question.project.details || {}).grantUrl ? `\nFunder page: ${(question.project.details || {}).grantUrl}` : ''}${(question.project.details || {}).funderName ? `\nFunder: ${(question.project.details || {}).funderName}` : ''}
 ${siblings ? `\nOTHER QUESTIONS IN THIS APPLICATION:\n${siblings}\n` : ''}${priorBlock}`;
 
     const prompt = `Question to answer${question.section ? ` (section: ${question.section})` : ''}:\n${question.text}${question.answer && question.answer.trim() ? `\n\nThe writer already has this draft. Rewrite it in full, keeping every fact in it, and return the complete rewritten answer — not a continuation, not a comment on it:\n${question.answer.slice(0, 12000)}` : ''}${instruction ? `\n\nExtra instruction from the writer: ${instruction}` : ''}`;
