@@ -1,5 +1,24 @@
 // Builds PDF and DOCX versions of a project's merged narrative.
 const PDFDocument = require('pdfkit');
+
+// pdfkit reaches its standard-font metrics through `#standard-fonts/*` subpath imports, which
+// Vercel's file tracer cannot follow, so they were left out of the deployed bundle and every
+// PDF failed with MODULE_NOT_FOUND. Requiring them by their public path puts them back in the
+// trace. Nothing uses these bindings; the requires are the point.
+require('pdfkit/standard-fonts/Courier');
+require('pdfkit/standard-fonts/CourierBold');
+require('pdfkit/standard-fonts/CourierBoldOblique');
+require('pdfkit/standard-fonts/CourierOblique');
+require('pdfkit/standard-fonts/Helvetica');
+require('pdfkit/standard-fonts/HelveticaBold');
+require('pdfkit/standard-fonts/HelveticaBoldOblique');
+require('pdfkit/standard-fonts/HelveticaOblique');
+require('pdfkit/standard-fonts/Symbol');
+require('pdfkit/standard-fonts/TimesBold');
+require('pdfkit/standard-fonts/TimesBoldItalic');
+require('pdfkit/standard-fonts/TimesItalic');
+require('pdfkit/standard-fonts/TimesRoman');
+require('pdfkit/standard-fonts/ZapfDingbats');
 const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = require('docx');
 
 function sections(project) {
