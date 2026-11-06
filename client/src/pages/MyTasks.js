@@ -101,6 +101,19 @@ export default function MyTasks() {
               {due && <Badge tone={due.tone}>{due.text}</Badge>}
             </div>
             <div className="card-body">
+              {/* The thread for the grant, where the writing happens. Without it on this page an
+                  approver or a writer answered each question with no idea what the grant argues. */}
+              {(p.details?.themeAngle || p._count?.kickoffNotes > 0) && (
+                <div className="callout callout-indigo mb-3">
+                  <div className="label mb-1">What this grant argues</div>
+                  {p.details?.themeAngle && <div className="small pre-wrap">{p.details.themeAngle}</div>}
+                  <div className="tiny muted mt-1">
+                    {p._count?.kickoffNotes > 0
+                      ? <>Your answers should follow this. <Link to={`/app/projects/${p.id}`}>{p._count.kickoffNotes} kickoff note{p._count.kickoffNotes === 1 ? '' : 's'}</Link> from the team add to it.</>
+                      : 'Your answers should follow this.'}
+                  </div>
+                </div>
+              )}
               {p.mine.map(q => <TaskCard key={q.id} q={q} project={p} onSaved={load} />)}
             </div>
           </Card>

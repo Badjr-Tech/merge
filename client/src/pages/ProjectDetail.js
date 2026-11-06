@@ -328,7 +328,9 @@ export default function ProjectDetail() {
   };
   const restoreVersion = (v) => act(`Restored version ${v.versionNumber}.`, () => api.post(`/api/projects/${id}/narrative/restore/${v.id}`), { title: `Restore version ${v.versionNumber}`, message: 'The current text will be saved as a new version before restoring.', confirmLabel: 'Restore' });
   const canEditNarrative = has('narrative_editing') && canManage && !project?.isCompleted;
-  const canMerge = (isOwner || isAdmin) && !project?.isCompleted;
+  // Merging only becomes possible once every answer is in, so it does not have to wait on the
+  // owner. Approval is still its own step.
+  const canMerge = (isOwner || isAdmin || ['editor', 'approver'].includes(user?.role)) && !project?.isCompleted;
   const approved = project?.status === 'approved';
   const merged = Boolean(project?.narrative);
   const resolveNote = async (n) => {

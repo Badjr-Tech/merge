@@ -6,6 +6,16 @@ import { useToast } from '../context/ToastContext';
 import { Avatar, Button, Card, EmptyState, Field, Input, Loading, Textarea, useConfirm } from './ui';
 import { displayName, formatDateTime, kickoffCalendarUrl, kickoffIcsDataUrl } from '../lib/format';
 
+// Her list, in the order a kickoff call tends to go through them.
+const CHECKLIST = [
+  { key: 'theme', label: 'Agreed what this grant argues', hint: 'The thread every answer follows. Write it below.' },
+  { key: 'requirements', label: 'Read the funder\u2019s requirements', hint: 'Eligibility, who can apply, what they fund and what they will not.' },
+  { key: 'website', label: 'Got the link to the grant', hint: 'The funder\u2019s own page for this opportunity.' },
+  { key: 'deadline', label: 'Confirmed the deadline', hint: 'The date, the time, and whose time zone it is in.' },
+  { key: 'submission', label: 'Checked the submission terms', hint: 'Format, page and word limits, required attachments, which portal.' },
+  { key: 'whoWrites', label: 'Decided who writes what', hint: 'Assign the questions once the rest of this is settled.' },
+];
+
 // The start of a grant: when the team talks it through, and what each person thinks it should
 // argue. Everything written here goes into every answer Merge drafts for this project, which
 // is why it sits on the project rather than in someone's own notes.
@@ -17,6 +27,8 @@ export default function Kickoff({ project, canManage }) {
   const [editing, setEditing] = useState(null);
   const [editText, setEditText] = useState('');
   const [when, setWhen] = useState('');
+  const [funder, setFunder] = useState({ grantUrl: '', funderName: '' });
+  const [checked, setChecked] = useState({});
   const [busy, setBusy] = useState('');
   const [confirm, confirmDialog] = useConfirm();
 
@@ -30,6 +42,8 @@ export default function Kickoff({ project, canManage }) {
           const pad = (n) => String(n).padStart(2, '0');
           setWhen(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
         } else setWhen('');
+        setFunder({ grantUrl: r.data.grantUrl || '', funderName: r.data.funderName || '' });
+        setChecked(Object.fromEntries(Object.keys(r.data.checklist || {}).map(k => [k, true])));
       })
       .catch(() => setData({ kickoffAt: null, notes: [] }));
   }, [project.id]);
@@ -52,6 +66,19 @@ export default function Kickoff({ project, canManage }) {
     if (!(await confirm({ title: 'Remove note', message: 'Remove this note? Merge will stop using it when it drafts answers for this grant.', confirmLabel: 'Remove', danger: true }))) return;
     try { await api.delete(`/api/projects/${project.id}/kickoff/notes/${n.id}`); load(); }
     catch (err) { toast.error(errorMessage(err)); }
+  };
+
+  const saveFunder = async () => {
+    setBusy('funder');
+    try { const res = await api.put(`/api/projects/${project.id}/kickoff`, funder); setFunder({ grantUrl: res.data.grantUrl || '', funderName: res.data.funderName || '' }); toast.success('Saved. Merge uses the funder page when it drafts.'); }
+    catch (err) { toast.error(errorMessage(err)); } finally { setBusy(''); }
+  };
+
+  const toggleItem = async (key) => {
+    const next = { ...checked, [key]: !checked[key] };
+    setChecked(next);
+    try { const res = await api.put(`/api/projects/${project.id}/kickoff`, { checklist: next }); setData(d => ({ ...d, checklist: res.data.checklist })); }
+    catch (err) { setChecked(checked); toast.error(errorMessage(err)); }
   };
 
   const saveWhen = async () => {
@@ -90,6 +117,40 @@ export default function Kickoff({ project, canManage }) {
             <a className="btn btn-secondary btn-sm" href={ics} download={`kickoff-${project.id}.ics`}>Download invite</a>
           </div>
         )}
+      </Card>
+
+      <Card pad className="mb-3">
+        <h3>Before anyone writes</h3>
+        <p className="small muted" style={{ marginTop: -4 }}>
+          Settle these first. Each one is a day lost if it turns up after someone has written eight hundred
+          words.
+        </p>
+        <div className="stack" style={{ gap: 4 }}>
+          {CHECKLIST.map(item => {
+            const done = data.checklist && data.checklist[item.key];
+            return (
+              <label key={item.key} className="row" style={{ gap: 8, alignItems: 'flex-start', padding: '5px 2px', cursor: 'pointer' }}>
+                <input type="checkbox" checked={Boolean(checked[item.key])} onChange={() => toggleItem(item.key)} style={{ marginTop: 4 }} />
+                <span style={{ minWidth: 0 }}>
+                  <span className="small strong" style={{ color: 'var(--navy)' }}>{item.label}</span>
+                  <span className="tiny muted" style={{ display: 'block' }}>
+                    {item.hint}{done && done.by ? ` \u00b7 ticked by ${done.by}` : ''}
+                  </span>
+                </span>
+              </label>
+            );
+          })}
+        </div>
+
+        <div className="grid-2 mt-3">
+          <Field label="Funder" hint="Who is giving the money.">
+            <Input value={funder.funderName} onChange={e => setFunder(f => ({ ...f, funderName: e.target.value }))} placeholder="e.g. The Hartley Foundation" disabled={!canManage} />
+          </Field>
+          <Field label="Link to the grant" hint="The funder's page for this opportunity. Merge reads it when it drafts, so answers can speak to what this funder asks for.">
+            <Input value={funder.grantUrl} onChange={e => setFunder(f => ({ ...f, grantUrl: e.target.value }))} placeholder="https://funder.org/grants/community-fund" disabled={!canManage} />
+          </Field>
+        </div>
+        {canManage && <Button variant="secondary" onClick={saveFunder} loading={busy === 'funder'}>Save funder details</Button>}
       </Card>
 
       <Card pad>

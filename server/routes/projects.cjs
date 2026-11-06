@@ -227,6 +227,34 @@ async function notifyIfComplete(projectId, byUserId) {
   }
 }
 
+// The narrative is the thing an approver signs off, so they are told when one exists rather
+// than only when the answers landed. Fires on each merge: a re-merge is a new document to read.
+async function notifyNarrativeReady(projectId, byUserId) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { id: true, name: true, companyId: true },
+  });
+  if (!project) return;
+  const approvers = await prisma.user.findMany({
+    where: { companyId: project.companyId, role: 'approver', isApproved: true },
+    select: { id: true, companyId: true, email: true, name: true, username: true },
+  });
+  // Whoever pressed merge does not need telling they pressed merge.
+  for (const r of approvers.filter(u => u.id !== byUserId)) {
+    notify({
+      user: r, companyId: project.companyId, type: 'ready_to_merge',
+      title: `${project.name} is merged and ready to read`,
+      body: 'The answers are now one narrative, waiting on approval.',
+      link: `/app/projects/${project.id}`,
+      email: {
+        subject: `Ready for your approval: "${project.name}"`,
+        html: layout('Ready for your approval', `<p>The answers on <strong>${project.name}</strong> have been merged into one narrative.</p><p>Read it through and approve it, or send it back with a note saying what to change.</p>${button(appUrl(`/app/projects/${project.id}`), 'Read the narrative')}`),
+        text: `"${project.name}" has been merged into one narrative and is ready for your approval: ${appUrl(`/app/projects/${project.id}`)}`,
+      },
+    }).catch(() => {});
+  }
+}
+
 // @route   POST api/projects
 // @desc    Create a project with optional questions (admin or editor)
 router.post('/', auth, async (req, res) => {
@@ -549,6 +577,7 @@ router.get('/with-assigned-questions', auth, async (req, res) => {
             assignedTo: { select: { id: true, username: true, name: true } },
           },
         },
+        _count: { select: { kickoffNotes: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -1826,13 +1855,16 @@ router.post('/:id/compile', auth, async (req, res) => {
   try {
     const project = await prisma.project.findUnique({ where: { id: req.params.id }, include: { questions: true, company: { select: { kind: true } } } });
     if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
-    const canMerge = project.ownerId === req.user.id || req.user.role === 'admin';
-    if (!canMerge) return res.status(403).json({ msg: 'Only the project owner or an admin can merge.' });
+    // Merging is mechanical and the all-answers-in check below gates it, so waiting on the
+    // owner only held up a finished proposal. Approval is still a separate step.
+    const canMerge = project.ownerId === req.user.id || ['admin', 'editor', 'approver'].includes(req.user.role);
+    if (!canMerge) return res.status(403).json({ msg: 'Viewers cannot merge a proposal.' });
     const writerMode = project.company.kind === 'writer';
     const pending = project.questions.filter(q => writerMode ? !(q.answer && q.answer.trim()) : q.status !== 'submitted');
     if (project.questions.length === 0) return res.status(400).json({ msg: 'Add at least one question before merging.' });
     if (pending.length) return res.status(400).json({ msg: `${pending.length} answer${pending.length === 1 ? ' is' : 's are'} not submitted yet. Merge unlocks once every answer is in.`, pending: pending.length });
     const narrative = await mergeNarrative(project.id, req.user.id);
+    notifyNarrativeReady(project.id, req.user.id).catch(() => {});
     res.json(narrative);
   } catch (err) {
     console.error(err.message);
@@ -2100,7 +2132,16 @@ router.get('/:id/kickoff', auth, async (req, res) => {
       orderBy: { createdAt: 'asc' },
       select: { id: true, body: true, createdAt: true, updatedAt: true, author: { select: { id: true, name: true, username: true, avatarKey: true } } },
     });
-    res.json({ kickoffAt: (project.details || {}).kickoffAt || null, notes });
+    const d = project.details || {};
+    res.json({
+      kickoffAt: d.kickoffAt || null,
+      grantUrl: d.grantUrl || null,
+      funderName: d.funderName || null,
+      themeAngle: d.themeAngle || '',
+      checklist: d.kickoffChecklist && typeof d.kickoffChecklist === 'object' ? d.kickoffChecklist : {},
+      items: KICKOFF_CHECKLIST,
+      notes,
+    });
   } catch (err) {
     console.error('Kickoff load error:', err.message);
     res.status(500).json({ msg: 'Server Error' });
@@ -2161,24 +2202,71 @@ router.delete('/:id/kickoff/notes/:noteId', auth, async (req, res) => {
   }
 });
 
-// @route   PUT api/projects/:id/kickoff — set or clear when the kickoff call is
+// The things to settle before anyone is asked to write several hundred words. Fixed keys, so
+// the list means the same thing on every grant and can be read at a glance.
+const KICKOFF_CHECKLIST = ['theme', 'requirements', 'website', 'deadline', 'submission', 'whoWrites'];
+
+// @route   PUT api/projects/:id/kickoff
+// @desc    The kickoff call time, the funder's details, and the pre-writing checklist.
+//          Each field is only touched when it is sent, so two people editing different parts
+//          of the kickoff do not undo each other.
 router.put('/:id/kickoff', auth, async (req, res) => {
   try {
     const project = await kickoffProject(req);
     if (!project) return res.status(404).json({ msg: 'Project not found' });
-    const raw = req.body.kickoffAt;
-    let kickoffAt = null;
-    if (raw) {
-      const when = new Date(raw);
-      if (Number.isNaN(when.getTime())) return res.status(400).json({ msg: 'That is not a valid date and time.' });
-      kickoffAt = when.toISOString();
-    }
     const details = { ...(project.details || {}) };
-    if (kickoffAt) details.kickoffAt = kickoffAt; else delete details.kickoffAt;
+
+    if ('kickoffAt' in req.body) {
+      if (req.body.kickoffAt) {
+        const when = new Date(req.body.kickoffAt);
+        if (Number.isNaN(when.getTime())) return res.status(400).json({ msg: 'That is not a valid date and time.' });
+        details.kickoffAt = when.toISOString();
+      } else delete details.kickoffAt;
+    }
+
+    if ('grantUrl' in req.body) {
+      let url = String(req.body.grantUrl || '').trim().slice(0, 500);
+      if (url) {
+        if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+        // new URL() alone is far too forgiving: it accepts "https://ht!tp://" and the result
+        // would be handed to the model as the funder's page. The host has to look like a host.
+        let parsed;
+        try { parsed = new URL(url); } catch (e) { parsed = null; }
+        const hostLooksReal = parsed
+          && /^https?:$/.test(parsed.protocol)
+          && /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i.test(parsed.hostname);
+        if (!hostLooksReal) return res.status(400).json({ msg: 'That does not look like a web address.' });
+        details.grantUrl = parsed.toString();
+      } else delete details.grantUrl;
+    }
+
+    if ('funderName' in req.body) {
+      const name = String(req.body.funderName || '').trim().slice(0, 200);
+      if (name) details.funderName = name; else delete details.funderName;
+    }
+
+    if ('checklist' in req.body) {
+      const sent = req.body.checklist && typeof req.body.checklist === 'object' ? req.body.checklist : {};
+      const who = await prisma.user.findUnique({ where: { id: req.user.id }, select: { name: true, username: true } });
+      const existing = details.kickoffChecklist && typeof details.kickoffChecklist === 'object' ? details.kickoffChecklist : {};
+      const next = {};
+      KICKOFF_CHECKLIST.forEach(key => {
+        if (!sent[key]) return;
+        // Keep who ticked it and when, rather than restamping an item that was already done.
+        next[key] = existing[key] || { at: new Date().toISOString(), by: (who && (who.name || who.username)) || 'Someone' };
+      });
+      details.kickoffChecklist = next;
+    }
+
     await prisma.project.update({ where: { id: project.id }, data: { details } });
-    res.json({ kickoffAt });
+    res.json({
+      kickoffAt: details.kickoffAt || null,
+      grantUrl: details.grantUrl || null,
+      funderName: details.funderName || null,
+      checklist: details.kickoffChecklist || {},
+    });
   } catch (err) {
-    console.error('Kickoff time error:', err.message);
+    console.error('Kickoff save error:', err.message);
     res.status(500).json({ msg: 'Server Error' });
   }
 });
