@@ -70,9 +70,11 @@ export default function NewProject() {
           <Field label="Description" htmlFor="desc" hint="What the grant funds and why you're applying."><Textarea id="desc" value={form.description} onChange={set('description')} rows={3} /></Field>
           <div className="grid-2">
             <Field label="Due date" htmlFor="due"><Input id="due" type="date" value={form.deadlineDate} onChange={set('deadlineDate')} /></Field>
-            <Field label="Theme or angle" htmlFor="theme"><Input id="theme" value={form.themeAngle} onChange={set('themeAngle')} placeholder="Optional" /></Field>
+            <Field label="Possible partnership" htmlFor="partner"><Input id="partner" value={form.possiblePartnership} onChange={set('possiblePartnership')} placeholder="Optional" /></Field>
           </div>
-          <Field label="Possible partnership" htmlFor="partner"><Input id="partner" value={form.possiblePartnership} onChange={set('possiblePartnership')} placeholder="Optional" /></Field>
+          <Field label="Your angle for this grant" htmlFor="theme" hint="Optional, and the most useful box on this page. What is this proposal arguing? Themes, the story you want told, what this funder cares about. Every answer Merge drafts for this grant follows it, so the application reads as one argument instead of a set of separate replies.">
+            <Textarea id="theme" rows={6} value={form.themeAngle} onChange={set('themeAngle')} placeholder="e.g. This is about keeping the after-school programme open through the move. The funder gives to capacity, not programmes, so lead with the staffing we already have and the six sites we run, and treat the move as the reason the capacity matters." />
+          </Field>
         </Card>
 
         <Card className="mb-3">

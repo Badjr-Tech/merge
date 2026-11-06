@@ -405,7 +405,11 @@ export default function ProjectDetail() {
       <div className="project-overview mb-3">
         <div className="project-overview-side">
         <Card className="stat"><div className="stat-label">Progress</div><div className="row mt-1"><div className="grow"><Progress value={prog.pct} /></div><span className="small strong">{prog.pct}%</span></div><div className="stat-sub">{prog.done} of {prog.total} answers {writerMode ? 'written' : 'submitted'}</div></Card>
-        <Card className="stat"><div className="stat-label">Angle &amp; partners</div><div className="small mt-1">{project.details?.themeAngle || <span className="faint">No theme set</span>}</div><div className="small muted">{project.details?.possiblePartnership}</div></Card>
+        <Card className="stat">
+          <div className="row-between"><div className="stat-label">Your angle for this grant</div>{canManage && !project.isCompleted && <Button variant="secondary" size="sm" onClick={openEdit}>{project.details?.themeAngle ? 'Edit' : 'Add'}</Button>}</div>
+          <div className="small mt-1 pre-wrap">{project.details?.themeAngle || <span className="faint">Nothing yet. Write what this proposal is arguing and every drafted answer will follow it.</span>}</div>
+          {project.details?.possiblePartnership && <div className="small muted mt-1">Possible partnership: {project.details.possiblePartnership}</div>}
+        </Card>
         </div>
         <Card className="stat"><div className="stat-label">Description</div><div className="small mt-1 pre-wrap">{project.description || <span className="faint">No description</span>}</div></Card>
       </div>
@@ -517,9 +521,11 @@ export default function ProjectDetail() {
         <Field label="Description"><Textarea rows={3} value={edit.description || ''} onChange={e => setEdit({ ...edit, description: e.target.value })} /></Field>
         <div className="grid-2">
           <Field label="Due date"><Input type="date" value={edit.deadlineDate || ''} onChange={e => setEdit({ ...edit, deadlineDate: e.target.value })} /></Field>
-          <Field label="Theme or angle"><Input value={edit.themeAngle || ''} onChange={e => setEdit({ ...edit, themeAngle: e.target.value })} /></Field>
+          <Field label="Possible partnership"><Input value={edit.possiblePartnership || ''} onChange={e => setEdit({ ...edit, possiblePartnership: e.target.value })} /></Field>
         </div>
-        <Field label="Possible partnership"><Input value={edit.possiblePartnership || ''} onChange={e => setEdit({ ...edit, possiblePartnership: e.target.value })} /></Field>
+        <Field label="Your angle for this grant" hint="What is this proposal arguing? Themes, the story you want told, what this funder cares about, anything you are already thinking. Every answer Merge drafts for this grant follows what you write here, so the application reads as one argument instead of a set of separate replies.">
+          <Textarea rows={8} value={edit.themeAngle || ''} onChange={e => setEdit({ ...edit, themeAngle: e.target.value })} placeholder="e.g. This is about keeping the after-school programme open through the move. The funder gives to capacity, not programmes, so lead with the staffing we already have and the six sites we run, and treat the move as the reason the capacity matters." />
+        </Field>
       </Modal>
 
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add a question" footer={<><Button variant="secondary" onClick={() => setAddOpen(false)}>Cancel</Button><Button onClick={addQuestion} loading={busy} disabled={!newQ.text.trim()}>Add question</Button></>}>

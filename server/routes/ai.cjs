@@ -382,13 +382,22 @@ router.post('/draft', auth, requireFeature(prisma, 'assistant'), async (req, res
 
     const partnerLine = partners.length ? `\nPARTNERS (only name one if the question calls for it):\n${partners.map(p => `- ${p.name}${p.location ? ` (${p.location})` : ''}: ${p.description || ''}`).join('\n')}\n` : '';
 
+    // The writer's own thinking for this grant. Without it every answer was drafted in
+    // isolation and the application read as a set of unrelated replies rather than one
+    // argument, which is the whole reason this field exists.
+    const angle = String((question.project.details || {}).themeAngle || '').trim().slice(0, 6000);
+    const angleBlock = angle
+      ? `\nTHE THREAD FOR THIS APPLICATION (what the writer thinks this proposal is arguing — written for this grant, not about the organization in general):\n${angle}\n`
+      : '';
+
     const system = `You are drafting a grant application answer for ${company.name}. Write the answer itself — no preamble, no "Here's a draft", no headings unless the question asks for sections.
 
 Rules:
 - Write in the organization's voice, using the profile below. ${(company.profile || {}).tone ? `Preferred tone: ${(company.profile || {}).tone}.` : ''}
 - ${limitLine}
 - Never invent numbers, dates, names, partners, or outcomes. Where a specific fact is needed and you do not have it, write a placeholder in square brackets like [number of families served in 2025] so the writer can fill it in. Use square brackets for nothing else, so every bracket in the answer is something that still needs a real value.
-- Answer only the question asked. Other questions in this application are listed so you do not repeat their content.
+- Answer only the question asked. Other questions in this application are listed so you do not repeat their content.${angle ? `
+- Every answer in this application has to read as part of one argument, the one set out under THE THREAD below. Let it decide which facts you reach for and how you frame them. Work it in as part of answering the question — do not quote it, announce it, or open with it as a thesis sentence.` : ''}
 - Say each thing once. The mission, the founder, a partner's description, a statistic, a programme name: each belongs in exactly one paragraph. Do not open by announcing what the answer will cover and do not close by summarising what you just wrote — both are repetition.
 - Be concrete and direct. Prefer a specific fact over a general claim, name the thing rather than gesturing at it, and cut any sentence that would still be true for a different organization.
 - Write plainly, the way you would explain the work to a neighbour. Short sentences. Ordinary words. Say who does what for whom, rather than describing it in the abstract.
@@ -399,7 +408,7 @@ ORGANIZATION PROFILE (kept on the Organization page — this is what the workspa
 ${profileBlock(company)}
 ${exemplarBlock}${partnerLine}
 THIS APPLICATION: ${question.project.name}${question.project.description ? `\n${question.project.description}` : ''}${(question.project.details || {}).grantUrl ? `\nFunder page: ${(question.project.details || {}).grantUrl}` : ''}${(question.project.details || {}).funderName ? `\nFunder: ${(question.project.details || {}).funderName}` : ''}
-${siblings ? `\nOTHER QUESTIONS IN THIS APPLICATION:\n${siblings}\n` : ''}${priorBlock}`;
+${angleBlock}${siblings ? `\nOTHER QUESTIONS IN THIS APPLICATION:\n${siblings}\n` : ''}${priorBlock}`;
 
     const prompt = `Question to answer${question.section ? ` (section: ${question.section})` : ''}:\n${question.text}${question.answer && question.answer.trim() ? `\n\nThe writer already has this draft. Rewrite it in full, keeping every fact in it, and return the complete rewritten answer — not a continuation, not a comment on it:\n${question.answer.slice(0, 12000)}` : ''}${instruction ? `\n\nExtra instruction from the writer: ${instruction}` : ''}`;
 
