@@ -26,7 +26,26 @@ async function main() {
     return;
   }
   console.log(`Pending migrations: ${pending.join(', ') || '(initial)'}`);
-  execSync('node node_modules/.bin/prisma migrate deploy', { stdio: 'inherit', env: { ...process.env, PRISMA_CLIENT_ENGINE_TYPE: 'binary', PRISMA_MIGRATE_TIMEOUT: '600000' } });
+  deployWithRetry();
+}
+
+// P1002 is "reached the database but it timed out": a suspended Neon instance waking up, or
+// another connection still holding the advisory lock. It has failed a deploy that then
+// succeeded unchanged, so it is worth waiting out rather than leaving the build red and the
+// release stuck behind it. Anything else — a migration that genuinely will not apply — is
+// raised on the first attempt, because retrying it would only hide the reason.
+function deployWithRetry(attempt = 1) {
+  const MAX_ATTEMPTS = 3;
+  const WAIT_SECONDS = 15;
+  try {
+    execSync('node node_modules/.bin/prisma migrate deploy', { stdio: 'inherit', env: { ...process.env, PRISMA_CLIENT_ENGINE_TYPE: 'binary', PRISMA_MIGRATE_TIMEOUT: '600000' } });
+  } catch (err) {
+    const timedOut = String(err.stdout || '').includes('P1002') || String(err.stderr || '').includes('P1002') || String(err.message || '').includes('P1002');
+    if (!timedOut || attempt >= MAX_ATTEMPTS) throw err;
+    console.log(`migrate deploy timed out reaching the database (P1002). Attempt ${attempt} of ${MAX_ATTEMPTS}; waiting ${WAIT_SECONDS}s.`);
+    execSync(`sleep ${WAIT_SECONDS}`);
+    deployWithRetry(attempt + 1);
+  }
 }
 
 main().catch(err => { console.error(err); process.exit(1); });
