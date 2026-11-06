@@ -250,6 +250,12 @@ function profileBlock(company) {
 // Documents the organization has filed as qualifications: the 501(c)(3) letter, audited
 // financials, accreditations, capability statements. Their text is pulled out on upload, so
 // the assistant can cite what is in them instead of leaving a bracket for the writer.
+// Kickoff notes from the team. Several people writing a few paragraphs each adds up, so the
+// same per-item and total caps apply as for documents.
+const KICKOFF_NOTES = 12;
+const KICKOFF_CHARS_EACH = 2500;
+const KICKOFF_CHARS_TOTAL = 8000;
+
 const QUAL_DOCS = 6;
 const QUAL_CHARS_EACH = 4000;
 const QUAL_CHARS_TOTAL = 12000;
@@ -356,10 +362,16 @@ router.post('/draft', auth, requireFeature(prisma, 'assistant'), async (req, res
     if (!question || question.project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Question not found' });
     if (question.type === 'upload') return res.status(400).json({ msg: 'This question asks for a file, not a written answer.' });
 
-    const [company, partners, qualBlock] = await Promise.all([
+    const [company, partners, qualBlock, kickoff] = await Promise.all([
       prisma.company.findUnique({ where: { id: req.user.companyId }, select: { name: true, profile: true } }),
       prisma.partner.findMany({ where: { companyId: req.user.companyId }, orderBy: { name: 'asc' }, take: 40 }),
       qualificationsBlock(req.user.companyId),
+      prisma.kickoffNote.findMany({
+        where: { projectId: question.project.id },
+        orderBy: { createdAt: 'asc' },
+        take: KICKOFF_NOTES,
+        select: { body: true, author: { select: { name: true, username: true } } },
+      }).catch(() => []),
     ]);
 
     // Answers the organization has marked as representative of how it writes about itself.
@@ -418,8 +430,20 @@ router.post('/draft', auth, requireFeature(prisma, 'assistant'), async (req, res
     // isolation and the application read as a set of unrelated replies rather than one
     // argument, which is the whole reason this field exists.
     const angle = String((question.project.details || {}).themeAngle || '').trim().slice(0, 6000);
-    const angleBlock = angle
-      ? `\nTHE THREAD FOR THIS APPLICATION (what the writer thinks this proposal is arguing — written for this grant, not about the organization in general):\n${angle}\n`
+    // What the team said at kickoff answers the same question as the angle does, so the two
+    // are given together as the one line the whole application has to follow.
+    let kickoffText = '';
+    let budget = KICKOFF_CHARS_TOTAL;
+    for (const n of kickoff || []) {
+      if (budget <= 0) break;
+      const body = String(n.body).trim().slice(0, Math.min(KICKOFF_CHARS_EACH, budget));
+      if (!body) continue;
+      budget -= body.length;
+      kickoffText += `\n${n.author ? (n.author.name || n.author.username) : 'A teammate'} said at kickoff:\n${body}\n`;
+    }
+    const thread = [angle, kickoffText.trim()].filter(Boolean).join('\n\n');
+    const angleBlock = thread
+      ? `\nTHE THREAD FOR THIS APPLICATION (what the team thinks this proposal is arguing — written for this grant, not about the organization in general):\n${thread}\n`
       : '';
 
     const system = `You are drafting a grant application answer for ${company.name}. Write the answer itself — no preamble, no "Here's a draft", no headings unless the question asks for sections.
@@ -428,7 +452,7 @@ Rules:
 - Write in the organization's voice, using the profile below. ${(company.profile || {}).tone ? `Preferred tone: ${(company.profile || {}).tone}.` : ''}
 - ${limitLine}
 - Never invent numbers, dates, names, partners, or outcomes. Where a specific fact is needed and you do not have it, write a placeholder in square brackets like [number of families served in 2025] so the writer can fill it in. Use square brackets for nothing else, so every bracket in the answer is something that still needs a real value.
-- Answer only the question asked. Other questions in this application are listed so you do not repeat their content.${angle ? `
+- Answer only the question asked. Other questions in this application are listed so you do not repeat their content.${thread ? `
 - Every answer in this application has to read as part of one argument, the one set out under THE THREAD below. Let it decide which facts you reach for and how you frame them. Work it in as part of answering the question — do not quote it, announce it, or open with it as a thesis sentence.` : ''}
 - Say each thing once. The mission, the founder, a partner's description, a statistic, a programme name: each belongs in exactly one paragraph. Do not open by announcing what the answer will cover and do not close by summarising what you just wrote — both are repetition.
 - Be concrete and direct. Prefer a specific fact over a general claim, name the thing rather than gesturing at it, and cut any sentence that would still be true for a different organization.

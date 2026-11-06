@@ -15,7 +15,7 @@ export default function NewProject() {
   const { plan } = usePlan();
   const writerMode = plan?.kind === 'writer';
   const [users, setUsers] = useState([]);
-  const [form, setForm] = useState({ name: '', description: '', deadlineDate: '', themeAngle: '', possiblePartnership: '' });
+  const [form, setForm] = useState({ name: '', description: '', deadlineDate: '', themeAngle: '', possiblePartnership: '', kickoffAt: '', kickoffNote: '' });
   const [questions, setQuestions] = useState([blankQ()]);
   const [bulk, setBulk] = useState('');
   const [showBulk, setShowBulk] = useState(false);
@@ -47,9 +47,19 @@ export default function NewProject() {
         name: form.name,
         description: form.description,
         deadlineDate: form.deadlineDate || null,
-        details: { themeAngle: form.themeAngle, possiblePartnership: form.possiblePartnership },
+        details: {
+          themeAngle: form.themeAngle,
+          possiblePartnership: form.possiblePartnership,
+          ...(form.kickoffAt ? { kickoffAt: new Date(form.kickoffAt).toISOString() } : {}),
+        },
         questions: qs.map(q => ({ text: q.text, section: q.section || null, type: q.type || 'text', assignedToId: q.assignedToId || null, maxLimit: q.maxLimit || null, limitUnit: q.limitUnit })),
       });
+      // The project exists either way, so a failed first note is reported but does not
+      // undo the creation or keep the person on this page.
+      if (form.kickoffNote.trim()) {
+        try { await api.post(`/api/projects/${res.data.id}/kickoff/notes`, { body: form.kickoffNote }); }
+        catch (e) { toast.error('The project was created, but your kickoff notes did not save. Add them on the Kickoff tab.'); }
+      }
       toast.success('Project created.');
       navigate(`/app/projects/${res.data.id}`);
     } catch (err) {
@@ -74,6 +84,21 @@ export default function NewProject() {
           </div>
           <Field label="Your angle for this grant" htmlFor="theme" hint="Optional, and the most useful box on this page. What is this proposal arguing? Themes, the story you want told, what this funder cares about. Every answer Merge drafts for this grant follows it, so the application reads as one argument instead of a set of separate replies.">
             <Textarea id="theme" rows={6} value={form.themeAngle} onChange={set('themeAngle')} placeholder="e.g. This is about keeping the after-school programme open through the move. The funder gives to capacity, not programmes, so lead with the staffing we already have and the six sites we run, and treat the move as the reason the capacity matters." />
+          </Field>
+        </Card>
+
+        <Card pad className="mb-3">
+          <h3>Kickoff</h3>
+          <p className="small muted" style={{ marginTop: -4 }}>
+            Before anyone answers a question, get the people working on this grant in a room and agree what it
+            is arguing. Set a time now and you can send the invite from the project. Everyone can add their own
+            notes on the Kickoff tab afterwards, and Merge follows all of them when it drafts.
+          </p>
+          <div className="grid-2">
+            <Field label="Kickoff call" htmlFor="kickoff" hint="Optional. You can set or change this later."><Input id="kickoff" type="datetime-local" value={form.kickoffAt} onChange={set('kickoffAt')} /></Field>
+          </div>
+          <Field label="Your notes for the kickoff" htmlFor="kicknote" hint="Optional. What you already think this grant should argue, to start the conversation.">
+            <Textarea id="kicknote" rows={5} value={form.kickoffNote} onChange={set('kickoffNote')} placeholder="What you want the team to agree on before anyone writes." />
           </Field>
         </Card>
 

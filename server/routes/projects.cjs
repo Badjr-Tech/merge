@@ -2064,6 +2064,115 @@ router.put('/:id/assign-section', auth, async (req, res) => {
   }
 });
 
+// ---------- Kickoff ----------
+// A grant's kickoff: when the team is talking it through, and what each person thinks it
+// should argue. The notes go into every drafted answer for the project, which is the point of
+// collecting them — one line of argument rather than a set of unrelated replies.
+
+const KICKOFF_NOTE_MAX = 6000;
+
+async function kickoffProject(req) {
+  const project = await prisma.project.findUnique({
+    where: { id: req.params.id },
+    select: { id: true, companyId: true, ownerId: true, details: true },
+  });
+  if (!project || project.companyId !== req.user.companyId) return null;
+  return project;
+}
+
+// @route   GET api/projects/:id/kickoff
+router.get('/:id/kickoff', auth, async (req, res) => {
+  try {
+    const project = await kickoffProject(req);
+    if (!project) return res.status(404).json({ msg: 'Project not found' });
+    const notes = await prisma.kickoffNote.findMany({
+      where: { projectId: project.id },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, body: true, createdAt: true, updatedAt: true, author: { select: { id: true, name: true, username: true, avatarKey: true } } },
+    });
+    res.json({ kickoffAt: (project.details || {}).kickoffAt || null, notes });
+  } catch (err) {
+    console.error('Kickoff load error:', err.message);
+    res.status(500).json({ msg: 'Server Error' });
+  }
+});
+
+// @route   POST api/projects/:id/kickoff/notes — anyone working on the grant adds their own
+router.post('/:id/kickoff/notes', auth, async (req, res) => {
+  try {
+    const project = await kickoffProject(req);
+    if (!project) return res.status(404).json({ msg: 'Project not found' });
+    const body = String(req.body.body || '').trim().slice(0, KICKOFF_NOTE_MAX);
+    if (!body) return res.status(400).json({ msg: 'Write something first.' });
+    const note = await prisma.kickoffNote.create({
+      data: { projectId: project.id, authorId: req.user.id, body },
+      select: { id: true, body: true, createdAt: true, updatedAt: true, author: { select: { id: true, name: true, username: true, avatarKey: true } } },
+    });
+    res.json(note);
+  } catch (err) {
+    console.error('Kickoff note error:', err.message);
+    res.status(500).json({ msg: 'Could not save that note.' });
+  }
+});
+
+// @route   PUT api/projects/:id/kickoff/notes/:noteId — your own note, or an admin's tidy-up
+router.put('/:id/kickoff/notes/:noteId', auth, async (req, res) => {
+  try {
+    const project = await kickoffProject(req);
+    if (!project) return res.status(404).json({ msg: 'Project not found' });
+    const existing = await prisma.kickoffNote.findFirst({ where: { id: req.params.noteId, projectId: project.id } });
+    if (!existing) return res.status(404).json({ msg: 'Note not found' });
+    if (existing.authorId !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ msg: 'You can only edit your own notes.' });
+    const body = String(req.body.body || '').trim().slice(0, KICKOFF_NOTE_MAX);
+    if (!body) return res.status(400).json({ msg: 'Write something first.' });
+    const note = await prisma.kickoffNote.update({
+      where: { id: existing.id },
+      data: { body },
+      select: { id: true, body: true, createdAt: true, updatedAt: true, author: { select: { id: true, name: true, username: true, avatarKey: true } } },
+    });
+    res.json(note);
+  } catch (err) {
+    res.status(500).json({ msg: 'Could not save that note.' });
+  }
+});
+
+// @route   DELETE api/projects/:id/kickoff/notes/:noteId
+router.delete('/:id/kickoff/notes/:noteId', auth, async (req, res) => {
+  try {
+    const project = await kickoffProject(req);
+    if (!project) return res.status(404).json({ msg: 'Project not found' });
+    const existing = await prisma.kickoffNote.findFirst({ where: { id: req.params.noteId, projectId: project.id } });
+    if (!existing) return res.status(404).json({ msg: 'Note not found' });
+    if (existing.authorId !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ msg: 'You can only remove your own notes.' });
+    await prisma.kickoffNote.delete({ where: { id: existing.id } });
+    res.json({ msg: 'Note removed.' });
+  } catch (err) {
+    res.status(500).json({ msg: 'Server Error' });
+  }
+});
+
+// @route   PUT api/projects/:id/kickoff — set or clear when the kickoff call is
+router.put('/:id/kickoff', auth, async (req, res) => {
+  try {
+    const project = await kickoffProject(req);
+    if (!project) return res.status(404).json({ msg: 'Project not found' });
+    const raw = req.body.kickoffAt;
+    let kickoffAt = null;
+    if (raw) {
+      const when = new Date(raw);
+      if (Number.isNaN(when.getTime())) return res.status(400).json({ msg: 'That is not a valid date and time.' });
+      kickoffAt = when.toISOString();
+    }
+    const details = { ...(project.details || {}) };
+    if (kickoffAt) details.kickoffAt = kickoffAt; else delete details.kickoffAt;
+    await prisma.project.update({ where: { id: project.id }, data: { details } });
+    res.json({ kickoffAt });
+  } catch (err) {
+    console.error('Kickoff time error:', err.message);
+    res.status(500).json({ msg: 'Server Error' });
+  }
+});
+
 // ---------- Grant notes ----------
 
 // @route   PUT api/projects/:id/notes — rich-text notes for a project (owner, editors, admins)

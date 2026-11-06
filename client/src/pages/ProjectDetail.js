@@ -8,6 +8,7 @@ import { Avatar, Badge, Button, Card, CopyButton, EmptyState, ErrorBlock, Field,
 import SimilarAnswers from '../components/SimilarAnswers';
 import DraftAnswer from '../components/DraftAnswer';
 import Placeholders from '../components/Placeholders';
+import Kickoff from '../components/Kickoff';
 import NotesDrawer from '../components/NotesDrawer';
 import { usePlan } from '../context/PlanContext';
 import { FEATURE_COPY } from '../components/Upgrade';
@@ -346,6 +347,7 @@ export default function ProjectDetail() {
 
   const tabs = [
     { id: 'questions', label: 'Questions', count: prog.total },
+    { id: 'kickoff', label: 'Kickoff' },
     { id: 'narrative', label: 'Merged narrative' },
     { id: 'compliance', label: 'Compliance' },
     ...(writerMode ? [] : [{ id: 'approvals', label: 'Approvals', count: project.approvalRequests?.length || 0 }]),
@@ -465,6 +467,8 @@ export default function ProjectDetail() {
           </div>
         </Card>
       )}
+
+      {tab === 'kickoff' && <Kickoff project={project} canManage={canManage} />}
 
       {tab === 'compliance' && (
         <Card>

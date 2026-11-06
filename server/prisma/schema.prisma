@@ -40,6 +40,7 @@ model User {
   notifications      Notification[]
   company            Company?                @relation(fields: [companyId], references: [id])
   memberships        Membership[]
+  kickoffNotes       KickoffNote[]
 }
 
 // One row per workspace a person can open. Their User.companyId is whichever of these is
@@ -132,8 +133,24 @@ model Project {
   owner            User              @relation(fields: [ownerId], references: [id])
   versions         ProjectVersion[]
   questions        Question[]
+  kickoffNotes     KickoffNote[]
 
   @@index([companyId, removedAt])
+}
+
+// What each person on a grant thinks it should argue, written down at the start so every
+// drafted answer can follow the same line instead of being written in isolation.
+model KickoffNote {
+  id        String   @id @default(cuid())
+  projectId String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id])
+
+  @@index([projectId, createdAt])
 }
 
 model Narrative {

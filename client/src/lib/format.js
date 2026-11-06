@@ -100,6 +100,41 @@ export function googleCalendarUrl(project) {
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
+// The kickoff is a meeting at a time, not an all-day deadline, so it needs timed stamps
+// rather than the date-only ones the due date uses. An hour is the usual length.
+function utcStamp(d) {
+  return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}${String(d.getUTCDate()).padStart(2, '0')}T${String(d.getUTCHours()).padStart(2, '0')}${String(d.getUTCMinutes()).padStart(2, '0')}00Z`;
+}
+
+export function kickoffCalendarUrl(project, kickoffAt) {
+  if (!project || !kickoffAt) return null;
+  const start = new Date(kickoffAt);
+  if (Number.isNaN(start.getTime())) return null;
+  const end = new Date(start.getTime() + 3600000);
+  const link = `${window.location.origin}/app/projects/${project.id}`;
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: `Grant kickoff: ${project.name}`,
+    dates: `${utcStamp(start)}/${utcStamp(end)}`,
+    details: `Kickoff call for "${project.name}". Bring what you think this proposal should argue; notes go on the Kickoff tab.\n${link}`,
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+export function kickoffIcsDataUrl(project, kickoffAt) {
+  if (!project || !kickoffAt) return null;
+  const start = new Date(kickoffAt);
+  if (Number.isNaN(start.getTime())) return null;
+  const end = new Date(start.getTime() + 3600000);
+  const esc = (x) => String(x).replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Merge//Grant kickoff//EN', 'BEGIN:VEVENT',
+    `UID:merge-kickoff-${project.id}@merge`, `DTSTAMP:${utcStamp(new Date())}`, `DTSTART:${utcStamp(start)}`, `DTEND:${utcStamp(end)}`,
+    `SUMMARY:${esc(`Grant kickoff: ${project.name}`)}`,
+    `DESCRIPTION:${esc(`Kickoff call for ${project.name} in Merge. ${window.location.origin}/app/projects/${project.id}`)}`,
+    'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+  return `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`;
+}
+
 export function icsDataUrl(project) {
   if (!project || !project.deadlineDate) return null;
   const start = new Date(project.deadlineDate);
