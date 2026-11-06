@@ -5,6 +5,7 @@ import api, { errorMessage } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Button, Card, Field, Input, Loading, PageHeader, Textarea } from '../components/ui';
+import QualificationUploads from '../components/QualificationUploads';
 
 const EMPTY = { mission: '', philosophy: '', programs: '', audience: '', impact: '', website: '', tone: '', notes: '', background: '', facts: [], exemplarIds: [] };
 
@@ -74,8 +75,8 @@ export default function Organization() {
       <div className="callout callout-indigo mb-3">
         <strong>Why this page matters.</strong>
         <p className="small mt-1" style={{ marginBottom: 6 }}>
-          When Merge drafts an answer it reads this page, the grant you are working on, and your past answers —
-          nothing else. Anything it does not find here comes back as a <span className="placeholder-chip" style={{ cursor: 'default' }}>[blank to fill in]</span>,
+          When Merge drafts an answer it reads this page, the documents you file here, the grant you are working
+          on, and your past answers — nothing else. Anything it does not find here comes back as a <span className="placeholder-chip" style={{ cursor: 'default' }}>[blank to fill in]</span>,
           which you then have to chase down yourself.
         </p>
         <p className="small" style={{ marginBottom: 0 }}>
@@ -141,6 +142,17 @@ export default function Organization() {
         </p>
         <Textarea rows={14} value={profile.background} onChange={pf('background')} disabled={!canEdit} placeholder="Paste anything here — an annual report, a boilerplate description, notes from a board meeting." />
         <div className="count-hint">{(profile.background || '').trim().split(/\s+/).filter(Boolean).length} words</div>
+      </Card>
+
+      <Card pad className="mb-3">
+        <h3>Qualifications and documents</h3>
+        <p className="small muted" style={{ marginTop: -4 }}>
+          The records that prove what you are and what you are able to do: determination letter, audited
+          financials, accreditations, licences, a capability statement, staff and board bios. Merge reads the
+          text inside these when it writes, so a question about your finances or your standing can be answered
+          from the real document instead of coming back as a blank.
+        </p>
+        <QualificationUploads canEdit={canEdit} />
       </Card>
 
       <Card pad className="mb-3">

@@ -198,6 +198,7 @@ model File {
   blobKey      String?  // Vercel Blob pathname; the storage for everything uploaded from now on
   size         Int?     // byte length, so the list can show it without loading the file
   thumbKey     String?  // Vercel Blob pathname for the hover preview; null means show a filetype glyph
+  extractedText String? // text pulled out of the document on upload, so the assistant can read it
   companyId    String
   uploadedById String
   createdAt    DateTime @default(now())

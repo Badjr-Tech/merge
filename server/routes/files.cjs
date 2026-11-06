@@ -5,6 +5,7 @@ const multer = require('multer'); // Import multer
 const prisma = require('../utils/prisma.cjs');
 const blob = require('../utils/blob.cjs');
 const { handleUpload } = require('@vercel/blob/client');
+const doctext = require('../utils/doctext.cjs');
 
 // Files are stored in Postgres as bytes. Vercel serverless functions reject request bodies over 4.5 MB,
 // so the effective ceiling is 4 MB per file (leaves room for multipart overhead).
@@ -85,6 +86,15 @@ router.post('/record', auth, async (req, res) => {
       }
     }
 
+    // The bytes went straight to Blob, so they have to be fetched back to be read. Only
+    // worth it for a document type the assistant can actually use, and only up to a size
+    // that will not hold the request open.
+    let extractedText = null;
+    if (doctext.canExtract(filename, meta.size)) {
+      try { extractedText = await doctext.extractText(await blob.getBytes(pathname), filename); }
+      catch (e) { console.error('Could not read text from the upload:', e.message); }
+    }
+
     const newFile = await prisma.file.create({
       data: {
         filename: String(filename).trim(),
@@ -95,11 +105,12 @@ router.post('/record', auth, async (req, res) => {
         blobKey: pathname,
         size: meta.size,
         thumbKey,
+        extractedText,
         companyId: req.user.companyId,
         uploadedById: req.user.id,
       },
     });
-    res.json({ id: newFile.id, filename: newFile.filename, category: newFile.category });
+    res.json({ id: newFile.id, filename: newFile.filename, category: newFile.category, textChars: extractedText ? extractedText.length : 0 });
   } catch (err) {
     console.error('Record upload error:', err.message);
     res.status(500).json({ msg: 'Could not save that file.' });
@@ -153,6 +164,10 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
       }
     }
 
+    const extractedText = doctext.canExtract(req.file.originalname, req.file.size)
+      ? await doctext.extractText(req.file.buffer, req.file.originalname)
+      : null;
+
     const newFile = await prisma.file.create({
       data: {
         filename: newFilename.trim(), // Use the new filename
@@ -163,11 +178,12 @@ router.post('/upload', auth, upload.single('file'), async (req, res) => {
         blobKey,
         size: req.file.size,
         thumbKey,
+        extractedText,
         companyId: user.companyId,
         uploadedById: req.user.id,
       },
     });
-    res.json({ id: newFile.id, filename: newFile.filename, category: newFile.category });
+    res.json({ id: newFile.id, filename: newFile.filename, category: newFile.category, textChars: extractedText ? extractedText.length : 0 });
 
   } catch (err) {
     if (err.code === 'LIMIT_FILE_SIZE') {
@@ -188,9 +204,11 @@ router.get('/', auth, async (req, res) => {
       return res.status(400).json({ msg: 'User not associated with a company' });
     }
 
+    const category = typeof req.query.category === 'string' && req.query.category ? req.query.category : null;
     const files = await prisma.file.findMany({
       where: {
         companyId: user.companyId,
+        ...(category ? { category } : {}),
       },
       select: {
         id: true,
@@ -201,6 +219,7 @@ router.get('/', auth, async (req, res) => {
         size: true,
         thumbKey: true,
         createdAt: true,
+        extractedText: true,
         uploadedBy: {
           select: { id: true, username: true, name: true },
         },
@@ -210,7 +229,13 @@ router.get('/', auth, async (req, res) => {
       },
     });
 
-    res.json(files);
+    // The text itself can run to tens of thousands of characters and no list needs it; what
+    // the page has to show is whether the assistant can read the document at all.
+    res.json(files.map(({ extractedText, ...f }) => ({
+      ...f,
+      textChars: extractedText ? extractedText.length : 0,
+      readable: doctext.canExtract(f.filename, f.size),
+    })));
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');

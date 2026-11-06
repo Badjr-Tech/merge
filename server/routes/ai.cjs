@@ -247,6 +247,37 @@ function profileBlock(company) {
   return `${factBlock}${lines.join('\n')}${background}`;
 }
 
+// Documents the organization has filed as qualifications: the 501(c)(3) letter, audited
+// financials, accreditations, capability statements. Their text is pulled out on upload, so
+// the assistant can cite what is in them instead of leaving a bracket for the writer.
+const QUAL_DOCS = 6;
+const QUAL_CHARS_EACH = 4000;
+const QUAL_CHARS_TOTAL = 12000;
+
+async function qualificationsBlock(companyId) {
+  try {
+    const rows = await prisma.file.findMany({
+      where: { companyId, category: 'qualification', extractedText: { not: null } },
+      orderBy: { createdAt: 'desc' },
+      take: QUAL_DOCS,
+      select: { filename: true, notes: true, extractedText: true },
+    });
+    if (!rows.length) return '';
+    let budget = QUAL_CHARS_TOTAL;
+    const parts = [];
+    for (const r of rows) {
+      if (budget <= 0) break;
+      const text = String(r.extractedText).slice(0, Math.min(QUAL_CHARS_EACH, budget));
+      budget -= text.length;
+      parts.push(`--- ${r.filename}${r.notes ? ` (${r.notes})` : ''} ---\n${text}`);
+    }
+    return `\nQUALIFICATION DOCUMENTS (filed on the Organization page — these are the organization's own records, so facts and figures in them are real and can be used directly):\n${parts.join('\n\n')}\n`;
+  } catch (err) {
+    console.error('Could not load qualification documents:', err.message);
+    return '';
+  }
+}
+
 function projectBlock(project) {
   if (!project) return '';
   const d = project.details || {};
@@ -325,9 +356,10 @@ router.post('/draft', auth, requireFeature(prisma, 'assistant'), async (req, res
     if (!question || question.project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Question not found' });
     if (question.type === 'upload') return res.status(400).json({ msg: 'This question asks for a file, not a written answer.' });
 
-    const [company, partners] = await Promise.all([
+    const [company, partners, qualBlock] = await Promise.all([
       prisma.company.findUnique({ where: { id: req.user.companyId }, select: { name: true, profile: true } }),
       prisma.partner.findMany({ where: { companyId: req.user.companyId }, orderBy: { name: 'asc' }, take: 40 }),
+      qualificationsBlock(req.user.companyId),
     ]);
 
     // Answers the organization has marked as representative of how it writes about itself.
@@ -406,7 +438,7 @@ Rules:
 
 ORGANIZATION PROFILE (kept on the Organization page — this is what the workspace has told you about itself):
 ${profileBlock(company)}
-${exemplarBlock}${partnerLine}
+${qualBlock}${exemplarBlock}${partnerLine}
 THIS APPLICATION: ${question.project.name}${question.project.description ? `\n${question.project.description}` : ''}${(question.project.details || {}).grantUrl ? `\nFunder page: ${(question.project.details || {}).grantUrl}` : ''}${(question.project.details || {}).funderName ? `\nFunder: ${(question.project.details || {}).funderName}` : ''}
 ${angleBlock}${siblings ? `\nOTHER QUESTIONS IN THIS APPLICATION:\n${siblings}\n` : ''}${priorBlock}`;
 
@@ -679,12 +711,13 @@ router.post('/chat', auth, requireFeature(prisma, 'assistant'), async (req, res)
   if (!req.user.companyId) return res.status(400).json({ msg: 'You are not attached to a workspace.' });
 
   try {
-    const [company, project, history, user, partners] = await Promise.all([
+    const [company, project, history, user, partners, qualBlock] = await Promise.all([
       prisma.company.findUnique({ where: { id: req.user.companyId }, select: { name: true, profile: true } }),
       projectId ? prisma.project.findFirst({ where: { id: projectId, companyId: req.user.companyId }, include: { questions: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { text: true, answer: true, status: true, maxLimit: true, limitUnit: true } } } }) : null,
       prisma.assistantMessage.findMany({ where: { companyId: req.user.companyId, userId: req.user.id }, orderBy: { createdAt: 'desc' }, take: CHAT_HISTORY, select: { role: true, content: true } }),
       prisma.user.findUnique({ where: { id: req.user.id }, select: { name: true, username: true } }),
       prisma.partner.findMany({ where: { companyId: req.user.companyId }, orderBy: { name: 'asc' }, take: 60 }),
+      qualificationsBlock(req.user.companyId),
     ]);
     const partnerBlock = partners.length
       ? `\nPARTNERS DIRECTORY (organizations we already work with; suggest the ones that fit a grant and explain why):\n${partners.map(p => `- ${p.name}${p.location ? ` (${p.location})` : ''}: ${p.description || 'no description'}${p.tags ? ` [tags: ${p.tags}]` : ''}${p.notes ? ` Notes: ${p.notes}` : ''}`).join('\n')}\n`
@@ -711,7 +744,7 @@ Substance:
 
 ORGANIZATION PROFILE:
 ${profileBlock(company)}
-${partnerBlock}${projectBlock(project)}`;
+${qualBlock}${partnerBlock}${projectBlock(project)}`;
 
     const past = history.reverse().map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
     // Gemini requires the history to start with a user turn
