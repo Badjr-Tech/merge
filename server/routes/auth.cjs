@@ -293,6 +293,52 @@ router.get('/invitations', auth, async (req, res) => {
   }
 });
 
+// POST /api/auth/invitations/:id/resend (admin)
+// Sends the invitation email again and pushes the expiry out. The token is kept, so a link
+// the person already has keeps working alongside the new email.
+router.post('/invitations/:id/resend', auth, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ msg: 'Admins only.' });
+  try {
+    const invite = await prisma.invitation.findFirst({ where: { id: req.params.id, companyId: req.user.companyId, acceptedAt: null } });
+    if (!invite) return res.status(404).json({ msg: 'That invitation is no longer pending.' });
+
+    const inviter = await prisma.user.findUnique({ where: { id: req.user.id }, include: { company: true } });
+    if (!inviter.companyId) return res.status(400).json({ msg: 'You are not attached to a workspace.' });
+
+    const plan = planFor(inviter.company);
+    if (!plan.features.includes('team') && !plan.staff) return res.status(402).json({ msg: plan.kind === 'writer' ? 'Writer workspaces are for one person. Switch to a team workspace in Settings to invite people.' : `Inviting teammates is included in Small Teams and above. Your workspace is on ${plan.name}.`, feature: 'team', upgrade: true });
+
+    // An expired invitation has stopped counting against the seat limit, so reviving it needs
+    // the same check the original invitation passed.
+    const wasExpired = invite.expiresAt < new Date();
+    if (wasExpired && plan.limits.seats !== null) {
+      const [members, pending] = await Promise.all([
+        prisma.user.count({ where: { companyId: inviter.companyId } }),
+        prisma.invitation.count({ where: { companyId: inviter.companyId, acceptedAt: null, expiresAt: { gt: new Date() } } }),
+      ]);
+      if (members + pending >= plan.limits.seats) return res.status(402).json({ msg: `${plan.name} includes up to ${plan.limits.seats} people and your workspace is full (counting pending invitations). Upgrade to add more.`, feature: 'seats', upgrade: true });
+    }
+
+    const updated = await prisma.invitation.update({
+      where: { id: invite.id },
+      data: { expiresAt: new Date(Date.now() + INVITE_TTL_DAYS * 24 * 3600 * 1000) },
+    });
+
+    const link = inviteLink(updated.token);
+    const emailed = await sendEmail({
+      to: updated.email,
+      subject: `Reminder: ${inviter.name || inviter.username} invited you to ${inviter.company.name} on Merge`,
+      html: layout(`Join ${inviter.company.name} on Merge`, `<p>${inviter.name || inviter.username} invited you to collaborate on grant proposals in Merge. The invitation is still open.</p>${button(link, 'Accept invitation')}<p style="font-size:13px;color:#666">This invitation expires in ${INVITE_TTL_DAYS} days.</p>`),
+      text: `${inviter.name || inviter.username} invited you to ${inviter.company.name} on Merge. Accept here: ${link}`,
+    });
+
+    res.json({ invitation: { id: updated.id, email: updated.email, role: updated.role, expiresAt: updated.expiresAt, createdAt: updated.createdAt }, link, emailed });
+  } catch (err) {
+    console.error('Invite resend error:', err && err.stack ? err.stack : err);
+    res.status(500).json({ msg: 'Could not send the invitation again.' });
+  }
+});
+
 // DELETE /api/auth/invitations/:id (admin)
 router.delete('/invitations/:id', auth, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ msg: 'Admins only.' });

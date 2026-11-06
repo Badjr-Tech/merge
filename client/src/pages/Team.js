@@ -27,6 +27,7 @@ export default function Team() {
   const [invite, setInvite] = useState({ email: '', role: 'editor' });
   const [created, setCreated] = useState(null);
   const [resetLink, setResetLink] = useState(null);
+  const [resending, setResending] = useState(null);
   const [busy, setBusy] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
 
@@ -57,6 +58,14 @@ export default function Team() {
     try { await api.delete(`/api/admin/users/${u.id}`); toast.success('Teammate removed.'); load(); } catch (err) { toast.error(errorMessage(err)); }
   };
   const revoke = async (i) => { try { await api.delete(`/api/auth/invitations/${i.id}`); load(); } catch (err) { toast.error(errorMessage(err)); } };
+  const resend = async (i) => {
+    setResending(i.id);
+    try {
+      const res = await api.post(`/api/auth/invitations/${i.id}/resend`);
+      toast.success(res.data.emailed ? `Invitation sent to ${i.email} again. They have 7 days to accept.` : 'Invitation renewed, but the email could not be sent. Copy the link instead.');
+      load();
+    } catch (err) { toast.error(errorMessage(err)); } finally { setResending(null); }
+  };
   const reset = async (u) => {
     try { const res = await api.post(`/api/auth/users/${u.id}/reset-link`); setResetLink({ user: u, ...res.data }); } catch (err) { toast.error(errorMessage(err)); }
   };
@@ -104,7 +113,7 @@ export default function Team() {
         <div className="card-header"><h3>Pending invitations</h3></div>
         {invites.length === 0 ? <EmptyState icon="✉" title="No open invitations">Invite someone and their link will be listed here until they accept.</EmptyState> : (
           <div className="table-wrap"><table className="table"><tbody>{invites.map(i => (
-            <tr key={i.id}><td><div className="strong">{i.email}</div><div className="tiny muted">Invited by {displayName(i.invitedBy)} · {i.expired ? 'expired' : `expires ${formatDate(i.expiresAt)}`}</div></td><td><Badge tone="indigo">{i.role}</Badge></td><td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}><CopyButton text={i.link} /> <Button variant="danger" size="sm" onClick={() => revoke(i)}>Revoke</Button></td></tr>
+            <tr key={i.id}><td><div className="strong">{i.email}</div><div className="tiny muted">Invited by {displayName(i.invitedBy)} · {i.expired ? 'expired' : `expires ${formatDate(i.expiresAt)}`}</div></td><td><Badge tone="indigo">{i.role}</Badge></td><td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}><CopyButton text={i.link} /> <Button variant="secondary" size="sm" loading={resending === i.id} onClick={() => resend(i)}>{i.expired ? 'Reinvite' : 'Send again'}</Button> <Button variant="danger" size="sm" onClick={() => revoke(i)}>Revoke</Button></td></tr>
           ))}</tbody></table></div>
         )}
       </Card>
