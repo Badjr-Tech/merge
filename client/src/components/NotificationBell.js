@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, PenLine, CheckCheck, FileText, Mail, Clock, Undo2, CircleCheck, Gauge, Dot } from 'lucide-react';
 import api from '../api';
+import * as desktop from '../lib/desktopNotify';
 
 // The second channel. Everything that sends an email also lands here, so closing your inbox
 // doesn't mean missing work.
@@ -24,10 +25,25 @@ export default function NotificationBell() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [data, setData] = useState({ items: [], unread: 0 });
+  const [desktopOn, setDesktopOn] = useState(desktop.enabled());
   const ref = useRef();
+  const navRef = useRef(navigate);
+  navRef.current = navigate;
+  // What is already in the bell when Merge opens is not news, so the first batch is recorded
+  // rather than announced.
+  const primed = useRef(false);
 
   const load = useCallback(() => {
-    api.get('/api/notifications').then(r => setData(r.data)).catch(() => {});
+    api.get('/api/notifications').then(r => {
+      setData(r.data);
+      const items = r.data.items || [];
+      if (!primed.current) {
+        primed.current = true;
+        desktop.markSeen(items.map(n => n.id));
+        return;
+      }
+      desktop.notifyNew(items, (n) => { if (n.link) navRef.current(n.link); });
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -35,6 +51,13 @@ export default function NotificationBell() {
     const t = setInterval(load, 60000);
     return () => clearInterval(t);
   }, [load]);
+
+  const toggleDesktop = async () => {
+    if (desktopOn) { desktop.setEnabled(false); setDesktopOn(false); return; }
+    const result = desktop.permission() === 'granted' ? 'granted' : await desktop.request();
+    if (result === 'granted') { desktop.setEnabled(true); setDesktopOn(true); }
+    else setDesktopOn(false);
+  };
 
   useEffect(() => {
     if (!open) return undefined;
@@ -67,6 +90,22 @@ export default function NotificationBell() {
             <strong>Notifications</strong>
             {data.unread > 0 && <button type="button" className="link-button tiny" onClick={markAll}>Mark all read</button>}
           </div>
+          {desktop.supported() && (
+            <div className="bell-foot">
+              {desktop.permission() === 'denied' ? (
+                <span className="tiny muted">Your browser is blocking notifications for Merge. Allow them in its site settings to get them on your desktop.</span>
+              ) : (
+                <>
+                  <button type="button" className="link-button tiny" onClick={toggleDesktop}>
+                    {desktopOn ? 'Turn off desktop notifications' : 'Notify me on my desktop'}
+                  </button>
+                  <span className="tiny muted" style={{ display: 'block' }}>
+                    {desktopOn ? 'These arrive while Merge is open in a tab.' : 'Approvals and assignments pop up on your computer while Merge is open in a tab.'}
+                  </span>
+                </>
+              )}
+            </div>
+          )}
           <div className="bell-list">
             {data.items.length === 0 && <p className="small muted" style={{ padding: '18px 14px', margin: 0 }}>Nothing yet. Assignments, approvals, and deadline reminders show up here.</p>}
             {data.items.map(n => (

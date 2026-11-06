@@ -413,6 +413,7 @@ img[alt="Merge"] { color: transparent; font-size: 0; }
 .bell-dot { position: absolute; top: 0; right: 0; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--danger); color: #fff; font-size: 10px; font-weight: 700; line-height: 16px; }
 .bell-panel { position: absolute; right: 0; top: calc(100% + 8px); width: 360px; max-width: calc(100vw - 24px); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); z-index: 960; overflow: hidden; }
 .bell-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.bell-foot { padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--surface-2, #fafaf9); }
 .bell-list { max-height: 420px; overflow-y: auto; }
 .bell-item { display: flex; gap: 10px; width: 100%; text-align: left; background: none; border: none; border-bottom: 1px solid var(--border); padding: 11px 14px; cursor: pointer; align-items: flex-start; }
 .bell-item:hover { background: #fbfaf5; }
