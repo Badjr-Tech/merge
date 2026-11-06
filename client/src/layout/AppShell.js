@@ -72,7 +72,7 @@ export default function AppShell() {
           {link('/app', 'Home', I.home)}
           {link('/app/projects', 'Projects', I.projects)}
           {!writerMode && link('/app/tasks', 'My tasks', I.tasks, counts.myOpenQuestions)}
-          {!writerMode && link('/app/approvals', 'Approvals', I.approvals, isApprover ? counts.awaitingMyApproval : counts.pendingApproval)}
+          {!writerMode && isApprover && link('/app/approvals', 'Approvals', I.approvals, counts.awaitingMyApproval)}
           <div className="nav-section">Tools</div>
           {link('/app/organization', 'Organization', I.org)}
           {link('/app/answer-bank', 'Answer bank', I.bank)}

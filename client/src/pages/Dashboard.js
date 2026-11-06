@@ -44,7 +44,7 @@ export default function Dashboard() {
           <div className="grid-4 mb-3">
             <Card className="stat"><div className="stat-label">Active projects</div><div className="stat-value">{data.active}</div></Card>
             <Card className="stat"><div className="stat-label">{writerMode ? 'Unanswered questions' : 'My open questions'}</div><div className="stat-value">{data.myOpenQuestions}</div>{!writerMode && <div className="stat-sub"><Link to="/app/tasks">Go to my tasks</Link></div>}</Card>
-            <Card className="stat"><div className="stat-label">{writerMode ? 'Out for review' : isApprover ? 'Awaiting my approval' : 'Awaiting approval'}</div><div className="stat-value">{isApprover && !writerMode ? data.awaitingMyApproval : data.pendingApproval}</div>{!writerMode && <div className="stat-sub"><Link to="/app/approvals">View approvals</Link></div>}</Card>
+            <Card className="stat"><div className="stat-label">{writerMode ? 'Out for review' : isApprover ? 'Awaiting my approval' : 'Awaiting approval'}</div><div className="stat-value">{isApprover && !writerMode ? data.awaitingMyApproval : data.pendingApproval}</div>{!writerMode && isApprover && <div className="stat-sub"><Link to="/app/approvals">View approvals</Link></div>}</Card>
             <Card className="stat"><div className="stat-label">Next deadline</div><div className="stat-value" style={{ fontSize: 20 }}>{data.upcoming[0] ? formatDate(data.upcoming[0].deadlineDate, { month: 'short', day: 'numeric' }) : '—'}</div><div className="stat-sub truncate">{data.upcoming[0]?.name || 'No upcoming deadlines'}</div></Card>
           </div>
 

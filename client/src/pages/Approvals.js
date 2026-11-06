@@ -106,5 +106,19 @@ function InnerApprovals() {
 }
 
 export default function Approvals() {
+  const { isApprover } = useAuth();
+  // Sign-off is the approver's job, so the page is theirs. Anyone else sees where a proposal
+  // stands on the project itself.
+  if (!isApprover) {
+    return (
+      <div>
+        <PageHeader title="Approvals" subtitle="Proposals moving through sign-off before submission." />
+        <EmptyState icon="✓" title="Approvals are for approvers">
+          Sign-off is handled by people with the approver role. You can see where a proposal stands on the
+          project itself, and an admin can give someone the approver role from the <Link to="/app/team">Team</Link> page.
+        </EmptyState>
+      </div>
+    );
+  }
   return <UpgradeGate feature="approvals" title="Approvals" subtitle="Proposals moving through sign-off before submission."><InnerApprovals /></UpgradeGate>;
 }
