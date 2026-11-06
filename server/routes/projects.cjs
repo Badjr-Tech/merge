@@ -924,14 +924,24 @@ router.get('/:id/export/:format', auth, async (req, res) => {
   try {
     const project = await prisma.project.findUnique({
       where: { id: req.params.id },
-      include: { questions: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { text: true, answer: true, section: true, type: true, file: { select: { filename: true } } } }, company: { select: { name: true, plan: true, kind: true, trialEndsAt: true, compedUntil: true, pilotEndsAt: true, pilotPlan: true, pilotRevertsTo: true, isStaff: true } }, narrative: true },
+      include: { questions: { orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { text: true, answer: true, section: true, type: true, file: { select: { filename: true } } } }, company: { select: { name: true, plan: true, kind: true, trialEndsAt: true, compedUntil: true, pilotEndsAt: true, pilotPlan: true, pilotRevertsTo: true, isStaff: true, brand: true, logoKey: true } }, narrative: true },
     });
     if (!project || project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Project not found' });
     // Premium workspaces can edit the merged document; exports then use that text instead of raw answers.
     if (project.narrative && hasFeature(project.company, 'narrative_editing')) project.narrativeText = project.narrative.content;
     const filename = `${safeName(project.name)}.${format}`;
+    // Branding is sold on the Companies plan, so the colours and logo only reach the document
+    // for a workspace entitled to them. pdfkit cannot place an SVG, so one is left off.
+    const branded = hasFeature(project.company, 'custom_branding');
+    if (!branded) project.company.brand = null;
     if (format === 'pdf') {
-      const buf = await buildPdf(project, project.company);
+      let logo = null;
+      if (branded && project.company.logoKey) {
+        const blob = require('../utils/blob.cjs');
+        const file = await blob.getBytes(project.company.logoKey);
+        if (file && file.contentType !== 'image/svg+xml') logo = file.buffer;
+      }
+      const buf = await buildPdf(project, project.company, logo);
       res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${filename}"` });
       return res.send(buf);
     }

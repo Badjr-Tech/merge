@@ -11,12 +11,13 @@ router.get('/mine', auth, async (req, res) => {
     const company = await prisma.company.findUnique({
       where: { id: req.user.companyId },
       select: {
-        id: true, name: true, createdAt: true, profile: true, plan: true, kind: true, trialEndsAt: true, compedUntil: true, pilotEndsAt: true, pilotPlan: true, pilotRevertsTo: true, isStaff: true, compNote: true,
+        id: true, name: true, createdAt: true, profile: true, plan: true, kind: true, trialEndsAt: true, compedUntil: true, pilotEndsAt: true, pilotPlan: true, pilotRevertsTo: true, isStaff: true, compNote: true, logoKey: true, brand: true,
         _count: { select: { users: true, projects: true, files: true } },
       },
     });
     const totalProjects = await prisma.project.count({ where: { companyId: req.user.companyId } });
-    res.json({ ...company, _count: { ...company._count, projects: totalProjects }, planInfo: publicPlan(company), usage: { totalProjects, seats: company._count.users } });
+    const { logoKey, ...rest } = company;
+    res.json({ ...rest, hasLogo: Boolean(logoKey), brand: cleanBrand(company.brand), _count: { ...company._count, projects: totalProjects }, planInfo: publicPlan(company), usage: { totalProjects, seats: company._count.users } });
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ msg: 'Server error' });
@@ -75,6 +76,93 @@ function cleanProfile(input) {
     : [];
   return out;
 }
+
+// ---------- Branding ----------
+// A logo and two colours, applied to the documents a funder actually sees. Kept in their own
+// columns rather than in `profile`, because the profile is replaced wholesale on every save
+// and a logo uploaded separately would be wiped by the next one.
+
+const multer = require('multer');
+const blob = require('../utils/blob.cjs');
+// A logo is a logo. Anything larger is a photograph, and the serverless body limit is 4.5 MB.
+const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+const logoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: LOGO_MAX_BYTES, files: 1 } });
+
+const HEX = /^#[0-9a-f]{6}$/i;
+
+function cleanBrand(input) {
+  const out = {};
+  ['primary', 'accent'].forEach(k => {
+    const v = input && typeof input[k] === 'string' ? input[k].trim() : '';
+    if (HEX.test(v)) out[k] = v.toLowerCase();
+  });
+  return out;
+}
+
+// GET /api/companies/mine/logo — the bytes, since the Blob store is private
+router.get('/mine/logo', auth, async (req, res) => {
+  try {
+    const company = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { logoKey: true } });
+    if (!company || !company.logoKey) return res.status(404).json({ msg: 'No logo uploaded.' });
+    const file = await blob.getBytes(company.logoKey);
+    if (!file) return res.status(404).json({ msg: 'No logo uploaded.' });
+    res.set('Content-Type', file.contentType || 'image/png');
+    res.set('Cache-Control', 'private, max-age=300');
+    return res.send(file.buffer);
+  } catch (err) {
+    console.error('Logo read error:', err.message);
+    res.status(500).json({ msg: 'Could not load the logo.' });
+  }
+});
+
+// POST /api/companies/mine/logo (admin, Companies plan)
+router.post('/mine/logo', auth, requireFeature(prisma, 'custom_branding'), logoUpload.single('logo'), async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ msg: 'Only admins can change the logo.' });
+  try {
+    if (!req.file) return res.status(400).json({ msg: 'Choose an image first.' });
+    if (!LOGO_TYPES.includes(req.file.mimetype)) return res.status(400).json({ msg: 'A logo has to be a PNG, JPEG, WebP or SVG.' });
+    if (!blob.configured()) return res.status(503).json({ msg: 'File storage is not configured on the server.' });
+    const company = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { logoKey: true } });
+    const key = await blob.putPrivate(`logos/${req.user.companyId}/logo`, req.file.buffer, req.file.mimetype);
+    await prisma.company.update({ where: { id: req.user.companyId }, data: { logoKey: key } });
+    // Replacing a logo leaves the old blob behind; remove it once the new one is recorded.
+    if (company && company.logoKey && company.logoKey !== key) blob.remove(company.logoKey).catch(() => {});
+    res.json({ hasLogo: true });
+  } catch (err) {
+    if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ msg: 'That image is over 2 MB. A logo should be well under that.' });
+    console.error('Logo upload error:', err.message);
+    res.status(500).json({ msg: 'Could not save that logo.' });
+  }
+});
+
+// DELETE /api/companies/mine/logo (admin)
+router.delete('/mine/logo', auth, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ msg: 'Only admins can change the logo.' });
+  try {
+    const company = await prisma.company.findUnique({ where: { id: req.user.companyId }, select: { logoKey: true } });
+    if (company && company.logoKey) {
+      await prisma.company.update({ where: { id: req.user.companyId }, data: { logoKey: null } });
+      blob.remove(company.logoKey).catch(() => {});
+    }
+    res.json({ hasLogo: false });
+  } catch (err) {
+    res.status(500).json({ msg: 'Could not remove the logo.' });
+  }
+});
+
+// PUT /api/companies/mine/brand — the two colours (admin, Companies plan)
+router.put('/mine/brand', auth, requireFeature(prisma, 'custom_branding'), async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ msg: 'Only admins can change branding.' });
+  try {
+    const brand = cleanBrand(req.body);
+    await prisma.company.update({ where: { id: req.user.companyId }, data: { brand } });
+    res.json({ brand });
+  } catch (err) {
+    console.error('Brand save error:', err.message);
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
 
 // PUT /api/companies/mine/profile — organization profile used by the assistant (admin or editor)
 router.put('/mine/profile', auth, async (req, res) => {

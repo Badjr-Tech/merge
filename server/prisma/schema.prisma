@@ -99,6 +99,8 @@ model Company {
   aiUsage           AiUsage[]
   partners     Partner[]
   memberships  Membership[]
+  logoKey      String?           // Vercel Blob pathname for the workspace logo, used on exports
+  brand        Json?             // { primary, accent }: hex colours for exported documents
 }
 
 model Project {

@@ -46,6 +46,21 @@ function sections(project) {
   return out;
 }
 
+// Merge's own colours, used until a workspace sets its own on the Organization page.
+const DEFAULT_PRIMARY = '#0b2d65';
+const DEFAULT_ACCENT = '#7fab61';
+const HEADING = '#476c2e';
+
+function brandOf(company) {
+  const b = (company && company.brand) || {};
+  const hex = (v, fallback) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v.trim()) ? v.trim() : fallback);
+  const primary = hex(b.primary, DEFAULT_PRIMARY);
+  const accent = hex(b.accent, DEFAULT_ACCENT);
+  // Section headings followed the accent before branding existed; keep that relationship
+  // rather than leaving them on a green that clashes with a chosen palette.
+  return { primary, accent, heading: b.accent ? accent : HEADING };
+}
+
 function meta(project, company) {
   const parts = [];
   if (company && company.name) parts.push(company.name);
@@ -54,26 +69,34 @@ function meta(project, company) {
   return parts.join('  ·  ');
 }
 
-function buildPdf(project, company) {
+// `logo` is the raw bytes of the workspace logo, or null. A PNG, JPEG or nothing: pdfkit
+// cannot place an SVG, so one is skipped rather than failing the export.
+function buildPdf(project, company, logo) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ bufferPages: true, size: 'LETTER', margins: { top: 72, bottom: 72, left: 72, right: 72 }, info: { Title: project.name, Author: company ? company.name : 'Merge' } });
     const chunks = [];
     doc.on('data', c => chunks.push(c));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
+    const brand = brandOf(company);
 
-    doc.font('Helvetica-Bold').fontSize(20).fillColor('#0b2d65').text(project.name);
+    if (logo) {
+      // A broken or unsupported image must not cost someone their document.
+      try { doc.image(logo, 72, 60, { fit: [160, 48], align: 'left' }); doc.moveDown(3); }
+      catch (e) { console.error('Could not place the workspace logo on the export:', e.message); }
+    }
+    doc.font('Helvetica-Bold').fontSize(20).fillColor(brand.primary).text(project.name);
     doc.moveDown(0.3);
     doc.font('Helvetica').fontSize(10).fillColor('#6b6b6e').text(meta(project, company));
     if (project.description) { doc.moveDown(0.8); doc.font('Helvetica-Oblique').fontSize(11).fillColor('#3b3b3d').text(project.description); }
     doc.moveDown(0.5);
-    doc.moveTo(72, doc.y).lineTo(540, doc.y).strokeColor('#7fab61').lineWidth(1.5).stroke();
+    doc.moveTo(72, doc.y).lineTo(540, doc.y).strokeColor(brand.accent).lineWidth(1.5).stroke();
     doc.moveDown(1);
 
     sections(project).forEach(s => {
       if (doc.y > 660) doc.addPage();
-      if (s.heading) { doc.font('Helvetica-Bold').fontSize(14).fillColor('#476c2e').text(s.heading); doc.moveDown(0.6); return; }
-      if (s.question) { doc.font('Helvetica-Bold').fontSize(12).fillColor('#0b2d65').text(`${s.n}. ${s.question}`); doc.moveDown(0.3); }
+      if (s.heading) { doc.font('Helvetica-Bold').fontSize(14).fillColor(brand.heading).text(s.heading); doc.moveDown(0.6); return; }
+      if (s.question) { doc.font('Helvetica-Bold').fontSize(12).fillColor(brand.primary).text(`${s.n}. ${s.question}`); doc.moveDown(0.3); }
       doc.font('Helvetica').fontSize(11).fillColor('#3b3b3d').text(s.answer, { lineGap: 3 });
       doc.moveDown(1);
     });
@@ -101,15 +124,17 @@ async function buildDocx(project, company) {
       children.push(new Paragraph({ children: [new TextRun({ text: par.replace(/\n/g, ' ') })], spacing: { after: 160 }, alignment: AlignmentType.LEFT }));
     });
   });
+  const brand = brandOf(company);
+  const bare = (hex) => hex.replace('#', '').toUpperCase();
   const doc = new Document({
     creator: company ? company.name : 'Merge',
     title: project.name,
     styles: {
       default: { document: { run: { font: 'Calibri', size: 22 } } },
       paragraphStyles: [
-        { id: 'Title', name: 'Title', basedOn: 'Normal', run: { size: 40, bold: true, color: '0B2D65', font: 'Calibri' }, paragraph: { spacing: { after: 120 } } },
-        { id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true, run: { size: 30, bold: true, color: '476C2E', font: 'Calibri' } },
-        { id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true, run: { size: 26, bold: true, color: '0B2D65', font: 'Calibri' } },
+        { id: 'Title', name: 'Title', basedOn: 'Normal', run: { size: 40, bold: true, color: bare(brand.primary), font: 'Calibri' }, paragraph: { spacing: { after: 120 } } },
+        { id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true, run: { size: 30, bold: true, color: bare(brand.heading), font: 'Calibri' } },
+        { id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true, run: { size: 26, bold: true, color: bare(brand.primary), font: 'Calibri' } },
       ],
     },
     sections: [{ children }],

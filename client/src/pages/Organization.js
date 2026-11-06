@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Button, Card, Field, Input, Loading, PageHeader, Textarea } from '../components/ui';
 import QualificationUploads from '../components/QualificationUploads';
+import BrandSettings from '../components/BrandSettings';
 
 const EMPTY = { mission: '', philosophy: '', programs: '', audience: '', impact: '', website: '', tone: '', notes: '', background: '', facts: [], exemplarIds: [] };
 
@@ -153,6 +154,11 @@ export default function Organization() {
           from the real document instead of coming back as a blank.
         </p>
         <QualificationUploads canEdit={canEdit} />
+      </Card>
+
+      <Card pad className="mb-3">
+        <h3>Logo and colours</h3>
+        <BrandSettings />
       </Card>
 
       <Card pad className="mb-3">
