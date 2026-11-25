@@ -2,43 +2,64 @@
 // model first, then a list of current alternatives, and remember the first one that works.
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
+// Every one of these was confirmed working against this project's key. The 2.x names that
+// used to head this list now return 404 with "no longer available to new users" — they were
+// still in the models listing, so only an actual generateContent call reveals it. Google's
+// own error names gemini-3.8-flash as the replacement.
 const CANDIDATES = [
   process.env.GEMINI_MODEL,
-  'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
-  'gemini-2.0-flash',
+  'gemini-3.8-flash',
   'gemini-flash-latest',
-  'gemini-1.5-flash',
+  'gemini-3.5-flash',
 ].filter(Boolean);
 
 let working = null;
+// Models this key cannot use at all. A 404 will not change within the life of a process, so
+// it is learned once instead of costing a failed round trip on every call.
+const missing = new Set();
 
 function client() {
   if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is not configured');
   return new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 }
 
-// Fall through to the next model when this one is missing OR when its quota is exhausted
-// (Google's free tier gives each model its own quota; some models have none at all).
-function isModelMissing(err) {
+// Both of these mean "try the next model", but they mean different things afterwards: a
+// missing model is gone for good, while an exhausted quota refills. Treating them alike is
+// what quietly pinned this app to an older model.
+function errKind(err) {
   const status = err && (err.status || (err.response && err.response.status));
-  const msg = String(err && err.message || '');
-  return status === 404 || status === 429 || /not found|is not supported|no longer available|deprecated|quota|resource has been exhausted/i.test(msg);
+  const msg = String((err && err.message) || '');
+  if (status === 404 || /not found|is not supported|no longer available|deprecated/i.test(msg)) return 'missing';
+  if (status === 429 || /quota|resource has been exhausted|rate limit/i.test(msg)) return 'quota';
+  return 'other';
 }
 
 // run(modelName => Promise<result>) — tries each candidate model until one succeeds.
 async function withModel(run) {
-  const order = working ? [working, ...CANDIDATES.filter(m => m !== working)] : CANDIDATES;
+  const order = (working ? [working, ...CANDIDATES.filter(m => m !== working)] : CANDIDATES)
+    .filter(m => !missing.has(m));
   let lastErr;
+  let fellBackOnQuota = false;
   for (const name of order) {
     try {
       const result = await run(name);
-      working = name;
+      // Only remember a model that answered on its own merits. One reached by falling past an
+      // exhausted quota is a stand-in for this call, not the model to prefer from now on —
+      // remembering it is how a temporary limit turned into a permanent downgrade.
+      if (!fellBackOnQuota) working = name;
       return result;
     } catch (err) {
       lastErr = err;
-      if (!isModelMissing(err)) throw err;
-      console.warn(`Gemini model "${name}" unavailable, trying next.`);
+      const kind = errKind(err);
+      if (kind === 'other') throw err;
+      if (working === name) working = null;
+      if (kind === 'missing') {
+        missing.add(name);
+        console.warn(`Gemini model "${name}" is not available to this API key; skipping it from here on.`);
+      } else {
+        fellBackOnQuota = true;
+        console.warn(`Gemini model "${name}" is over its quota; falling back for this call only.`);
+      }
     }
   }
   if (lastErr && (lastErr.status === 429 || /quota/i.test(String(lastErr.message)))) {
