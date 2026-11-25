@@ -260,6 +260,12 @@ async function notifyNarrativeReady(projectId, byUserId) {
 router.post('/', auth, async (req, res) => {
   const { name, description, deadlineDate, details, questions } = req.body;
   if (!name || !name.trim()) return res.status(400).json({ msg: 'Project name is required.' });
+  // The angle is what every drafted answer for this grant follows. A project created without one
+  // produces a set of unrelated replies, which is the problem this field exists to solve, so it
+  // is a requirement rather than a prompt.
+  if (!String((details || {}).themeAngle || '').trim()) {
+    return res.status(400).json({ msg: 'Write your angle for this grant. Every answer Merge drafts follows it.' });
+  }
   if (!req.user.companyId) return res.status(400).json({ msg: 'You are not attached to a workspace.' });
   if (!['admin', 'editor', 'approver'].includes(req.user.role)) return res.status(403).json({ msg: 'Viewers cannot create projects.' });
   try {
@@ -1131,6 +1137,13 @@ router.get('/:id', auth, async (req, res) => {
 // @access  Private (owner only)
 router.put('/:id', auth, async (req, res) => {
   const { name, description, details, isCompleted } = req.body; // Add isCompleted
+
+  // Only guard an edit that actually touches the angle. Calls that send no details at all
+  // (archive, mark complete) must keep working, including on projects created before the
+  // angle was required.
+  if (details && Object.prototype.hasOwnProperty.call(details, 'themeAngle') && !String(details.themeAngle || '').trim()) {
+    return res.status(400).json({ msg: 'Write your angle for this grant. Every answer Merge drafts follows it.' });
+  }
 
   try {
     let project = await prisma.project.findUnique({ where: { id: req.params.id }, include: { company: true } });

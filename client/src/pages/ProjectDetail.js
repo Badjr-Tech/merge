@@ -241,6 +241,7 @@ export default function ProjectDetail() {
   const setTab = (t) => setParams({ tab: t });
 
   const [editOpen, setEditOpen] = useState(false);
+  const [angleErr, setAngleErr] = useState('');
   const [edit, setEdit] = useState({});
   const [addOpen, setAddOpen] = useState(false);
   const [newQ, setNewQ] = useState({ text: '', section: '', type: 'text', assignedToId: '', maxLimit: '', limitUnit: 'words' });
@@ -273,10 +274,18 @@ export default function ProjectDetail() {
   const allSubmitted = prog.total > 0 && prog.done === prog.total;
 
   const openEdit = () => {
+    setAngleErr('');
     setEdit({ name: project.name, description: project.description || '', deadlineDate: project.deadlineDate ? project.deadlineDate.slice(0, 10) : '', themeAngle: project.details?.themeAngle || '', possiblePartnership: project.details?.possiblePartnership || '' });
     setEditOpen(true);
   };
   const saveEdit = async () => {
+    // The angle drives every drafted answer, so an edit cannot leave it empty. Projects made
+    // before it was required land here the first time someone opens this modal.
+    if (!String(edit.themeAngle || '').trim()) {
+      setAngleErr('Write your angle for this grant. Every answer Merge drafts follows it.');
+      return;
+    }
+    setAngleErr('');
     setBusy(true);
     try {
       await api.put(`/api/projects/${id}`, { name: edit.name, description: edit.description, deadlineDate: edit.deadlineDate || null, details: { ...(project.details || {}), themeAngle: edit.themeAngle, possiblePartnership: edit.possiblePartnership } });
@@ -412,7 +421,7 @@ export default function ProjectDetail() {
         <Card className="stat"><div className="stat-label">Progress</div><div className="row mt-1"><div className="grow"><Progress value={prog.pct} /></div><span className="small strong">{prog.pct}%</span></div><div className="stat-sub">{prog.done} of {prog.total} answers {writerMode ? 'written' : 'submitted'}</div></Card>
         <Card className="stat">
           <div className="row-between"><div className="stat-label">Your angle for this grant</div>{canManage && !project.isCompleted && <Button variant="secondary" size="sm" onClick={openEdit}>{project.details?.themeAngle ? 'Edit' : 'Add'}</Button>}</div>
-          <div className="small mt-1 pre-wrap">{project.details?.themeAngle || <span className="faint">Nothing yet. Write what this proposal is arguing and every drafted answer will follow it.</span>}</div>
+          <div className="small mt-1 pre-wrap">{project.details?.themeAngle || <span className="faint">Nothing yet. This is required: write what this proposal is arguing and every drafted answer will follow it.</span>}</div>
           {project.details?.possiblePartnership && <div className="small muted mt-1">Possible partnership: {project.details.possiblePartnership}</div>}
         </Card>
         </div>
@@ -532,8 +541,8 @@ export default function ProjectDetail() {
           <Field label="Due date"><Input type="date" value={edit.deadlineDate || ''} onChange={e => setEdit({ ...edit, deadlineDate: e.target.value })} /></Field>
           <Field label="Possible partnership"><Input value={edit.possiblePartnership || ''} onChange={e => setEdit({ ...edit, possiblePartnership: e.target.value })} /></Field>
         </div>
-        <Field label="Your angle for this grant" hint="What is this proposal arguing? Themes, the story you want told, what this funder cares about, anything you are already thinking. Every answer Merge drafts for this grant follows what you write here, so the application reads as one argument instead of a set of separate replies.">
-          <Textarea rows={8} value={edit.themeAngle || ''} onChange={e => setEdit({ ...edit, themeAngle: e.target.value })} placeholder="e.g. This is about keeping the after-school programme open through the move. The funder gives to capacity, not programmes, so lead with the staffing we already have and the six sites we run, and treat the move as the reason the capacity matters." />
+        <Field label="Your angle for this grant" error={angleErr} hint="Required. What is this proposal arguing? Themes, the story you want told, what this funder cares about, anything you are already thinking. Every answer Merge drafts for this grant follows what you write here, so the application reads as one argument instead of a set of separate replies.">
+          <Textarea rows={8} value={edit.themeAngle || ''} onChange={e => { setEdit({ ...edit, themeAngle: e.target.value }); if (angleErr) setAngleErr(''); }} placeholder="e.g. This is about keeping the after-school programme open through the move. The funder gives to capacity, not programmes, so lead with the staffing we already have and the six sites we run, and treat the move as the reason the capacity matters." />
         </Field>
       </Modal>
 

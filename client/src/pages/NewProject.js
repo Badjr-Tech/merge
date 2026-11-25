@@ -40,6 +40,12 @@ export default function NewProject() {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
+    if (!form.themeAngle.trim()) {
+      setError('Write your angle for this grant before creating it. Every answer Merge drafts follows it.');
+      const el = document.getElementById('theme');
+      if (el) { el.focus(); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+      return;
+    }
     const qs = questions.filter(q => q.text.trim());
     setSaving(true);
     try {
@@ -82,8 +88,8 @@ export default function NewProject() {
             <Field label="Due date" htmlFor="due"><Input id="due" type="date" value={form.deadlineDate} onChange={set('deadlineDate')} /></Field>
             <Field label="Possible partnership" htmlFor="partner"><Input id="partner" value={form.possiblePartnership} onChange={set('possiblePartnership')} placeholder="Optional" /></Field>
           </div>
-          <Field label="Your angle for this grant" htmlFor="theme" hint="Optional, and the most useful box on this page. What is this proposal arguing? Themes, the story you want told, what this funder cares about. Every answer Merge drafts for this grant follows it, so the application reads as one argument instead of a set of separate replies.">
-            <Textarea id="theme" rows={6} value={form.themeAngle} onChange={set('themeAngle')} placeholder="e.g. This is about keeping the after-school programme open through the move. The funder gives to capacity, not programmes, so lead with the staffing we already have and the six sites we run, and treat the move as the reason the capacity matters." />
+          <Field label="Your angle for this grant" htmlFor="theme" hint="Required, and the most useful box on this page. What is this proposal arguing? Themes, the story you want told, what this funder cares about. Every answer Merge drafts for this grant follows it, so the application reads as one argument instead of a set of separate replies.">
+            <Textarea id="theme" rows={6} required value={form.themeAngle} onChange={set('themeAngle')} placeholder="e.g. This is about keeping the after-school programme open through the move. The funder gives to capacity, not programmes, so lead with the staffing we already have and the six sites we run, and treat the move as the reason the capacity matters." />
           </Field>
         </Card>
 
