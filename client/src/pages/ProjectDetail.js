@@ -10,6 +10,8 @@ import DraftAnswer from '../components/DraftAnswer';
 import Placeholders from '../components/Placeholders';
 import Kickoff from '../components/Kickoff';
 import AnswerSummary from '../components/AnswerSummary';
+import { ConflictModal, LockedNotice } from '../components/AnswerLock';
+import useQuestionLock from '../lib/useQuestionLock';
 import NotesDrawer from '../components/NotesDrawer';
 import { usePlan } from '../context/PlanContext';
 import { FEATURE_COPY } from '../components/Upgrade';
@@ -40,6 +42,11 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
   const st = questionStatus(q);
   const lc = limitCheck(answer, q.maxLimit, q.limitUnit);
   const canAnswer = q.assignedToId === me.id || isAdmin || writerMode;
+  // Claim the question only while its editor is actually open and this person could write in it.
+  // A question somebody is only reading does not stop anyone else from answering it.
+  const lock = useQuestionLock(q.id, open && canAnswer && !isUpload);
+  const [conflict, setConflict] = useState(null);
+  const lockedOut = Boolean(lock.blockedBy);
 
   useEffect(() => { setAnswer(q.answer || ''); }, [q.answer]);
   useEffect(() => { setFileId(q.fileId || ''); }, [q.fileId]);
@@ -73,14 +80,28 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
     } catch (err) { toast.error(errorMessage(err)); } finally { setSaving(false); }
   };
 
-  const saveAnswer = async (status) => {
+  // `force` is the deliberate overwrite from the conflict popup: it drops the version check so
+  // the person's own text wins. Everything else sends what they loaded, so the server can refuse
+  // a save that would bury an answer written while they were typing.
+  const saveAnswer = async (status, force = false) => {
     if (status === 'submitted' && !answer.trim()) { toast.error('Write an answer before submitting.'); return; }
     setSaving(true);
     try {
-      await api.put(`/api/projects/questions/${q.id}`, { answer, status: writerMode ? (answer.trim() ? 'submitted' : 'pending') : (status || (q.status === 'pending' ? 'in-progress' : q.status)) });
+      const r = await api.put(`/api/projects/questions/${q.id}`, {
+        answer,
+        status: writerMode ? (answer.trim() ? 'submitted' : 'pending') : (status || (q.status === 'pending' ? 'in-progress' : q.status)),
+        ...(force || !lock.base ? {} : { baseUpdatedAt: lock.base }),
+      });
+      if (r.data && r.data.updatedAt) lock.setBase(r.data.updatedAt);
+      setConflict(null);
       toast.success(writerMode ? 'Saved.' : status === 'submitted' ? 'Answer submitted.' : 'Answer saved.');
       onChanged();
-    } catch (err) { toast.error(errorMessage(err)); } finally { setSaving(false); }
+    } catch (err) {
+      const d = (err.response && err.response.data) || {};
+      // Their text stays in the box either way; the popup is what decides whose version wins.
+      if (err.response && err.response.status === 409 && d.conflict) setConflict({ status });
+      else toast.error(errorMessage(err));
+    } finally { setSaving(false); }
   };
 
   const assignTo = async (userId) => {
@@ -157,31 +178,39 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
             </div>
           ) : canAnswer ? (
             <>
-              {(writerMode || q.status !== 'submitted') && <SimilarAnswers questionId={q.id} onUse={(text) => { setAnswer(a => a.trim() ? `${a}\n\n${text}` : text); toast.success('Added to your draft. Edit it, then save or submit.'); }} />}
-              <Textarea ref={answerRef} rows={6} value={answer} onChange={e => setAnswer(e.target.value)} placeholder="No answer yet. Write one here…" />
+              <LockedNotice lockedBy={lock.blockedBy} />
+              {!lockedOut && (writerMode || q.status !== 'submitted') && <SimilarAnswers questionId={q.id} onUse={(text) => { setAnswer(a => a.trim() ? `${a}\n\n${text}` : text); toast.success('Added to your draft. Edit it, then save or submit.'); }} />}
+              <Textarea ref={answerRef} rows={6} value={answer} onChange={e => setAnswer(e.target.value)} readOnly={lockedOut} placeholder={lockedOut ? 'Read-only while someone else is writing.' : 'No answer yet. Write one here…'} />
               <div className={`count-hint ${lc.over ? 'over' : lc.limit ? 'ok' : ''}`}>{lc.count} {lc.unit}{lc.limit ? ` of ${lc.limit}` : ''}{lc.over ? ' · over the limit' : ''}</div>
-              <Placeholders text={answer} onChange={setAnswer} onLocate={locate} projectId={project?.id} />
+              {!lockedOut && <Placeholders text={answer} onChange={setAnswer} onLocate={locate} projectId={project?.id} />}
             </>
           ) : (
             <div className="q-answer">{q.answer || <span className="faint">No answer yet.</span>}</div>
           )}
           <div className="row wrap mt-2" style={{ justifyContent: 'flex-end' }}>
-            {canAnswer && !isUpload && q.status !== 'submitted' && <DraftAnswer questionId={q.id} currentAnswer={answer} onDraft={setAnswer} disabled={saving} />}
+            {canAnswer && !isUpload && q.status !== 'submitted' && !lockedOut && <DraftAnswer questionId={q.id} currentAnswer={answer} onDraft={setAnswer} disabled={saving} />}
             {canManage && <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>Edit question</Button>}
             {isAdmin && <Button variant="danger" size="sm" onClick={remove}>Delete</Button>}
-            {canAnswer && !isUpload && writerMode && <Button size="sm" onClick={() => saveAnswer()} loading={saving}>Save</Button>}
+            {canAnswer && !isUpload && writerMode && <Button size="sm" onClick={() => saveAnswer()} loading={saving} disabled={lockedOut}>Save</Button>}
             {canAnswer && !isUpload && !writerMode && (q.status === 'submitted' ? (
-              <Button variant="secondary" size="sm" onClick={() => saveAnswer('in-progress')} loading={saving}>Reopen</Button>
+              <Button variant="secondary" size="sm" onClick={() => saveAnswer('in-progress')} loading={saving} disabled={lockedOut}>Reopen</Button>
             ) : (
               <>
-                <Button variant="secondary" size="sm" onClick={() => saveAnswer()} loading={saving}>Save</Button>
-                <Button size="sm" onClick={() => saveAnswer('submitted')} loading={saving}>Submit</Button>
+                <Button variant="secondary" size="sm" onClick={() => saveAnswer()} loading={saving} disabled={lockedOut}>Save</Button>
+                <Button size="sm" onClick={() => saveAnswer('submitted')} loading={saving} disabled={lockedOut}>Submit</Button>
               </>
             ))}
           </div>
           {q.assignmentLogs && q.assignmentLogs.length > 0 && (
             <div className="tiny faint mt-2">Assigned to {displayName(q.assignmentLogs[0].assignedTo)} by {displayName(q.assignmentLogs[0].assignedBy) === 'Unassigned' ? 'system' : displayName(q.assignmentLogs[0].assignedBy)}</div>
           )}
+          <ConflictModal
+            open={Boolean(conflict)}
+            onClose={() => setConflict(null)}
+            busy={saving}
+            onRefresh={() => { setConflict(null); lock.retry(); onChanged(); }}
+            onOverwrite={() => { const st2 = conflict && conflict.status; setConflict(null); saveAnswer(st2, true); }}
+          />
         </div>
       )}
 

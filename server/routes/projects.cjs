@@ -7,6 +7,7 @@ const { sanitizeHtml } = require('../utils/sanitize.cjs');
 const crypto = require('crypto');
 const { sendEmail, appUrl, layout, button, unsubscribeFooter } = require('../utils/email.cjs');
 const { notify } = require('../utils/notify.cjs');
+const { QUESTION_LOCK_MS, heldByOther, claim: claimLock, release: releaseLock, lockPayload } = require('../utils/qlock.cjs');
 
 // @route   GET api/projects
 // @desc    Get all projects for the logged-in user's company
@@ -581,6 +582,7 @@ router.get('/with-assigned-questions', auth, async (req, res) => {
         questions: {
           include: {
             assignedTo: { select: { id: true, username: true, name: true } },
+            lockedBy: { select: { id: true, username: true, name: true } },
           },
         },
         _count: { select: { kickoffNotes: true } },
@@ -1102,6 +1104,7 @@ router.get('/:id', auth, async (req, res) => {
           orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
           include: {
             assignedTo: { select: { id: true, username: true, name: true } },
+            lockedBy: { select: { id: true, username: true, name: true } },
             file: { select: { id: true, filename: true } },
             assignmentLogs: {
               include: {
@@ -1800,12 +1803,15 @@ router.delete('/questions/:id', auth, async (req, res) => {
 // @access  Private (Assigned user or Admin)
 router.put('/questions/:questionId', auth, async (req, res) => {
   const { questionId } = req.params;
-  const { answer, status, fileId } = req.body;
+  const { answer, status, fileId, baseUpdatedAt } = req.body;
 
   try {
     let question = await prisma.question.findUnique({
       where: { id: questionId },
-      include: { project: { select: { companyId: true, ownerId: true } } },
+      include: {
+        project: { select: { companyId: true, ownerId: true } },
+        lockedBy: { select: { id: true, username: true, name: true } },
+      },
     });
 
     // The workspace check comes first: without it an admin of ANY workspace could write into this
@@ -1820,6 +1826,27 @@ router.put('/questions/:questionId', auth, async (req, res) => {
       || question.project.ownerId === req.user.id;
     if (!mayWrite) {
       return res.status(401).json({ msg: 'Not authorized to update this question' });
+    }
+
+    // Somebody else has the question open. Writing now would throw away whatever they are
+    // part-way through typing, so the save is refused while their lock is live.
+    const held = heldByOther(question, req.user.id);
+    if (held) {
+      return res.status(409).json({
+        msg: `${lockPayload(held).name} is writing this answer right now. You will be able to edit it when they are done.`,
+        lockedBy: lockPayload(held),
+      });
+    }
+
+    // The writer loaded a version of this answer before they started typing. If what is stored
+    // has moved on since, saving would silently overwrite the newer text, so the save is refused
+    // and the client offers to show them what is there now.
+    if (baseUpdatedAt && new Date(baseUpdatedAt).getTime() !== new Date(question.updatedAt).getTime()) {
+      return res.status(409).json({
+        msg: 'This answer changed while you were writing. Refresh to see the latest version before saving.',
+        conflict: true,
+        updatedAt: question.updatedAt,
+      });
     }
 
     const wasSubmitted = question.status === 'submitted';
@@ -1848,6 +1875,9 @@ router.put('/questions/:questionId', auth, async (req, res) => {
       data: updatedData,
     });
 
+    // Submitting is the writer saying they are finished, so the question goes back to the team.
+    if (status === 'submitted') await releaseLock(prisma, questionId, req.user.id);
+
     // Sent back for changes: the writer needs to know, not just the owner.
     if (wasSubmitted && status && status !== 'submitted' && question.assignedToId && question.assignedToId !== req.user.id) {
       notifyReopened({ question, byUserId: req.user.id }).catch(() => {});
@@ -1858,6 +1888,63 @@ router.put('/questions/:questionId', auth, async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
+  }
+});
+
+// --- Who is in a question right now -------------------------------------------------------
+//
+// The editor claims a question when it opens and renews while it stays open. Everything about
+// the lock is advisory and short-lived; see utils/qlock.cjs for why it expires.
+
+// The same rule as saving an answer: the assignee, an admin, or the project's owner.
+async function questionForLock(req) {
+  const question = await prisma.question.findUnique({
+    where: { id: req.params.id },
+    include: {
+      project: { select: { companyId: true, ownerId: true } },
+      lockedBy: { select: { id: true, username: true, name: true } },
+    },
+  });
+  if (!question || !question.project || question.project.companyId !== req.user.companyId) return { code: 404, msg: 'Question not found' };
+  const mayWrite = req.user.id === question.assignedToId
+    || req.user.role === 'admin'
+    || question.project.ownerId === req.user.id;
+  // Deliberately 403: the client treats a 401 as an expired session and signs the person out.
+  if (!mayWrite) return { code: 403, msg: 'Not authorized to update this question' };
+  return { question };
+}
+
+// @route   POST api/projects/questions/:id/lock
+// @desc    Claim or renew the lock on a question. 409 if someone else is in it.
+router.post('/questions/:id/lock', auth, async (req, res) => {
+  try {
+    const { code, msg, question } = await questionForLock(req);
+    if (code) return res.status(code).json({ msg });
+
+    const held = heldByOther(question, req.user.id);
+    if (held) return res.status(409).json({ msg: `${lockPayload(held).name} is writing this answer right now.`, lockedBy: lockPayload(held) });
+
+    await claimLock(prisma, question.id, req.user.id);
+    // The writer needs the updatedAt they are working from, so their first save can be checked
+    // against it. Taking it from here rather than from a stale list avoids a false conflict.
+    res.json({ ok: true, holdsLock: true, expiresInMs: QUESTION_LOCK_MS, updatedAt: question.updatedAt });
+  } catch (err) {
+    console.error('Question lock error:', err.message);
+    res.status(500).json({ msg: 'Server Error' });
+  }
+});
+
+// @route   DELETE api/projects/questions/:id/lock
+// @desc    Give up the lock, on closing the editor or leaving the page.
+router.delete('/questions/:id/lock', auth, async (req, res) => {
+  try {
+    const { code, msg, question } = await questionForLock(req);
+    if (code) return res.status(code).json({ msg });
+    await releaseLock(prisma, question.id, req.user.id);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Question unlock error:', err.message);
+    res.status(500).json({ msg: 'Server Error' });
   }
 });
 
@@ -2064,9 +2151,16 @@ router.post('/:projectId/questions', auth, async (req, res) => {
 router.put('/questions/:id/details', auth, async (req, res) => {
   const { text, assignedToId, maxLimit, limitUnit, section, type } = req.body;
   try {
-    const question = await prisma.question.findUnique({ where: { id: req.params.id }, include: { project: true } });
+    const question = await prisma.question.findUnique({ where: { id: req.params.id }, include: { project: true, lockedBy: { select: { id: true, username: true, name: true } } } });
     if (!question || question.project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Question not found' });
     if (question.project.ownerId !== req.user.id && req.user.role !== 'admin') return res.status(401).json({ msg: 'Not authorized' });
+    // Rewording a question under someone who is mid-answer leaves them answering something
+    // that no longer exists on the page. Reassigning or relabelling it does not, so only a
+    // change to the text itself waits for the lock.
+    if (text !== undefined && text !== question.text) {
+      const held = heldByOther(question, req.user.id);
+      if (held) return res.status(409).json({ msg: `${lockPayload(held).name} is writing an answer to this question. Its wording cannot change until they are done.`, lockedBy: lockPayload(held) });
+    }
     const data = {};
     let newAssignee = null;
     if (text !== undefined) data.text = text;

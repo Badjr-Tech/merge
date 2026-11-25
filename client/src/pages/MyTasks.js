@@ -8,6 +8,8 @@ import { dueLabel, limitCheck, questionStatus } from '../lib/format';
 import SimilarAnswers from '../components/SimilarAnswers';
 import DraftAnswer from '../components/DraftAnswer';
 import Placeholders from '../components/Placeholders';
+import { ConflictModal, LockedNotice } from '../components/AnswerLock';
+import useQuestionLock from '../lib/useQuestionLock';
 
 function TaskCard({ q, project, onSaved }) {
   const toast = useToast();
@@ -23,20 +25,41 @@ function TaskCard({ q, project, onSaved }) {
     el.setSelectionRange(i, i + needle.length);
     el.blur(); el.focus();
   };
+  // The card keeps its identity across a reload, so without this the box would still show the
+  // old draft after "Show me the latest" in the conflict popup.
+  useEffect(() => { setAnswer(q.answer || ''); }, [q.answer]);
   const [saving, setSaving] = useState(false);
   const dirty = answer !== (q.answer || '');
   const lc = limitCheck(answer, q.maxLimit, q.limitUnit);
   const st = questionStatus(q);
+  // Every task on this page renders its answer box at once, so claiming on render would lock a
+  // dozen questions the moment the page loads. The claim waits until someone puts the cursor in
+  // one, which always happens before they can type a character.
+  const [engaged, setEngaged] = useState(false);
+  const lock = useQuestionLock(q.id, engaged);
+  const [conflict, setConflict] = useState(null);
+  const lockedOut = Boolean(lock.blockedBy);
 
-  const save = async (status) => {
+  // `force` is the deliberate overwrite offered by the conflict popup. Without it the save
+  // carries the version this person loaded, so the server can refuse one that would bury an
+  // answer written while they were typing.
+  const save = async (status, force = false) => {
     if (status === 'submitted' && !answer.trim()) { toast.error('Write an answer before submitting.'); return; }
     setSaving(true);
     try {
-      await api.put(`/api/projects/questions/${q.id}`, { answer, status: status || (q.status === 'pending' ? 'in-progress' : q.status) });
+      const r = await api.put(`/api/projects/questions/${q.id}`, {
+        answer,
+        status: status || (q.status === 'pending' ? 'in-progress' : q.status),
+        ...(force || !lock.base ? {} : { baseUpdatedAt: lock.base }),
+      });
+      if (r.data && r.data.updatedAt) lock.setBase(r.data.updatedAt);
+      setConflict(null);
       toast.success(status === 'submitted' ? 'Answer submitted.' : 'Draft saved.');
       onSaved();
     } catch (err) {
-      toast.error(errorMessage(err, 'Could not save.'));
+      const d = (err.response && err.response.data) || {};
+      if (err.response && err.response.status === 409 && d.conflict) setConflict({ status });
+      else toast.error(errorMessage(err, 'Could not save.'));
     } finally {
       setSaving(false);
     }
@@ -51,21 +74,29 @@ function TaskCard({ q, project, onSaved }) {
       <div className="q-meta">
         {q.maxLimit ? <span>Limit: {q.maxLimit} {lc.unit}</span> : <span>No limit</span>}
       </div>
-      {q.status !== 'submitted' && <SimilarAnswers questionId={q.id} onUse={(text) => { setAnswer(a => a.trim() ? `${a}\n\n${text}` : text); toast.success('Added to your draft. Edit it, then save or submit.'); }} />}
-      <Textarea ref={answerRef} className="mt-2" rows={5} value={answer} onChange={e => setAnswer(e.target.value)} placeholder="Write your answer here…" />
+      <LockedNotice lockedBy={lock.blockedBy} />
+      {!lockedOut && q.status !== 'submitted' && <SimilarAnswers questionId={q.id} onUse={(text) => { setAnswer(a => a.trim() ? `${a}\n\n${text}` : text); toast.success('Added to your draft. Edit it, then save or submit.'); }} />}
+      <Textarea ref={answerRef} className="mt-2" rows={5} value={answer} onChange={e => setAnswer(e.target.value)} onFocus={() => setEngaged(true)} readOnly={lockedOut} placeholder={lockedOut ? 'Read-only while someone else is writing.' : 'Write your answer here…'} />
       <div className={`count-hint ${lc.over ? 'over' : lc.limit ? 'ok' : ''}`}>{lc.count} {lc.unit}{lc.limit ? ` of ${lc.limit}` : ''}{lc.over ? ' · over the limit' : ''}</div>
-      <Placeholders text={answer} onChange={setAnswer} onLocate={locate} projectId={project?.id} />
+      {!lockedOut && <Placeholders text={answer} onChange={setAnswer} onLocate={locate} projectId={project?.id} />}
       <div className="row mt-1" style={{ justifyContent: 'flex-end' }}>
-        {q.status !== 'submitted' && <DraftAnswer questionId={q.id} currentAnswer={answer} onDraft={setAnswer} disabled={saving} />}
+        {q.status !== 'submitted' && !lockedOut && <DraftAnswer questionId={q.id} currentAnswer={answer} onDraft={setAnswer} disabled={saving} />}
         {q.status === 'submitted' && !dirty ? (
-          <Button variant="secondary" size="sm" onClick={() => save('in-progress')} loading={saving}>Reopen</Button>
+          <Button variant="secondary" size="sm" onClick={() => save('in-progress')} loading={saving} disabled={lockedOut}>Reopen</Button>
         ) : (
           <>
-            <Button variant="secondary" size="sm" onClick={() => save()} loading={saving} disabled={!dirty && q.status !== 'pending'}>Save draft</Button>
-            <Button size="sm" onClick={() => save('submitted')} loading={saving}>Submit answer</Button>
+            <Button variant="secondary" size="sm" onClick={() => save()} loading={saving} disabled={lockedOut || (!dirty && q.status !== 'pending')}>Save draft</Button>
+            <Button size="sm" onClick={() => save('submitted')} loading={saving} disabled={lockedOut}>Submit answer</Button>
           </>
         )}
       </div>
+      <ConflictModal
+        open={Boolean(conflict)}
+        onClose={() => setConflict(null)}
+        busy={saving}
+        onRefresh={() => { setConflict(null); lock.retry(); onSaved(); }}
+        onOverwrite={() => { const st2 = conflict && conflict.status; setConflict(null); save(st2, true); }}
+      />
     </div>
   );
 }

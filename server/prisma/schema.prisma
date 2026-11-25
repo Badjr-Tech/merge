@@ -32,6 +32,7 @@ model User {
   projects           Project[]
   projectVersions    ProjectVersion[]
   assignedQuestions  Question[]              @relation("AssignedQuestions")
+  lockedQuestions    Question[]              @relation("LockedQuestions")
   assignedByLogs     QuestionAssignmentLog[] @relation("AssignedByLog")
   assignedToLogs     QuestionAssignmentLog[] @relation("AssignedToLog")
   sentInvitations    Invitation[]            @relation("SentInvitations")
@@ -261,6 +262,11 @@ model Question {
   type           String                  @default("text") // text | upload
   fileId         String?
   assignedToId   String?
+  // Who currently has this question open to write in, and when they last said so. The lock is
+  // advisory and expires (see QUESTION_LOCK_MS) so a closed laptop does not hold a question
+  // hostage; it exists to stop two people writing over each other, not to be a permission.
+  lockedById     String?
+  lockedAt       DateTime?
   status         String                  @default("pending")
   createdAt      DateTime                @default(now())
   updatedAt      DateTime                @updatedAt
@@ -268,6 +274,7 @@ model Question {
   limitUnit      String?
   maxLimit       Int?
   assignedTo     User?                   @relation("AssignedQuestions", fields: [assignedToId], references: [id])
+  lockedBy       User?                   @relation("LockedQuestions", fields: [lockedById], references: [id])
   project        Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
   file           File?                   @relation(fields: [fileId], references: [id], onDelete: SetNull)
   assignmentLogs QuestionAssignmentLog[]
