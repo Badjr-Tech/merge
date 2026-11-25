@@ -2106,6 +2106,143 @@ router.put('/:id/assign-section', auth, async (req, res) => {
   }
 });
 
+// ---------- What the grant says so far ----------
+// A short read on the answers already written for a grant, so someone opening it can see the
+// direction the others have taken before adding to it. Cached on the project: generating it
+// costs an AI call, so it is only rebuilt when asked and only when the answers have actually
+// changed since last time.
+
+const SUMMARY_MIN_ANSWERS = 2;     // one answer is not a direction
+const SUMMARY_ANSWER_CHARS = 2500; // per answer, into the prompt
+const SUMMARY_TOTAL_CHARS = 30000;
+const SUMMARY_COOLDOWN_MS = 60 * 1000;
+
+// Identifies the exact set of answers a summary was built from, so a refresh over unchanged
+// work returns what is already there instead of spending a call to say the same thing.
+function answersFingerprint(questions) {
+  const joined = questions.map(q => `${q.id}:${(q.answer || '').length}:${new Date(q.updatedAt).getTime()}`).join('|');
+  let h = 5381;
+  for (let i = 0; i < joined.length; i += 1) h = ((h * 33) ^ joined.charCodeAt(i)) >>> 0;
+  return `${questions.length}-${h.toString(36)}`;
+}
+
+async function summaryInputs(projectId, companyId) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { id: true, name: true, companyId: true, description: true, details: true },
+  });
+  if (!project || project.companyId !== companyId) return null;
+  const questions = await prisma.question.findMany({
+    where: { projectId, answer: { not: null } },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    select: { id: true, text: true, answer: true, section: true, updatedAt: true, assignedTo: { select: { name: true, username: true } } },
+  });
+  const written = questions.filter(q => (q.answer || '').trim());
+  return { project, written };
+}
+
+// @route   GET api/projects/:id/answer-summary
+router.get('/:id/answer-summary', auth, async (req, res) => {
+  try {
+    const data = await summaryInputs(req.params.id, req.user.companyId);
+    if (!data) return res.status(404).json({ msg: 'Project not found' });
+    const cached = (data.project.details || {}).answerSummary || null;
+    const fingerprint = answersFingerprint(data.written);
+    // When nobody has written yet there is nothing to summarise, so the panel points at the
+    // angle and the kickoff notes instead — but only if there is actually something there.
+    const kickoffNotes = await prisma.kickoffNote.count({ where: { projectId: data.project.id } }).catch(() => 0);
+    res.json({
+      text: cached ? cached.text : null,
+      generatedAt: cached ? cached.generatedAt : null,
+      by: cached ? cached.by : null,
+      answerCount: data.written.length,
+      hasAngle: Boolean(String((data.project.details || {}).themeAngle || '').trim()),
+      kickoffNotes,
+      enoughToSummarize: data.written.length >= SUMMARY_MIN_ANSWERS,
+      // True when answers have moved on since this summary was written.
+      stale: Boolean(cached && cached.fingerprint !== fingerprint),
+    });
+  } catch (err) {
+    console.error('Answer summary load error:', err.message);
+    res.status(500).json({ msg: 'Server Error' });
+  }
+});
+
+// @route   POST api/projects/:id/answer-summary — rebuild it (costs an AI call)
+router.post('/:id/answer-summary', auth, async (req, res) => {
+  try {
+    const data = await summaryInputs(req.params.id, req.user.companyId);
+    if (!data) return res.status(404).json({ msg: 'Project not found' });
+    const { project, written } = data;
+    if (written.length < SUMMARY_MIN_ANSWERS) {
+      return res.status(400).json({ msg: `There is not enough written yet. ${written.length === 1 ? 'One answer' : 'Nothing'} so far, and a summary needs at least ${SUMMARY_MIN_ANSWERS}.` });
+    }
+
+    const cached = (project.details || {}).answerSummary || null;
+    const fingerprint = answersFingerprint(written);
+    // Nothing has changed, so there is nothing new to say and no reason to pay for it.
+    if (cached && cached.fingerprint === fingerprint) {
+      return res.json({ text: cached.text, generatedAt: cached.generatedAt, by: cached.by, answerCount: written.length, stale: false, unchanged: true, msg: 'Nothing has been written since this was last put together.' });
+    }
+    if (cached && Date.now() - new Date(cached.generatedAt).getTime() < SUMMARY_COOLDOWN_MS) {
+      return res.status(429).json({ msg: 'That was just rebuilt. Give it a minute.' });
+    }
+
+    const { checkAi, recordAi } = require('./ai.cjs');
+    // Billed against the Ask Merge allowance: it is the same kind of call, and giving it its
+    // own budget would mean inventing a number for every plan.
+    const gate = await checkAi(req, 'chat', { projectId: project.id });
+    if (!gate.ok) return res.status(gate.status).json(gate.body);
+    if (!process.env.GEMINI_API_KEY) return res.status(500).json({ msg: 'AI is not configured on the server.' });
+
+    let budget = SUMMARY_TOTAL_CHARS;
+    const body = [];
+    for (const q of written) {
+      if (budget <= 0) break;
+      const text = q.answer.trim().slice(0, Math.min(SUMMARY_ANSWER_CHARS, budget));
+      budget -= text.length;
+      const who = q.assignedTo ? (q.assignedTo.name || q.assignedTo.username) : null;
+      body.push(`Q: ${q.text}${who ? ` (written by ${who})` : ''}\nA: ${text}`);
+    }
+
+    const angle = String((project.details || {}).themeAngle || '').trim().slice(0, 2000);
+    const prompt = `Below are the answers written so far for a grant application called "${project.name}".${project.description ? ` The grant is for: ${project.description}.` : ''}${angle ? `\n\nThe team agreed this application should argue: ${angle}` : ''}
+
+Write 3 to 4 sentences for a teammate who is about to write their own answer, telling them what this application is saying so far and the line the others have taken. Say what is being emphasised, which facts and examples keep coming up, and the tone being used.
+
+Rules:
+- Address the reader as "you" only if it is natural; mostly just describe the application.
+- Be specific. Name the actual arguments and figures used, not "the answers describe the organization's work".
+- If the answers pull in different directions or contradict each other, say so plainly in one sentence. That is the most useful thing you can tell them.
+- No preamble, no heading, no bullet points. Three or four sentences of plain prose and nothing else.
+
+ANSWERS SO FAR (${written.length} of them):
+${body.join('\n\n')}`;
+
+    const { generateText } = require('../utils/gemini.cjs');
+    const text = String(await generateText(prompt, { generationConfig: { maxOutputTokens: 500, temperature: 0.3 } }) || '').trim();
+    if (!text) return res.status(502).json({ msg: 'The summary came back empty. Try again.' });
+
+    const who = await prisma.user.findUnique({ where: { id: req.user.id }, select: { name: true, username: true } });
+    const entry = {
+      text: text.slice(0, 2000),
+      generatedAt: new Date().toISOString(),
+      by: (who && (who.name || who.username)) || 'Someone',
+      fingerprint,
+    };
+    await prisma.project.update({
+      where: { id: project.id },
+      data: { details: { ...(project.details || {}), answerSummary: entry } },
+    });
+    await recordAi(req.user.companyId, req.user.id, 'chat', project.id);
+
+    res.json({ ...entry, answerCount: written.length, stale: false });
+  } catch (err) {
+    console.error('Answer summary error:', err.message);
+    res.status(500).json({ msg: 'Could not put that summary together.' });
+  }
+});
+
 // ---------- Kickoff ----------
 // A grant's kickoff: when the team is talking it through, and what each person thinks it
 // should argue. The notes go into every drafted answer for the project, which is the point of

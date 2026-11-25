@@ -9,6 +9,7 @@ import SimilarAnswers from '../components/SimilarAnswers';
 import DraftAnswer from '../components/DraftAnswer';
 import Placeholders from '../components/Placeholders';
 import Kickoff from '../components/Kickoff';
+import AnswerSummary from '../components/AnswerSummary';
 import NotesDrawer from '../components/NotesDrawer';
 import { usePlan } from '../context/PlanContext';
 import { FEATURE_COPY } from '../components/Upgrade';
@@ -417,6 +418,8 @@ export default function ProjectDetail() {
         </div>
         <Card className="stat"><div className="stat-label">Description</div><div className="small mt-1 pre-wrap">{project.description || <span className="faint">No description</span>}</div></Card>
       </div>
+
+      <AnswerSummary projectId={id} onOpenKickoff={() => setTab('kickoff')} />
 
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
 
