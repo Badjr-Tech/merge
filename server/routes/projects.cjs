@@ -6,7 +6,7 @@ const { requireFeature, planFor, hasFeature } = require('../utils/plans.cjs');
 const { sanitizeHtml } = require('../utils/sanitize.cjs');
 const crypto = require('crypto');
 const { sendEmail, appUrl, layout, button, unsubscribeFooter } = require('../utils/email.cjs');
-const { notify } = require('../utils/notify.cjs');
+const { notify, esc } = require('../utils/notify.cjs');
 const { QUESTION_LOCK_MS, heldByOther, claim: claimLock, release: releaseLock, lockPayload } = require('../utils/qlock.cjs');
 
 // @route   GET api/projects
@@ -2595,16 +2595,52 @@ router.post('/:id/review-comments', auth, async (req, res) => {
     const project = await prisma.project.findUnique({ where: { id: req.params.id }, select: { id: true, companyId: true, ownerId: true, name: true, removedAt: true } });
     if (!project || project.companyId !== req.user.companyId || project.removedAt) return res.status(404).json({ msg: 'Project not found' });
     let questionId = req.body.questionId || null;
+    let question = null;
     if (questionId) {
       // A note has to belong to a question in this project, or it would show up on somebody
       // else's proposal.
-      const q = await prisma.question.findFirst({ where: { id: questionId, projectId: project.id }, select: { id: true } });
-      if (!q) return res.status(400).json({ msg: 'That question is not part of this project.' });
+      question = await prisma.question.findFirst({
+        where: { id: questionId, projectId: project.id },
+        select: { id: true, text: true, assignedTo: { select: { id: true, email: true, name: true, username: true, companyId: true, assignmentEmails: true } } },
+      });
+      if (!question) return res.status(400).json({ msg: 'That question is not part of this project.' });
     }
     const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { name: true, username: true } });
     const note = await prisma.reviewComment.create({
       data: { projectId: project.id, questionId, body, quote, reviewerName: me.name || me.username },
     });
+
+    // A note nobody is told about is a note nobody acts on. It goes to whoever has to do
+    // something with it: the person the question is assigned to, or the project's owner when it
+    // is nobody's in particular. Never back to the person who just wrote it.
+    const recipient = (question && question.assignedTo)
+      ? question.assignedTo
+      : await prisma.user.findUnique({ where: { id: project.ownerId }, select: { id: true, email: true, name: true, username: true, companyId: true, assignmentEmails: true } });
+    if (recipient && recipient.id !== req.user.id) {
+      const who = me.name || me.username;
+      const where = question ? `"${question.text}"` : project.name;
+      const link = `/app/projects/${project.id}${question ? `?open=${question.id}` : ''}`;
+      notify({
+        user: recipient,
+        companyId: project.companyId,
+        type: 'review_note',
+        title: `${who} left a note on ${question ? 'your answer' : project.name}`,
+        body: body.slice(0, 200),
+        link,
+        list: 'assignments',
+        email: {
+          subject: `${who} left a note on ${question ? `your answer in "${project.name}"` : `"${project.name}"`}`,
+          html: layout('A note on your answer',
+            `<p>${esc(who)} left a note on ${question ? `${esc(where)} in <strong>${esc(project.name)}</strong>` : `<strong>${esc(project.name)}</strong>`}.</p>`
+            + (quote ? `<p style="color:#6b6b6e;font-style:italic;border-left:3px solid #d9d9dd;margin:12px 0;padding:2px 12px">${esc(quote)}</p>` : '')
+            + `<blockquote style="border-left:3px solid #7fab61;margin:12px 0;padding:6px 12px">${esc(body)}</blockquote>`
+            + button(appUrl(link), 'Read it in Merge')),
+          text: `${who} left a note on ${where}: ${body} ${appUrl(link)}`,
+          because: 'you are on this grant',
+        },
+      }).catch(() => {});
+    }
+
     res.json(note);
   } catch (err) { console.error(err); res.status(500).send('Server Error'); }
 });

@@ -139,7 +139,7 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
             {!isUpload && q.answer && <span className={lc.over ? 'strong' : ''} style={{ color: lc.over ? 'var(--danger)' : undefined }}>· {limitCheck(q.answer, q.maxLimit, q.limitUnit).count} {lc.unit}{lc.over ? ' (over)' : ''}</span>}
           </div>
         </div>
-        <div className="row">{reviewNotes.filter(n => !n.resolved).length > 0 && <Badge tone="gold">{reviewNotes.filter(n => !n.resolved).length} reviewer note{reviewNotes.filter(n => !n.resolved).length === 1 ? '' : 's'}</Badge>}{writerMode ? (q.answer ? <Badge tone="green">Answered</Badge> : <Badge tone="gray">Empty</Badge>) : <Badge tone={st.tone}>{st.label}</Badge>}<span className="muted">{open ? '▴' : '▾'}</span></div>
+        <div className="row">{reviewNotes.filter(n => !n.resolved).length > 0 && <Badge tone="danger">{reviewNotes.filter(n => !n.resolved).length} note{reviewNotes.filter(n => !n.resolved).length === 1 ? '' : 's'} to read</Badge>}{writerMode ? (q.answer ? <Badge tone="green">Answered</Badge> : <Badge tone="gray">Empty</Badge>) : <Badge tone={st.tone}>{st.label}</Badge>}<span className="muted">{open ? '▴' : '▾'}</span></div>
       </div>
 
       {open && !editing && (
