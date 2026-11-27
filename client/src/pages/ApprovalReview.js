@@ -16,17 +16,47 @@ import { displayName, formatDate, formatDateTime, wordCount } from '../lib/forma
 // the proposal itself: every answer in order, editable in place for the small fixes that are
 // faster to make than to describe, with notes for everything else.
 
-function NoteList({ notes }) {
+// A note you have just sent is the one you most want to fix: the sentence came out wrong, or you
+// hit save mid-thought. Rewriting is the author's own, and the note carries an "edited" marker
+// afterwards so the writer knows the words moved.
+function Note({ n, mine, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(n.body);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setText(n.body); }, [n.body]);
+
+  return (
+    <div className={`review-note ${n.resolved ? 'resolved' : ''}`}>
+      {n.quote && <div className="review-quote">“{n.quote}”</div>}
+      {editing ? (
+        <>
+          <Textarea rows={3} value={text} onChange={e => setText(e.target.value)} autoFocus />
+          <div className="row mt-1" style={{ justifyContent: 'flex-end' }}>
+            <Button variant="secondary" size="sm" onClick={() => { setText(n.body); setEditing(false); }}>Cancel</Button>
+            <Button size="sm" loading={busy} disabled={!text.trim() || text.trim() === n.body} onClick={async () => {
+              setBusy(true);
+              try { await onSave(n, text.trim()); setEditing(false); } finally { setBusy(false); }
+            }}>Save note</Button>
+          </div>
+        </>
+      ) : (
+        <>
+          <strong>{n.reviewerName || 'Reviewer'}:</strong> <span className="pre-wrap">{n.body}</span>
+          <div className="row-between mt-1">
+            <span className="tiny muted">{formatDateTime(n.createdAt)}{n.editedAt ? ' · edited' : ''}</span>
+            {mine && <button type="button" className="link-button tiny" onClick={() => setEditing(true)}>Edit</button>}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function NoteList({ notes, meId, onSaveNote }) {
   if (!notes.length) return null;
   return (
     <div className="mt-2">
-      {notes.map(n => (
-        <div key={n.id} className={`review-note ${n.resolved ? 'resolved' : ''}`}>
-          {n.quote && <div className="review-quote">“{n.quote}”</div>}
-          <strong>{n.reviewerName || 'Reviewer'}:</strong> <span className="pre-wrap">{n.body}</span>
-          <div className="tiny muted mt-1">{formatDateTime(n.createdAt)}</div>
-        </div>
-      ))}
+      {notes.map(n => <Note key={n.id} n={n} mine={Boolean(meId) && n.authorId === meId} onSave={onSaveNote} />)}
     </div>
   );
 }
@@ -62,7 +92,7 @@ function NoteComposer({ quote, onClear, onSave, open, setOpen }) {
   );
 }
 
-function Section({ q, index, notes, onAddNote, onChanged }) {
+function Section({ q, index, notes, meId, onAddNote, onSaveNote, onChanged }) {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [answer, setAnswer] = useState(q.answer || '');
@@ -153,7 +183,7 @@ function Section({ q, index, notes, onAddNote, onChanged }) {
         </>
       )}
 
-      <NoteList notes={notes} />
+      <NoteList notes={notes} meId={meId} onSaveNote={onSaveNote} />
 
       <ConflictModal
         open={Boolean(conflict)}
@@ -198,6 +228,14 @@ function InnerApprovalReview() {
 
   const notesFor = useCallback((qid) => (project?.reviewComments2 || []).filter(n => n.questionId === qid), [project]);
   const openNotes = useMemo(() => (project?.reviewComments2 || []).filter(n => !n.resolved), [project]);
+
+  const saveNote = async (note, body) => {
+    try {
+      const r = await api.put(`/api/projects/${id}/review-comments/${note.id}`, { body });
+      setProject(p => ({ ...p, reviewComments2: (p.reviewComments2 || []).map(n => (n.id === note.id ? r.data : n)) }));
+      toast.success('Note updated.');
+    } catch (err) { toast.error(errorMessage(err)); }
+  };
 
   const respond = async (approvalStatus) => {
     if (approvalStatus === 'rejected' && !comments.trim() && !openNotes.length) {
@@ -253,7 +291,7 @@ function InnerApprovalReview() {
         {questions.length === 0 && <p className="muted mb-0">This proposal has no questions yet.</p>}
         {questions.map((q, i) => <React.Fragment key={q.id}>
           {q.section && (i === 0 || questions[i - 1].section !== q.section) && <div className="q-section-head"><span>{q.section}</span></div>}
-          <Section q={q} index={i} notes={notesFor(q.id)} onAddNote={addNote} onChanged={load} />
+          <Section q={q} index={i} notes={notesFor(q.id)} meId={user?.id} onAddNote={addNote} onSaveNote={saveNote} onChanged={load} />
         </React.Fragment>)}
       </Card>
 

@@ -398,6 +398,11 @@ model ReviewComment {
   quote        String?
   resolved     Boolean  @default(false)
   createdAt    DateTime @default(now())
+  // Who wrote it, when the note came from somebody signed in. A note left through a public
+  // review link has no account behind it and so stays null, which is also what decides who may
+  // edit it afterwards: its author and nobody else.
+  authorId     String?
+  editedAt     DateTime?
   project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, createdAt])

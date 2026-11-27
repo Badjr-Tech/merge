@@ -2607,7 +2607,7 @@ router.post('/:id/review-comments', auth, async (req, res) => {
     }
     const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { name: true, username: true } });
     const note = await prisma.reviewComment.create({
-      data: { projectId: project.id, questionId, body, quote, reviewerName: me.name || me.username },
+      data: { projectId: project.id, questionId, body, quote, reviewerName: me.name || me.username, authorId: req.user.id },
     });
 
     // A note nobody is told about is a note nobody acts on. It goes to whoever has to do
@@ -2645,14 +2645,28 @@ router.post('/:id/review-comments', auth, async (req, res) => {
   } catch (err) { console.error(err); res.status(500).send('Server Error'); }
 });
 
-// @route   PUT api/projects/:id/review-comments/:cid — mark a reviewer note resolved / unresolved
+// @route   PUT api/projects/:id/review-comments/:cid — resolve a note, or rewrite your own
 router.put('/:id/review-comments/:cid', auth, async (req, res) => {
   try {
     const c = await prisma.reviewComment.findUnique({ where: { id: req.params.cid }, include: { project: { select: { companyId: true } } } });
     if (!c || c.projectId !== req.params.id || c.project.companyId !== req.user.companyId) return res.status(404).json({ msg: 'Note not found' });
-    const updated = await prisma.reviewComment.update({ where: { id: c.id }, data: { resolved: Boolean(req.body.resolved) } });
+
+    // Rewriting the words is the author's alone. Anyone on the grant can still mark a note
+    // resolved, because that is about the work, not about what was said.
+    const data = {};
+    if (Object.prototype.hasOwnProperty.call(req.body, 'body')) {
+      if (c.authorId !== req.user.id) return res.status(403).json({ msg: 'Only the person who wrote a note can change it.' });
+      const body = String(req.body.body || '').trim().slice(0, 4000);
+      if (!body) return res.status(400).json({ msg: 'A note cannot be emptied. Say what you mean, or leave it as it was.' });
+      data.body = body;
+      data.editedAt = new Date();
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body, 'resolved')) data.resolved = Boolean(req.body.resolved);
+    if (!Object.keys(data).length) return res.status(400).json({ msg: 'Nothing to change.' });
+
+    const updated = await prisma.reviewComment.update({ where: { id: c.id }, data });
     res.json(updated);
-  } catch (err) { res.status(500).send('Server Error'); }
+  } catch (err) { console.error(err); res.status(500).send('Server Error'); }
 });
 
 module.exports = router;
