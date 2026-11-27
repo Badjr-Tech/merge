@@ -26,6 +26,12 @@ app.set('trust proxy', 1);
 // Stripe needs the raw body to verify signatures, so this route is mounted before the JSON parser
 app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), require('./routes/billing.cjs').webhook);
 app.use(express.json({ limit: '3mb' }));
+// Express 5 leaves req.body undefined when a request carries no body, where Express 4 gave an
+// empty object. Every route that reads req.body.something without destructuring it first then
+// throws a TypeError and answers 500 -- which is what "mark all as read" was doing, since it
+// posts nothing at all. Restoring the old shape fixes the whole class at once rather than one
+// route at a time.
+app.use((req, res, next) => { if (req.body === undefined) req.body = {}; next(); });
 app.use((req, res, next) => { res.set('X-Content-Type-Options', 'nosniff'); res.set('Referrer-Policy', 'strict-origin-when-cross-origin'); next(); });
 
 app.get('/', (req, res) => {

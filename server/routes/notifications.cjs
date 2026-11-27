@@ -11,7 +11,7 @@ router.get('/', auth, async (req, res) => {
       prisma.notification.count({ where: { userId: req.user.id, readAt: null } }),
     ]);
     res.json({ items, unread });
-  } catch (err) { res.status(500).json({ msg: 'Server error' }); }
+  } catch (err) { console.error('Notifications list failed:', err); res.status(500).json({ msg: 'Server error' }); }
 });
 
 // POST /api/notifications/read — mark one, or everything
@@ -21,7 +21,7 @@ router.post('/read', auth, async (req, res) => {
     if (req.body.id) where.id = String(req.body.id);
     await prisma.notification.updateMany({ where, data: { readAt: new Date() } });
     res.json({ ok: true });
-  } catch (err) { res.status(500).json({ msg: 'Server error' }); }
+  } catch (err) { console.error('Marking notifications read failed:', err); res.status(500).json({ msg: 'Server error' }); }
 });
 
 module.exports = router;
