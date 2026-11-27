@@ -1,0 +1,1 @@
+ALTER TABLE "ReviewComment" ADD COLUMN IF NOT EXISTS "quote" TEXT;

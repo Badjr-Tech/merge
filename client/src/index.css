@@ -606,6 +606,16 @@ body.notes-open .feedback-tab { display: none; }
 .review-note { background: var(--gold-soft); border-left: 3px solid #e0a82e; border-radius: 6px; padding: 8px 12px; margin: 8px 0; font-size: 14px; }
 .review-note.resolved { background: var(--gray); border-left-color: var(--border-strong); color: var(--text-muted); }
 
+/* The approver's review view: a document to read, not a workspace to drive. The column is held
+   at a comfortable reading measure and the answers are set larger than the app's usual body
+   text, because the whole point of this page is reading a proposal end to end. */
+.approval-review { max-width: 900px; }
+.approval-review .review-doc .review-section:first-child { padding-top: 0; }
+.approval-review h1 { margin-bottom: 4px; }
+.review-answer { font-size: 16px; line-height: 1.75; margin-top: 8px; }
+.review-answer::selection, .review-answer *::selection { background: var(--gold-soft); }
+.review-quote { border-left: 3px solid var(--border-strong); padding: 2px 10px; margin-bottom: 6px; color: var(--text-muted); font-style: italic; font-size: 13px; }
+
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 
 .faq-item { border-bottom: 1px solid var(--border); }

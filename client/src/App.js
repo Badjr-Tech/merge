@@ -29,6 +29,7 @@ import Settings from './pages/Settings';
 import AnswerBank from './pages/AnswerBank';
 import Partners from './pages/Partners';
 import Review from './pages/Review';
+import ApprovalReview from './pages/ApprovalReview';
 import Referrals from './pages/Referrals';
 import Staff from './pages/Staff';
 import StaffOverview from './pages/StaffOverview';
@@ -106,6 +107,7 @@ export default function App() {
               <Route path="tasks" element={<MyTasks />} />
               <Route path="organization" element={<Organization />} />
               <Route path="approvals" element={<Approvals />} />
+              <Route path="approvals/:id" element={<ApprovalReview />} />
               <Route path="past-proposals" element={<PastProposals />} />
               <Route path="answer-bank" element={<AnswerBank />} />
               <Route path="partners" element={<Partners />} />

@@ -148,6 +148,7 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
             <div className="mb-2">
               {reviewNotes.map(n => (
                 <div key={n.id} className={`review-note ${n.resolved ? 'resolved' : ''}`}>
+                  {n.quote && <div className="review-quote">“{n.quote}”</div>}
                   <div className="row-between"><span><strong>{n.reviewerName || 'Reviewer'}:</strong> <span className="pre-wrap">{n.body}</span></span>{onResolveNote && <button type="button" className="link-button tiny" onClick={() => onResolveNote(n)}>{n.resolved ? 'Reopen' : 'Resolve'}</button>}</div>
                 </div>
               ))}

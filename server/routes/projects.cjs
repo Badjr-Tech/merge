@@ -1801,6 +1801,25 @@ router.delete('/questions/:id', auth, async (req, res) => {
 // @route   PUT api/projects/questions/:questionId
 // @desc    Update a question's answer and status
 // @access  Private (Assigned user or Admin)
+// Who may write an answer. The assignee, an admin and the project's owner are the everyday
+// cases. The approver is here because sign-off is not a read-only job: an approver sent a
+// proposal to review is expected to fix a sentence rather than bounce the whole thing back
+// over it, and their review view edits the same answers. Their write ends with the decision,
+// since the request stops being pending once they approve or ask for changes.
+async function mayWriteAnswer(req, question) {
+  if (req.user.id === question.assignedToId) return true;
+  if (req.user.role === 'admin') return true;
+  if (question.project.ownerId === req.user.id) return true;
+  if (req.user.role === 'approver') {
+    const pending = await prisma.approvalRequest.findFirst({
+      where: { projectId: question.projectId, approverId: req.user.id, status: 'pending' },
+      select: { id: true },
+    });
+    if (pending) return true;
+  }
+  return false;
+}
+
 router.put('/questions/:questionId', auth, async (req, res) => {
   const { questionId } = req.params;
   const { answer, status, fileId, baseUpdatedAt } = req.body;
@@ -1820,11 +1839,8 @@ router.put('/questions/:questionId', auth, async (req, res) => {
       return res.status(404).json({ msg: 'Question not found' });
     }
 
-    // Then who inside the workspace may write: the assignee, an admin, or the project's owner.
-    const mayWrite = req.user.id === question.assignedToId
-      || req.user.role === 'admin'
-      || question.project.ownerId === req.user.id;
-    if (!mayWrite) {
+    // Then who inside the workspace may write.
+    if (!(await mayWriteAnswer(req, question))) {
       return res.status(401).json({ msg: 'Not authorized to update this question' });
     }
 
@@ -1906,11 +1922,8 @@ async function questionForLock(req) {
     },
   });
   if (!question || !question.project || question.project.companyId !== req.user.companyId) return { code: 404, msg: 'Question not found' };
-  const mayWrite = req.user.id === question.assignedToId
-    || req.user.role === 'admin'
-    || question.project.ownerId === req.user.id;
   // Deliberately 403: the client treats a 401 as an expired session and signs the person out.
-  if (!mayWrite) return { code: 403, msg: 'Not authorized to update this question' };
+  if (!(await mayWriteAnswer(req, question))) return { code: 403, msg: 'Not authorized to update this question' };
   return { question };
 }
 
@@ -2569,6 +2582,31 @@ router.delete('/:id/review-link', auth, async (req, res) => {
     await prisma.project.update({ where: { id: project.id }, data: { reviewToken: null, reviewStatus: null, reviewComments: null, reviewRespondedAt: null, status: project.status === 'pending_approval' ? 'draft' : project.status } });
     res.json({ msg: 'Review request withdrawn.' });
   } catch (err) { res.status(500).send('Server Error'); }
+});
+
+// @route   POST api/projects/:id/review-comments
+// @desc    Leave a note on a project, a question, or one quoted sentence inside an answer
+// @access  Private (anyone in the workspace who can see the project)
+router.post('/:id/review-comments', auth, async (req, res) => {
+  const body = String(req.body.body || '').trim().slice(0, 4000);
+  const quote = req.body.quote ? String(req.body.quote).trim().slice(0, 600) : null;
+  if (!body) return res.status(400).json({ msg: 'Write the note first.' });
+  try {
+    const project = await prisma.project.findUnique({ where: { id: req.params.id }, select: { id: true, companyId: true, ownerId: true, name: true, removedAt: true } });
+    if (!project || project.companyId !== req.user.companyId || project.removedAt) return res.status(404).json({ msg: 'Project not found' });
+    let questionId = req.body.questionId || null;
+    if (questionId) {
+      // A note has to belong to a question in this project, or it would show up on somebody
+      // else's proposal.
+      const q = await prisma.question.findFirst({ where: { id: questionId, projectId: project.id }, select: { id: true } });
+      if (!q) return res.status(400).json({ msg: 'That question is not part of this project.' });
+    }
+    const me = await prisma.user.findUnique({ where: { id: req.user.id }, select: { name: true, username: true } });
+    const note = await prisma.reviewComment.create({
+      data: { projectId: project.id, questionId, body, quote, reviewerName: me.name || me.username },
+    });
+    res.json(note);
+  } catch (err) { console.error(err); res.status(500).send('Server Error'); }
 });
 
 // @route   PUT api/projects/:id/review-comments/:cid — mark a reviewer note resolved / unresolved

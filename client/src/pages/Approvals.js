@@ -54,7 +54,7 @@ function InnerApprovals() {
   return (
     <div>
       {confirmDialog}
-      <PageHeader title="Approvals" subtitle="Proposals moving through sign-off before submission. Review opens the answers; approve them or send them back with notes. After approval the owner merges and finalizes." />
+      <PageHeader title="Approvals" subtitle="Proposals moving through sign-off before submission. Review opens the whole proposal in one read, where you can fix an answer yourself or leave notes on it, then approve or send it back. After approval the owner merges and finalizes." />
       {error && <ErrorBlock message={error} retry={load} />}
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
 
@@ -63,12 +63,12 @@ function InnerApprovals() {
           <Card key={a.id} pad>
             <div className="row-between">
               <div className="grow">
-                <h3 className="mb-0"><Link to={`/app/projects/${a.projectId}`} style={{ color: 'var(--navy)' }}>{a.project.name}</Link></h3>
+                <h3 className="mb-0"><Link to={`/app/approvals/${a.projectId}`} style={{ color: 'var(--navy)' }}>{a.project.name}</Link></h3>
                 <div className="small muted">Requested by {displayName(a.requestedBy)} · {formatDateTime(a.requestedAt)}{a.project.deadlineDate && ` · Due ${formatDate(a.project.deadlineDate)}`}</div>
                 {a.project.description && <p className="small mt-1 mb-0">{a.project.description}</p>}
               </div>
               <div className="row wrap">
-                <Button variant="secondary" size="sm" to={`/app/projects/${a.projectId}`}>Review</Button>
+                <Button variant="secondary" size="sm" to={`/app/approvals/${a.projectId}`}>Review</Button>
                 <Button variant="danger" size="sm" onClick={() => { setRejectTarget(a); setComments(''); }}>Request changes</Button>
                 <Button size="sm" onClick={() => approve(a.projectId, a.project.name)} loading={busy}>Approve</Button>
               </div>
@@ -79,7 +79,7 @@ function InnerApprovals() {
 
       {tab === 'pending' && (pending === null ? <Loading /> : pending.length === 0 ? <Card><EmptyState icon="◷" title="No proposals awaiting approval">Request approval from a project's page when the answers are ready.</EmptyState></Card> : (
         <div className="stack">{pending.map(p => (
-          <Card key={p.id} pad onClick={() => navigate(`/app/projects/${p.id}`)}>
+          <Card key={p.id} pad onClick={() => navigate(isApprover ? `/app/approvals/${p.id}` : `/app/projects/${p.id}`)}>
             <div className="row-between">
               <div className="grow"><h3 className="mb-0">{p.name}</h3><div className="small muted">Owner {displayName(p.owner)}{p.deadlineDate && ` · Due ${formatDate(p.deadlineDate)}`}</div></div>
               <div className="row"><Badge tone="gold">Awaiting approval</Badge>{isAdmin && <Button variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); rescind(p.id); }} loading={busy}>Withdraw</Button>}</div>

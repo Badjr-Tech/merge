@@ -392,6 +392,10 @@ model ReviewComment {
   questionId   String?
   reviewerName String?
   body         String
+  // The exact sentence the note is about, copied from the answer as it read at the time. Kept
+  // alongside the note rather than as an offset because the answer carries on being edited;
+  // a stored position would drift and start pointing at the wrong words.
+  quote        String?
   resolved     Boolean  @default(false)
   createdAt    DateTime @default(now())
   project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
