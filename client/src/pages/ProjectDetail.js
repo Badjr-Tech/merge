@@ -44,7 +44,12 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
   const canAnswer = q.assignedToId === me.id || isAdmin || writerMode;
   // Claim the question only while its editor is actually open and this person could write in it.
   // A question somebody is only reading does not stop anyone else from answering it.
-  const lock = useQuestionLock(q.id, open && canAnswer && !isUpload);
+  // Claiming on open meant reading a question told everyone else you were writing in it. The
+  // claim waits for the cursor to land in the box, which always happens before a character can
+  // be typed.
+  const [engaged, setEngaged] = useState(false);
+  useEffect(() => { if (!open) setEngaged(false); }, [open]);
+  const lock = useQuestionLock(q.id, open && engaged && canAnswer && !isUpload);
   const [conflict, setConflict] = useState(null);
   const lockedOut = Boolean(lock.blockedBy);
 
@@ -95,6 +100,9 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
       if (r.data && r.data.updatedAt) lock.setBase(r.data.updatedAt);
       setConflict(null);
       toast.success(writerMode ? 'Saved.' : status === 'submitted' ? 'Answer submitted.' : 'Answer saved.');
+      // Saved and the cursor is elsewhere: they are done, so hand the question back now instead
+      // of holding it until the idle window closes. Typing in it again reclaims it.
+      if (document.activeElement !== answerRef.current) lock.release();
       onChanged();
     } catch (err) {
       const d = (err.response && err.response.data) || {};
@@ -181,7 +189,7 @@ function QuestionRow({ q, project, users, canManage, isAdmin, me, onChanged, wri
             <>
               <LockedNotice lockedBy={lock.blockedBy} />
               {!lockedOut && (writerMode || q.status !== 'submitted') && <SimilarAnswers questionId={q.id} onUse={(text) => { setAnswer(a => a.trim() ? `${a}\n\n${text}` : text); toast.success('Added to your draft. Edit it, then save or submit.'); }} />}
-              <Textarea ref={answerRef} rows={6} value={answer} onChange={e => setAnswer(e.target.value)} readOnly={lockedOut} placeholder={lockedOut ? 'Read-only while someone else is writing.' : 'No answer yet. Write one here…'} />
+              <Textarea ref={answerRef} rows={6} value={answer} onChange={e => { setAnswer(e.target.value); lock.touch(); }} onFocus={() => { setEngaged(true); lock.touch(); }} onBlur={() => { if (answer === (q.answer || '')) lock.release(); }} readOnly={lockedOut} placeholder={lockedOut ? 'Read-only while someone else is writing.' : 'No answer yet. Write one here…'} />
               <div className={`count-hint ${lc.over ? 'over' : lc.limit ? 'ok' : ''}`}>{lc.count} {lc.unit}{lc.limit ? ` of ${lc.limit}` : ''}{lc.over ? ' · over the limit' : ''}</div>
               {!lockedOut && <Placeholders text={answer} onChange={setAnswer} onLocate={locate} projectId={project?.id} />}
             </>

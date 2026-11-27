@@ -55,6 +55,9 @@ function TaskCard({ q, project, onSaved }) {
       if (r.data && r.data.updatedAt) lock.setBase(r.data.updatedAt);
       setConflict(null);
       toast.success(status === 'submitted' ? 'Answer submitted.' : 'Draft saved.');
+      // Saved and no longer in the box means done, so the question goes back to the team now
+      // rather than at the end of the idle window. Typing in it again reclaims it.
+      if (document.activeElement !== answerRef.current) lock.release();
       onSaved();
     } catch (err) {
       const d = (err.response && err.response.data) || {};
@@ -76,7 +79,7 @@ function TaskCard({ q, project, onSaved }) {
       </div>
       <LockedNotice lockedBy={lock.blockedBy} />
       {!lockedOut && q.status !== 'submitted' && <SimilarAnswers questionId={q.id} onUse={(text) => { setAnswer(a => a.trim() ? `${a}\n\n${text}` : text); toast.success('Added to your draft. Edit it, then save or submit.'); }} />}
-      <Textarea ref={answerRef} className="mt-2" rows={5} value={answer} onChange={e => setAnswer(e.target.value)} onFocus={() => setEngaged(true)} readOnly={lockedOut} placeholder={lockedOut ? 'Read-only while someone else is writing.' : 'Write your answer here…'} />
+      <Textarea ref={answerRef} className="mt-2" rows={5} value={answer} onChange={e => { setAnswer(e.target.value); lock.touch(); }} onFocus={() => { setEngaged(true); lock.touch(); }} onBlur={() => { if (!dirty) lock.release(); }} readOnly={lockedOut} placeholder={lockedOut ? 'Read-only while someone else is writing.' : 'Write your answer here…'} />
       <div className={`count-hint ${lc.over ? 'over' : lc.limit ? 'ok' : ''}`}>{lc.count} {lc.unit}{lc.limit ? ` of ${lc.limit}` : ''}{lc.over ? ' · over the limit' : ''}</div>
       {!lockedOut && <Placeholders text={answer} onChange={setAnswer} onLocate={locate} projectId={project?.id} />}
       <div className="row mt-1" style={{ justifyContent: 'flex-end' }}>

@@ -156,7 +156,7 @@ function Section({ q, index, notes, meId, onAddNote, onSaveNote, onChanged }) {
       {editing ? (
         <div className="mt-2">
           {lockedOut && <LockedNotice lockedBy={lock.blockedBy} />}
-          <Textarea rows={Math.min(24, Math.max(6, Math.ceil((answer.length || 0) / 90) + 2))} value={answer} onChange={e => setAnswer(e.target.value)} readOnly={lockedOut} autoFocus />
+          <Textarea rows={Math.min(24, Math.max(6, Math.ceil((answer.length || 0) / 90) + 2))} value={answer} onChange={e => { setAnswer(e.target.value); lock.touch(); }} onFocus={() => lock.touch()} readOnly={lockedOut} autoFocus />
           <div className="row mt-1" style={{ justifyContent: 'flex-end' }}>
             <Button variant="secondary" size="sm" onClick={() => { setAnswer(q.answer || ''); setEditing(false); }}><Undo2 size={14} /> Cancel</Button>
             <Button size="sm" loading={saving} disabled={lockedOut} onClick={() => save(false)}>Save answer</Button>

@@ -10,6 +10,21 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// A request that has to survive the page going away. An axios call started while the tab is
+// closing is cancelled with the page, which is why releasing a question lock on the way out
+// silently did nothing and left the question looking occupied until its 90-second expiry.
+// fetch with keepalive hands the request to the browser to finish on its own.
+export function sendOnExit(path, method = 'POST') {
+  try {
+    const token = localStorage.getItem('token');
+    fetch(`${API_URL}${path}`, {
+      method,
+      keepalive: true,
+      headers: token ? { 'x-auth-token': token } : {},
+    }).catch(() => {});
+  } catch { /* leaving the page is not the moment to report a problem */ }
+}
+
 let onUnauthorized = null;
 export function setUnauthorizedHandler(fn) { onUnauthorized = fn; }
 
